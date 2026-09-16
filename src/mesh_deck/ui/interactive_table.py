@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
+from textual.screen import Screen
 from textual.widgets import DataTable, Footer, Header, Input, Label, Static
 
 if TYPE_CHECKING:
@@ -24,15 +25,15 @@ def _clean_text(markup_or_str: str) -> str:
     return re.sub(r"\[/?.*?\]", "", str(markup_or_str)).strip()
 
 
-class InteractiveNodesApp(App):
-    """Full-screen interactive table viewer with mouse click column sorting."""
+class InteractiveNodesScreen(Screen):
+    """Interactive table screen with mouse click column sorting."""
 
     TITLE = "📡 MESH-DECK // INTERACTIVE NODE EXPLORER"
     SUB_TITLE = "Fai click su una colonna per ordinare • Premi 'q' o 'Esc' per tornare al prompt"
 
     BINDINGS = [
-        Binding("q", "quit", "Chiudi / Esci", show=True),
-        Binding("escape", "quit", "Torna al prompt", show=True),
+        Binding("q", "close", "Chiudi / Esci", show=True),
+        Binding("escape", "close", "Torna al prompt", show=True),
         Binding("r", "refresh_nodes", "Aggiorna", show=True),
         Binding("slash", "focus_filter", "Cerca / Filtra", show=True),
     ]
@@ -303,6 +304,10 @@ class InteractiveNodesApp(App):
         """Action for '/' key."""
         self.query_one(Input).focus()
 
+    def action_close(self) -> None:
+        """Return to the containing application."""
+        self.dismiss()
+
 
 def event_col_key_or_idx(table: DataTable, col_idx: int) -> Any:
     """Helper to get column key by index."""
@@ -310,7 +315,26 @@ def event_col_key_or_idx(table: DataTable, col_idx: int) -> Any:
     return keys[col_idx] if 0 <= col_idx < len(keys) else col_idx
 
 
+class InteractiveNodesApp(App):
+    """Standalone wrapper for launching the reusable node explorer screen."""
+
+    def __init__(
+        self,
+        node_store: NodeStore,
+        local_node: NodeData | None = None,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(**kwargs)
+        self.store = node_store
+        self.local_node = local_node
+
+    def on_mount(self) -> None:
+        self.push_screen(
+            InteractiveNodesScreen(self.store, local_node=self.local_node),
+            callback=lambda _: self.exit(),
+        )
+
+
 def launch_interactive_nodes(node_store: NodeStore, local_node: NodeData | None = None) -> None:
-    """Helper function to run the interactive table viewer."""
-    app = InteractiveNodesApp(node_store=node_store, local_node=local_node)
-    app.run()
+    """Run the interactive table viewer as a standalone application."""
+    InteractiveNodesApp(node_store=node_store, local_node=local_node).run()

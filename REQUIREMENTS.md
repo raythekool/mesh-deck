@@ -50,13 +50,13 @@ Questo documento definisce i requisiti funzionali, non funzionali, di architettu
 
 * **RUI-1 Ispirazione Hermes TUI**:
   * Utilizzo di **Rich** per la formattazione: pannelli arrotondati, tabelle ad alto contrasto, badge colorati (es. verde per SNR forte, rosso per segnali critici, blu per router).
-* **RUI-2 Prompt Interattivo Avanzato (`prompt_toolkit`)**:
-  * Barra di prompt con autocompletamento dinamico su comandi (`/`), alias e ID dei nodi noti.
-  * Cronologia comandi (frecce Su/Giù) persistente tra le sessioni.
+* **RUI-2 Console Interattiva Avanzata (Textual)**:
+  * Campo di comando con autocompletamento dinamico su comandi (`/`), alias e ID dei nodi noti; `Tab` applica il suggerimento principale.
+  * Log scorrevole separato dal campo di input per conservare la digitazione durante gli eventi radio asincroni.
 * **RUI-3 Status Header / Banner**:
   * Banner superiore visibile all'avvio con: Nome del nodo locale attivo, ID, porta seriale, preset radio (es. `EU_868 / MEDIUM_FAST`), stato alimentazione e carico canale.
-* **RUI-4 Modalità Duale (Evoluzione Futura)**:
-  * Supporto per modalità REPL (streaming scorrevole stile Hermes) e opzionale modalità Dashboard a tutto schermo (basata su **Textual**).
+* **RUI-4 Esploratore Nodi Integrato**:
+  * La console Textual apre `/view` come schermata interna, con filtro e ordinamento al click, senza avviare un secondo ciclo eventi.
 
 ---
 

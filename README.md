@@ -30,10 +30,28 @@ Streaming asincrono dei messaggi di canale e risalto immediato per i messaggi pr
 
 - **Multi-Device Auto-Discovery**: Individuazione automatica e fingerprinting delle radio connesse su porte USB (`/dev/ttyACM*`, `/dev/ttyUSB*`).
 - **Hot-Switching a Caldo**: Commutazione istantanea tra più radio LoRa collegate via comando `/switch` senza riavviare l'applicazione.
-- **Hermes-Style REPL**: Prompt contestuale (`mesh-deck [AKA] ❯`) potenziato da `prompt_toolkit` con autocompletamento di comandi, porte e alias nodi.
-- **Streaming Asincrono Senza Interruzioni**: Implementazione di `patch_stdout` che consente ai messaggi radio in arrivo di stamparsi sopra il prompt senza spezzare o corrompere il testo in digitazione dell'operatore.
+- **Console Textual a Schermo Intero**: Input contestuale, cronologia persistente con frecce Su/Giù e suggerimenti dinamici per comandi, porte e alias dei nodi. `Tab` applica il primo suggerimento; freccia Giù e `Invio` permettono di scegliere un’alternativa.
+- **Streaming Asincrono Senza Interruzioni**: I messaggi radio in arrivo vengono aggiunti al log scorrevole Textual senza alterare il testo in digitazione dell'operatore.
 - **Node Explorer & Geodesia Haversine**: Calcolo automatico della distanza ortodromica dal nodo locale e generazione di collegamenti a mappe satellitari/OpenStreetMap.
 - **Crittografia & Canali Multipli**: Supporto per canali primari e secondari (PSK standard o personalizzata) e invio di DM cifrati punto-a-punto.
+
+---
+
+## ⌨️ Controlli TUI
+
+| Azione                            | Controllo                           |
+| :-------------------------------- | :---------------------------------- |
+| Invia comando o messaggio         | `Invio`                             |
+| Applica il primo suggerimento     | `Tab`                               |
+| Sfoglia e applica un suggerimento | freccia Giù, frecce Su/Giù, `Invio` |
+| Sfoglia la cronologia             | frecce Su/Giù nel campo comando     |
+| Cancella il testo in digitazione  | `Ctrl+C`                            |
+| Nasconde i suggerimenti           | `Esc`                               |
+| Apre il Node Explorer             | `/view` o `/tui`                    |
+
+La cronologia conserva gli ultimi 100 comandi in
+`~/.config/mesh-deck/settings.json`. I messaggi ricevuti e l'output dei comandi
+restano nel log scorrevole mentre l'input mantiene il focus.
 
 ---
 
@@ -49,22 +67,22 @@ Streaming asincrono dei messaggi di canale e risalto immediato per i messaggi pr
 
 All'interno della console interattiva `mesh-deck`, puoi utilizzare i seguenti comandi slash:
 
-| Comando | Argomenti | Descrizione |
-| :--- | :--- | :--- |
-| **`/help`** *(o `/?`)* | *(nessuno)* | Mostra la tabella di aiuto con l'elenco di tutti i comandi disponibili. |
-| **`/nodes`** | `[active\|snr\|hops\|name]` | Elenca i nodi visibili nella mesh con telemetria, ordinamenti e filtri. |
-| **`/view`** *(o `/tui`)* | *(nessuno)* | **Tabella interattiva a schermo intero con ordinamento al click del mouse sull'intestazione**. |
-| **`/node`** | `<id\|aka\|nome>` | Visualizza la scheda analitica dettagliata con telemetria e coordinate GPS. |
-| **`/send`** | `<testo>` | Invia un messaggio broadcast sul canale primario *(oppure digita direttamente il testo)*. |
-| **`/dm`** | `<id\|aka\|nome> <testo>` | Invia un messaggio diretto privato riservato a uno specifico nodo. |
-| **`/channels`** | *(nessuno)* | Mostra l'elenco dei canali radio configurati, ruoli e stato crittografia PSK. |
-| **`/info`** | *(nessuno)* | Visualizza lo stato hardware della radio, firmware, regione RF e preset modem. |
-| **`/settings`** | `[lang\|theme\|port\|sort]` | Visualizza o modifica le preferenze (lingua `it`/`en`, temi ad alto contrasto, porta). |
-| **`/switch`** | `[porta\|indice]` | Passa a caldo a un'altra radio LoRa USB collegata al PC. |
-| **`/scan`** | *(nessuno)* | Rileva ed elenca tutte le radio LoRa collegate al computer e il loro stato. |
-| **`/banner`** | *(nessuno)* | Ristampa il banner tattico di stato Hermes in cima allo schermo. |
-| **`/clear`** | *(nessuno)* | Pulisce la schermata del terminale preservando la sessione attiva. |
-| **`/quit`** *(o `/exit`, `/q`)*| *(nessuno)* | Chiude ordinatamente la connessione radio ed esce dall'applicazione (*73!*). |
+| Comando                         | Argomenti                   | Descrizione                                                                                                 |
+| :------------------------------ | :-------------------------- | :---------------------------------------------------------------------------------------------------------- |
+| **`/help`** *(o `/?`)*          | *(nessuno)*                 | Mostra la tabella di aiuto con l'elenco di tutti i comandi disponibili.                                     |
+| **`/nodes`**                    | `[active\|snr\|hops\|name]` | Elenca i nodi visibili nella mesh con telemetria, ordinamenti e filtri.                                     |
+| **`/view`** *(o `/tui`)*        | *(nessuno)*                 | **Tabella interattiva a schermo intero con ordinamento al click del mouse sull'intestazione**.              |
+| **`/node`**                     | `<id\|aka\|nome>`           | Visualizza la scheda analitica dettagliata con telemetria e coordinate GPS.                                 |
+| **`/send`**                     | `<testo>`                   | Invia un messaggio broadcast sul canale primario *(oppure digita direttamente il testo)*.                   |
+| **`/dm`**                       | `<id\|aka\|nome> <testo>`   | Invia un messaggio diretto privato riservato a uno specifico nodo.                                          |
+| **`/channels`**                 | *(nessuno)*                 | Mostra l'elenco dei canali radio configurati, ruoli e stato crittografia PSK.                               |
+| **`/info`**                     | *(nessuno)*                 | Visualizza lo stato hardware della radio, firmware, regione RF e preset modem.                              |
+| **`/settings`**                 | `[lang\|theme\|port\|sort]` | Apre i controlli interattivi per lingua, tema, porta e ordinamento; accetta anche aggiornamenti da comando. |
+| **`/switch`**                   | `[porta\|indice]`           | Passa a caldo a un'altra radio LoRa USB collegata al PC.                                                    |
+| **`/scan`**                     | *(nessuno)*                 | Rileva ed elenca tutte le radio LoRa collegate al computer e il loro stato.                                 |
+| **`/banner`**                   | *(nessuno)*                 | Ristampa il banner tattico di stato Hermes in cima allo schermo.                                            |
+| **`/clear`**                    | *(nessuno)*                 | Pulisce la schermata del terminale preservando la sessione attiva.                                          |
+| **`/quit`** *(o `/exit`, `/q`)* | *(nessuno)*                 | Chiude ordinatamente la connessione radio ed esce dall'applicazione (*73!*).                                |
 
 ---
 
@@ -73,7 +91,7 @@ All'interno della console interattiva `mesh-deck`, puoi utilizzare i seguenti co
 - **Runtime & Gestione Pacchetti**: [Python 3.11+](https://www.python.org/) & [uv](https://github.com/astral-sh/uv)
 - **Protocollo Radio**: [meshtastic-python](https://pypi.org/project/meshtastic/) (interfaccia seriale e bridge eventi PubSub)
 - **Terminal UI & Styling**: [Rich](https://rich.readthedocs.io/) (rendering tabelle, pannelli, badge e esportazione SVG)
-- **Interactive REPL**: [prompt_toolkit](https://python-prompt-toolkit.readthedocs.io/) con modulo `patch_stdout`
+- **Interactive TUI**: [Textual](https://textual.textualize.io/) con log Rich e input reattivo
 - **Comunicazione Seriale**: [pyserial](https://pyserial.readthedocs.io/)
 
 ---
@@ -100,6 +118,9 @@ uv run mesh-deck --port /dev/ttyACM0
 
 # Stampa la tabella nodi in modalità non-interattiva (per script / cronjob)
 uv run mesh-deck --nodes
+
+# Avvia direttamente il Node Explorer Textual
+uv run mesh-deck --tui
 ```
 
 ---

@@ -13,7 +13,7 @@ Benvenuto nel manuale operativo ufficiale di **Mesh-Deck**, la console interatti
    - [Auto-Discovery USB & Hot-Switching](#auto-discovery-usb--hot-switching)
    - [Node Explorer & Calcolo Distanze Geodetiche](#node-explorer--calcolo-distanze-geodetiche)
    - [Gestione Canali e Messaggistica Tattica](#gestione-canali-e-messaggistica-tattica)
-   - [Streaming Asincrono in Background (`patch_stdout`)](#streaming-asincrono-in-background-patch_stdout)
+  - [Streaming Asincrono in Background (Textual)](#streaming-asincrono-in-background-textual)
    - [Interpretazione Visiva dei Badge e Indicatori](#interpretazione-visiva-dei-badge-e-indicatori)
 5. [Troubleshooting & Risoluzione Problemi](#-5-troubleshooting--risoluzione-problemi)
 
@@ -29,7 +29,7 @@ Benvenuto nel manuale operativo ufficiale di **Mesh-Deck**, la console interatti
 A differenza delle utility CLI tradizionali a riga di comando o delle interfacce web pesanti, Mesh-Deck adotta il paradigma visivo **Hermes TUI**:
 - **Palette Cyberpunk High-Contrast**: Uso mirato di tonalità neon ad alta visibilità (`#00f3ff` ciano elettrico, `#00ff66` verde matrice, `#ff007f` fucsia per allarmi/DM, `#ffb800` ambra per avvisi), studiata per garantire massima leggibilità anche all'aperto su display opachi o terminali a basso consumo.
 - **Densità Informativa Senza Sovraccarico**: I dati essenziali (stato del link, livello batteria, tensione cella, SNR, hop count e canali) sono aggregati in pannelli compatti e tabelle responsive realizzate con la libreria [Rich](https://rich.readthedocs.io/).
-- **Esperienza REPL Fluida**: Prompt contestuale basato su [prompt_toolkit](https://python-prompt-toolkit.readthedocs.io/) con autocompletamento intelligente dei comandi, delle porte seriali e dei nomi dei nodi.
+- **Esperienza TUI Fluida**: Console [Textual](https://textual.textualize.io/) con input contestuale, log scorrevole e cronologia persistente. I suggerimenti dinamici per comandi, porte seriali e nomi dei nodi si applicano con `Tab`, oppure si navigano con freccia Giù e `Invio`.
 
 ### Supporto Multi-Device
 Mesh-Deck riconosce automaticamente un'ampia varietà di dispositivi e chipset LoRa commerciali:
@@ -71,12 +71,13 @@ uv run mesh-deck
 
 Mesh-Deck mette a disposizione diversi argomenti a riga di comando per automatizzare l'uso o selezionare porte specifiche:
 
-| Flag | Argomento | Descrizione |
-| :--- | :--- | :--- |
-| `-p`, `--port` | `<DEVICE_PORT>` | Connette direttamente Mesh-Deck a una porta seriale specifica (es. `-p /dev/ttyACM0` o `-p /dev/ttyUSB1`). |
-| `-l`, `--list` | *(nessuno)* | Esegue la scansione delle porte USB seriali, elenca tutti i dispositivi Meshtastic rilevati con il relativo modello hardware ed esce. |
-| `-n`, `--nodes` | *(nessuno)* | Modalità non-interattiva: si connette alla prima radio disponibile, scarica il NodeDB, stampa la tabella completa dei nodi ed esce. Utile per script e cronjob. |
-| `-h`, `--help` | *(nessuno)* | Mostra il riepilogo della sintassi CLI e dei flag utilizzabili. |
+| Flag            | Argomento       | Descrizione                                                                                                                                                     |
+| :-------------- | :-------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `-p`, `--port`  | `<DEVICE_PORT>` | Connette direttamente Mesh-Deck a una porta seriale specifica (es. `-p /dev/ttyACM0` o `-p /dev/ttyUSB1`).                                                      |
+| `-l`, `--list`  | *(nessuno)*     | Esegue la scansione delle porte USB seriali, elenca tutti i dispositivi Meshtastic rilevati con il relativo modello hardware ed esce.                           |
+| `-n`, `--nodes` | *(nessuno)*     | Modalità non-interattiva: si connette alla prima radio disponibile, scarica il NodeDB, stampa la tabella completa dei nodi ed esce. Utile per script e cronjob. |
+| `--tui`         | *(nessuno)*     | Avvia direttamente il Node Explorer Textual con filtro e ordinamento, senza mostrare la console comandi.                                                        |
+| `-h`, `--help`  | *(nessuno)*     | Mostra il riepilogo della sintassi CLI e dei flag utilizzabili.                                                                                                 |
 
 #### Esempi di Uso da Riga di Comando:
 
@@ -95,13 +96,30 @@ uv run mesh-deck --nodes > mesh_snapshot.txt
 
 ## ⌨️ 3. Manuale Completo dei Comandi Slash
 
-Una volta avviato Mesh-Deck, viene visualizzato il banner tattico e il prompt interattivo:
+Una volta avviato Mesh-Deck, viene visualizzato il banner tattico sopra un log
+scorrevole e un campo comando. Il placeholder mostra il nodo locale, quando
+disponibile:
 
 ```text
-mesh-deck [AKA] ❯
+mesh-deck [AKA] - messaggio o /help
 ```
 
 Dove `[AKA]` rappresenta l'identificativo breve (4 caratteri) del tuo nodo locale collegato via USB. Digita i comandi preceduti da una barra (`/`) oppure digita direttamente del testo libero per trasmettere in broadcast.
+
+### Controlli della Console
+
+| Azione                                     | Controllo                           |
+| :----------------------------------------- | :---------------------------------- |
+| Eseguire un comando o inviare un messaggio | `Invio`                             |
+| Applicare il primo suggerimento            | `Tab`                               |
+| Selezionare un suggerimento alternativo    | freccia Giù, frecce Su/Giù, `Invio` |
+| Richiamare un comando precedente           | frecce Su/Giù nel campo comando     |
+| Cancellare il testo corrente               | `Ctrl+C`                            |
+| Nascondere i suggerimenti                  | `Esc`                               |
+
+La cronologia conserva gli ultimi 100 comandi in
+`~/.config/mesh-deck/settings.json`. I messaggi ricevuti vengono aggiunti al log
+senza interrompere il testo in digitazione.
 
 ---
 
@@ -137,6 +155,20 @@ Dove `[AKA]` rappresenta l'identificativo breve (4 caratteri) del tuo nodo local
 
   # Ordina i nodi per intensità di segnale radio
   mesh-deck [VM290] ❯ /nodes snr
+  ```
+
+---
+
+### `/view` (o `/tui`)
+* **Sintassi**: `/view` oppure `/tui`.
+* **Parametri**: Nessuno.
+* **Descrizione**: Apre il Node Explorer come schermata Textual interna. La
+  tabella supporta filtro istantaneo per nome, AKA, hardware e ID; click sulle
+  intestazioni per l'ordinamento; `r` per aggiornare; `/` per focalizzare il
+  filtro; `q` o `Esc` per tornare alla console.
+* **Esempio d'uso**:
+  ```text
+  mesh-deck [VM290] ❯ /view
   ```
 
 ---
@@ -271,6 +303,19 @@ Dove `[AKA]` rappresenta l'identificativo breve (4 caratteri) del tuo nodo local
 
 ---
 
+### `/settings` (o `/config`)
+* **Sintassi**: `/settings` oppure `/settings <lang|theme|sort|port> <valore>`.
+* **Parametri**:
+  - Senza argomenti apre una finestra Textual con selettori per lingua, tema,
+    ordinamento dei nodi e porta seriale predefinita.
+  - Con argomenti aggiorna direttamente l'impostazione, ad esempio
+    `/settings lang en` o `/settings sort snr`.
+* **Descrizione**: Le preferenze vengono salvate in
+  `~/.config/mesh-deck/settings.json`. La lingua aggiorna subito etichette,
+  placeholder e descrizioni dell'autocomplete nella console attiva.
+
+---
+
 ### `/banner`
 * **Sintassi**: `/banner`
 * **Parametri**: Nessuno.
@@ -294,7 +339,7 @@ Dove `[AKA]` rappresenta l'identificativo breve (4 caratteri) del tuo nodo local
 ---
 
 ### `/quit` (o `/exit`, `/q`)
-* **Sintassi**: `/quit`, `/exit`, oppure `/q` (o combinazione di tasti `Ctrl+D`)
+* **Sintassi**: `/quit`, `/exit`, oppure `/q`
 * **Parametri**: Nessuno.
 * **Descrizione**: Chiude ordinatamente la sessione seriale, disconnette i thread in background di ascolto radio ed esce da Mesh-Deck salutando con il tradizionale codice radio *"73!"*.
 * **Esempio d'uso**:
@@ -313,11 +358,12 @@ In scenari reali è frequente collegare al PC contemporaneamente due o più radi
 Mesh-Deck implementa un sottosistema di rilevamento hardware automatico:
 1. **Scansione Euristica VID/PID**: Interroga le periferiche seriali attraverso `pyserial` analizzando identificativi dei chip USB-to-UART (Silicon Labs CP210x, WCH CH340/CH341, FTDI, Raspberry Pi RP2040, Espressif JTAG/Serial, Nordic Semiconductor TinyUSB).
 2. **Fingerprinting del Modello**: Ricava il modello hardware probabile a partire dalla descrizione di sistema e dalle stringhe del produttore.
-3. **Hot-Switching Atomico**: Quando si esegue `/switch`, il modulo [`RadioClient`](file:///data/repos/mesh-deck/src/mesh_deck/core/radio_client.py):
+3. **Hot-Switching Atomico**: Quando si esegue `/switch`, il modulo
+  [`RadioClient`](../src/mesh_deck/core/radio_client.py):
    - Invia la disconnessione pulita alla radio precedente;
    - Chiude il descrittore seriale evitando lock o permessi pendenti;
    - Inizializza la nuova `meshtastic.serial_interface.SerialInterface`;
-   - Svuota e ricarica il [`NodeStore`](file:///data/repos/mesh-deck/src/mesh_deck/core/node_store.py) con il NodeDB della nuova radio;
+  - Svuota e ricarica il [`NodeStore`](../src/mesh_deck/core/node_store.py) con il NodeDB della nuova radio;
    - Ricollega i listener PubSub per i messaggi in ingresso;
    - Aggiorna il prompt del terminale con il nuovo alias AKA del nodo.
 
@@ -325,7 +371,8 @@ Mesh-Deck implementa un sottosistema di rilevamento hardware automatico:
 
 ### Node Explorer & Calcolo Distanze Geodetiche
 
-Il componente [`NodeStore`](file:///data/repos/mesh-deck/src/mesh_deck/core/node_store.py) mantiene lo stato sincronizzato di tutti i nodi ascoltati via radio.
+Il componente [`NodeStore`](../src/mesh_deck/core/node_store.py) mantiene lo
+stato sincronizzato di tutti i nodi ascoltati via radio.
 
 #### Formula Haversine per la Distanza
 Se sia il nodo locale sia il nodo remoto trasmettono le proprie coordinate geografiche (latitudine e longitudine), Mesh-Deck calcola in tempo reale la distanza ortodromica geodetica tra i due punti impiegando la **formula dell'emisenoverso (Haversine)** con raggio terrestre medio $R = 6371.0088\text{ km}$:
@@ -361,14 +408,14 @@ Mesh-Deck distingue chiaramente tra due modalità operative di comunicazione:
 
 ---
 
-### Streaming Asincrono in Background (`patch_stdout`)
+### Streaming Asincrono in Background (Textual)
 
 Uno dei problemi storici delle interfacce CLI/REPL per apparati radio seriali è la corruzione dell'input: se l'utente sta digitando un comando o un messaggio lungo e la radio riceve un pacchetto in background, il testo in arrivo si sovrappone ai caratteri digitati, rendendo illeggibile il prompt.
 
-Mesh-Deck risolve questo problema alla radice grazie al modulo [`prompt_toolkit.patch_stdout`](file:///data/repos/mesh-deck/src/mesh_deck/ui/repl.py#L11-L86):
+Mesh-Deck risolve questo problema separando input e output nella stessa app Textual:
 - L'ascoltatore radio riceve i pacchetti in modo asincrono tramite il bus di eventi PubSub di Meshtastic.
-- La funzione `patch_stdout(raw=True)` intercetta tutte le scritture della console Rich.
-- Quando arriva un messaggio o un aggiornamento di telemetria, il prompt corrente in digitazione viene momentaneamente "nascosto", il messaggio viene stampato a video esattamente sopra, e il prompt viene istantaneamente ridisegnato con il testo parziale digitato dall'utente e la posizione del cursore perfettamente intatta.
+- Un bridge thread-safe inoltra pannelli e tabelle Rich al log scorrevole della console.
+- Quando arriva un messaggio o un aggiornamento di telemetria, viene aggiunto al log; il campo di input e il testo già digitato restano intatti.
 
 ---
 
@@ -377,21 +424,21 @@ Mesh-Deck risolve questo problema alla radice grazie al modulo [`prompt_toolkit.
 Mesh-Deck impiega un sistema coerente di codifica cromatica e badge per interpretare lo stato della rete a colpo d'occhio:
 
 #### 1. Livelli di Segnale (SNR - Signal-to-Noise Ratio)
-| Valore SNR | Colore Grafico | Stato del Canale |
-| :--- | :--- | :--- |
-| **$\ge +5.0\text{ dB}$** | `[bold #00ff66]` Verde Neon | **Segnale Eccellente**: Margine ottimo, propagazione diretta priva di interferenze. |
-| **$0.0 .. +5.0\text{ dB}$** | `[bold #00f3ff]` Ciano Neon | **Segnale Buono**: Link LoRa pienamente stabile e affidabile. |
-| **$-10.0 .. 0.0\text{ dB}$** | `[bold #ffb800]` Giallo Ambra | **Segnale Marginale**: Possibile perdita occasionale di pacchetti o fading. |
-| **$< -10.0\text{ dB}$** | `[bold #ff3366]` Rosso Allarme | **Segnale Critico**: Al limite della soglia di decodifica dello spread spectrum LoRa. |
-| **`-- dB`** | `[dim]` Grigio Fumo | Telemetria SNR non presente nel pacchetto (es. pacchetto generato localmente). |
+| Valore SNR                   | Colore Grafico                 | Stato del Canale                                                                      |
+| :--------------------------- | :----------------------------- | :------------------------------------------------------------------------------------ |
+| **$\ge +5.0\text{ dB}$**     | `[bold #00ff66]` Verde Neon    | **Segnale Eccellente**: Margine ottimo, propagazione diretta priva di interferenze.   |
+| **$0.0 .. +5.0\text{ dB}$**  | `[bold #00f3ff]` Ciano Neon    | **Segnale Buono**: Link LoRa pienamente stabile e affidabile.                         |
+| **$-10.0 .. 0.0\text{ dB}$** | `[bold #ffb800]` Giallo Ambra  | **Segnale Marginale**: Possibile perdita occasionale di pacchetti o fading.           |
+| **$< -10.0\text{ dB}$**      | `[bold #ff3366]` Rosso Allarme | **Segnale Critico**: Al limite della soglia di decodifica dello spread spectrum LoRa. |
+| **`-- dB`**                  | `[dim]` Grigio Fumo            | Telemetria SNR non presente nel pacchetto (es. pacchetto generato localmente).        |
 
 #### 2. Batteria & Alimentazione
-| Indicatore | Colore | Significato Operativo |
-| :--- | :--- | :--- |
-| `⚡ USB (4.22V)` | `[bold #00ff66]` Verde Neon | Dispositivo alimentato da bus USB o alimentazione esterna fissa (livello $> 100\%$). |
-| `> 70% (4.10V)` | `[bold #00ff66]` Verde Neon | Batteria a piena carica o alta autonomia. |
-| `30% - 70% (3.80V)` | `[bold #ffb800]` Giallo Ambra | Carica intermedia, normale autonomia operativa. |
-| `< 30% (3.55V)` | `[bold #ff3366]` Rosso Allarme | Batteria quasi scarica: rischio spegnimento imminente del nodo. |
+| Indicatore          | Colore                         | Significato Operativo                                                                |
+| :------------------ | :----------------------------- | :----------------------------------------------------------------------------------- |
+| `⚡ USB (4.22V)`     | `[bold #00ff66]` Verde Neon    | Dispositivo alimentato da bus USB o alimentazione esterna fissa (livello $> 100\%$). |
+| `> 70% (4.10V)`     | `[bold #00ff66]` Verde Neon    | Batteria a piena carica o alta autonomia.                                            |
+| `30% - 70% (3.80V)` | `[bold #ffb800]` Giallo Ambra  | Carica intermedia, normale autonomia operativa.                                      |
+| `< 30% (3.55V)`     | `[bold #ff3366]` Rosso Allarme | Batteria quasi scarica: rischio spegnimento imminente del nodo.                      |
 
 #### 3. Ruoli del Dispositivo (Meshtastic Roles)
 I ruoli sono formattati visivamente con badge ad alto contrasto:
@@ -449,6 +496,6 @@ I ruoli sono formattati visivamente con badge ad alto contrasto:
 ## 📄 Riferimenti & Licenza
 
 - **Repository Ufficiale**: [github.com/raythekool/mesh-deck](https://github.com/raythekool/mesh-deck)
-- **Specifiche Tecniche**: Consulta [`REQUIREMENTS.md`](file:///data/repos/mesh-deck/REQUIREMENTS.md) per i dettagli architetturali.
-- **Piano di Sviluppo**: Consulta [`IMPLEMENTATION_PLAN.md`](file:///data/repos/mesh-deck/IMPLEMENTATION_PLAN.md) per la roadmap delle funzionalità.
-- **Licenza**: Software distribuito con licenza open source [MIT](file:///data/repos/mesh-deck/LICENSE).
+- **Specifiche Tecniche**: Consulta [REQUIREMENTS.md](../REQUIREMENTS.md) per i dettagli architetturali.
+- **Piano di Sviluppo**: Consulta [IMPLEMENTATION_PLAN.md](../IMPLEMENTATION_PLAN.md) per la roadmap delle funzionalità.
+- **Licenza**: Software distribuito con licenza open source [MIT](../LICENSE).

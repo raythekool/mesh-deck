@@ -347,8 +347,13 @@ class CommandDispatcher:
 
     def cmd_view(self, args: list[str]) -> None:
         """Launch interactive full-screen table with mouse-click column sorting."""
-        from mesh_deck.ui.interactive_table import launch_interactive_nodes
         local_node = self.client.get_local_node()
+        opener = getattr(self.console, "open_node_explorer", None)
+        if callable(opener):
+            opener(self.client.store, local_node)
+            return
+
+        from mesh_deck.ui.interactive_table import launch_interactive_nodes
         self.console.print(f"[{THEME_COLORS['primary']}]Avvio tabella interattiva... (Fai click sulle intestazioni per ordinare, premi 'q' o 'Esc' per tornare al prompt)[/]")
         launch_interactive_nodes(self.client.store, local_node=local_node)
 
@@ -358,6 +363,10 @@ class CommandDispatcher:
         settings = Settings.load()
 
         if not args:
+            opener = getattr(self.console, "open_settings", None)
+            if callable(opener):
+                opener()
+                return
             table = Table(
                 title="⚙️ IMPOSTAZIONI MESH-DECK",
                 title_style=f"bold {THEME_COLORS['primary']}",
@@ -383,6 +392,9 @@ class CommandDispatcher:
             lang_val = args[1].lower()
             if lang_val in ("it", "en"):
                 settings.update(language=lang_val)
+                updater = getattr(self.console, "update_language", None)
+                if callable(updater):
+                    updater(lang_val)
                 self.console.print(f"[{THEME_COLORS['secondary']}]✓ Lingua impostata su:[/] [bold]{lang_val.upper()}[/]")
             else:
                 self.console.print(f"[{THEME_COLORS['alert']}]Lingua non supportata. Usa 'it' o 'en'.[/]")

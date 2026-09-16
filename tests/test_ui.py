@@ -8,13 +8,12 @@ import math
 import unittest
 from datetime import datetime, timedelta, timezone
 
-from prompt_toolkit.completion import CompleteEvent
-from prompt_toolkit.document import Document
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
+from mesh_deck.i18n import command_descriptions
 from mesh_deck.models import MeshMessage, NodeData
 from mesh_deck.ui import (
     CYBERPUNK_THEME,
@@ -513,7 +512,7 @@ class TestTablesAndViews(unittest.TestCase):
 
 
 class TestCompleter(unittest.TestCase):
-    """Test interactive prompt_toolkit autocompletion and edge cases."""
+    """Test Textual command-input completion data and edge cases."""
 
     def setUp(self):
         self.nodes = [
@@ -548,80 +547,64 @@ class TestCompleter(unittest.TestCase):
         self.completer = MeshDeckCompleter(get_nodes=self.nodes, get_ports=self.ports)
 
     def test_slash_command_completion(self):
-        doc = Document("/n")
-        completions = list(self.completer.get_completions(doc, CompleteEvent()))
-        texts = [c.text for c in completions]
+        texts = [c.value for c in self.completer.suggestions("/n")]
         self.assertIn("/nodes", texts)
         self.assertIn("/node", texts)
         self.assertNotIn("/dm", texts)
 
+    def test_localized_command_descriptions(self):
+        self.assertIn("List", command_descriptions("en")["/nodes"])
+        self.assertIn("Elenca", command_descriptions("it")["/nodes"])
+
     def test_completer_empty_or_whitespace_input(self):
         # Empty text yields no completions
-        doc_empty = Document("")
-        completions_empty = list(self.completer.get_completions(doc_empty, CompleteEvent()))
+        completions_empty = self.completer.suggestions("")
         self.assertEqual(len(completions_empty), 0)
 
         # Whitespace-only yields no completions
-        doc_spaces = Document("    ")
-        completions_spaces = list(self.completer.get_completions(doc_spaces, CompleteEvent()))
+        completions_spaces = self.completer.suggestions("    ")
         self.assertEqual(len(completions_spaces), 0)
 
     def test_completer_leading_spaces(self):
         # Command with leading whitespace should autocomplete correctly
-        doc = Document("   /sw")
-        completions = list(self.completer.get_completions(doc, CompleteEvent()))
-        texts = [c.text for c in completions]
+        texts = [c.value for c in self.completer.suggestions("   /sw")]
         self.assertIn("/switch", texts)
 
     def test_node_target_completion(self):
-        doc = Document("/node AL")
-        completions = list(self.completer.get_completions(doc, CompleteEvent()))
-        texts = [c.text for c in completions]
+        texts = [c.value for c in self.completer.suggestions("/node AL")]
         self.assertIn("ALPHA", texts)
         self.assertNotIn("BRAVO", texts)
 
     def test_dm_target_completion(self):
-        doc = Document("/dm BR")
-        completions = list(self.completer.get_completions(doc, CompleteEvent()))
-        texts = [c.text for c in completions]
+        texts = [c.value for c in self.completer.suggestions("/dm BR")]
         self.assertIn("BRAVO", texts)
 
         # After target is entered and space is typed, do not suggest nodes
-        doc_msg = Document("/dm BRAVO Ciao come stai")
-        completions_msg = list(self.completer.get_completions(doc_msg, CompleteEvent()))
+        completions_msg = self.completer.suggestions("/dm BRAVO Ciao come stai")
         self.assertEqual(len(completions_msg), 0)
 
     def test_completer_names_with_spaces_and_emoji(self):
         # Autocompleting a short name with spaces should wrap in quotes
-        doc = Document("/node Vai")
-        completions = list(self.completer.get_completions(doc, CompleteEvent()))
-        texts = [c.text for c in completions]
+        texts = [c.value for c in self.completer.suggestions("/node Vai")]
         self.assertIn('"Vaiano 1"', texts)
 
         # Autocompleting with emoji
-        doc_emoji = Document("/node 🎯")
-        completions_emoji = list(self.completer.get_completions(doc_emoji, CompleteEvent()))
-        texts_emoji = [c.text for c in completions_emoji]
+        texts_emoji = [c.value for c in self.completer.suggestions("/node 🎯")]
         self.assertIn("🎯IT", texts_emoji)
 
     def test_completer_with_open_quotes(self):
         # User starts typing with a quote: /node "Vai
-        doc = Document('/node "Vai')
-        completions = list(self.completer.get_completions(doc, CompleteEvent()))
-        texts = [c.text for c in completions]
+        texts = [c.value for c in self.completer.suggestions('/node "Vai')]
         self.assertIn('"Vaiano 1"', texts)
 
     def test_switch_port_completion(self):
-        doc = Document("/switch /dev/ttyA")
-        completions = list(self.completer.get_completions(doc, CompleteEvent()))
-        texts = [c.text for c in completions]
+        texts = [c.value for c in self.completer.suggestions("/switch /dev/ttyA")]
         self.assertIn("/dev/ttyACM0", texts)
         self.assertIn("/dev/ttyACM1", texts)
         self.assertNotIn("/dev/ttyUSB0", texts)
 
         # Empty query after /switch
-        doc_all = Document("/switch ")
-        completions_all = list(self.completer.get_completions(doc_all, CompleteEvent()))
+        completions_all = self.completer.suggestions("/switch ")
         self.assertEqual(len(completions_all), 3)
 
 

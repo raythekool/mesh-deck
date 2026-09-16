@@ -30,7 +30,7 @@ mesh-deck/
 │       │   ├── theme.py        # Stili, palette colori e simboli Rich
 │       │   ├── banner.py       # Header status bar e riepiloghi
 │       │   ├── tables.py       # Generatori tabelle nodi, canali e diagnostica
-│       │   ├── repl.py         # Loop interattivo prompt_toolkit
+│       │   ├── repl.py         # Console Textual, input e log asincrono
 │       │   └── completer.py    # Auto-completamento dinamico per slash-commands
 │       └── commands/           # Dispatcher dei comandi utente
 │           ├── __init__.py
@@ -77,12 +77,12 @@ mesh-deck/
 
 ---
 
-### Fase 4: Sviluppo TUI Hermes-Style (Rich + prompt_toolkit)
+### Fase 4: Sviluppo TUI Hermes-Style (Rich + Textual)
 * **Obiettivo**: Realizzare l'identità visiva e il loop interattivo principale.
 * **Attività**:
   1. Implementare `theme.py`: definizione palette (Matrix green, Cyberpunk cyan, ambra per avvisi, rosso per errori) e stili per tabelle e pannelli.
   2. Implementare `banner.py`: rendering del banner d'avvio (Nome nodo locale, ID, frequenza/regione, canali attivi, stato batteria).
-  3. Implementare `repl.py`: prompt interattivo con `prompt_toolkit` configurato per consentire output asincrono (live printing di messaggi in arrivo senza distruggere il prompt in digitazione).
+  3. Implementare `repl.py`: app Textual con input contestuale, log Rich e bridge thread-safe per i messaggi in arrivo.
   4. Implementare `completer.py`: autocompletamento per comandi (`/nodes`, `/dm`, `/switch`, ecc.) e nomi dei nodi.
 * **Criterio di Accettazione**: Avviando la CLI appare il banner Rich, il prompt interattivo con suggerimenti e la formattazione a colori.
 

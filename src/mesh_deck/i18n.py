@@ -135,6 +135,19 @@ STRINGS: dict[str, dict[str, str]] = {
     "SETTING_KEY": {"it": "Parametro", "en": "Setting"},
     "SETTING_VAL": {"it": "Valore Attuale", "en": "Current Value"},
     "SETTING_OPTS": {"it": "Opzioni Disponibili", "en": "Available Options"},
+    "APP_SUBTITLE": {"it": "Console comandi Meshtastic", "en": "Meshtastic command console"},
+    "COMMAND_PLACEHOLDER": {
+        "it": "mesh-deck [{name}] - messaggio o /help",
+        "en": "mesh-deck [{name}] - message or /help",
+    },
+    "SETTINGS_DIALOG_TITLE": {"it": "Impostazioni Mesh-Deck", "en": "Mesh-Deck settings"},
+    "SETTINGS_LANGUAGE": {"it": "Lingua", "en": "Language"},
+    "SETTINGS_THEME": {"it": "Tema", "en": "Theme"},
+    "SETTINGS_SORT": {"it": "Ordinamento nodi", "en": "Node sorting"},
+    "SETTINGS_PORT": {"it": "Porta predefinita", "en": "Default port"},
+    "SETTINGS_AUTO_PORT": {"it": "Rilevamento automatico", "en": "Automatic detection"},
+    "SETTINGS_CANCEL": {"it": "Annulla", "en": "Cancel"},
+    "SETTINGS_SAVE": {"it": "Salva", "en": "Save"},
 }
 
 
@@ -151,3 +164,21 @@ def t(key: str, lang: str = "it", **kwargs: Any) -> str:
         except Exception:
             return text
     return text
+
+
+def command_descriptions(lang: str) -> dict[str, str]:
+    """Return localized descriptions for the command completion catalog."""
+    return {
+        "/help": t("HELP_TITLE", lang),
+        "/nodes": t("CMD_DESC_NODES", lang),
+        "/node": t("CMD_DESC_NODE", lang),
+        "/dm": t("CMD_DESC_DM", lang),
+        "/send": t("CMD_DESC_SEND", lang),
+        "/switch": t("CMD_DESC_SWITCH", lang),
+        "/channels": t("CMD_DESC_CHANNELS", lang),
+        "/info": t("CMD_DESC_INFO", lang),
+        "/view": t("CMD_DESC_VIEW", lang),
+        "/settings": t("CMD_DESC_SETTINGS", lang),
+        "/clear": t("CMD_DESC_CLEAR", lang),
+        "/quit": t("CMD_DESC_QUIT", lang),
+    }

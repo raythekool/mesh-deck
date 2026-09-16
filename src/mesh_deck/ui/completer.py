@@ -1,4 +1,4 @@
-"""Interactive autocompletion for Mesh-Deck REPL using prompt_toolkit.
+"""Interactive autocompletion data for the Mesh-Deck Textual UI.
 
 Provides dynamic tab-completion for slash commands (/help, /nodes, /node, /dm, etc.)
 and live Meshtastic node names/IDs.
@@ -6,31 +6,27 @@ and live Meshtastic node names/IDs.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Iterable
-from prompt_toolkit.completion import CompleteEvent, Completer, Completion
-from prompt_toolkit.document import Document
+from dataclasses import dataclass
+from typing import Any, Callable
 
+from mesh_deck.i18n import command_descriptions
 from mesh_deck.models import NodeData
 
 # Standard supported slash commands and their descriptions
-SLASH_COMMANDS: dict[str, str] = {
-    "/help": "Mostra la guida ai comandi e alle scorciatoie",
-    "/nodes": "Elenco e tabella dei nodi rilevati nella mesh",
-    "/node": "Scheda analitica di dettaglio per un nodo (/node <id|aka>)",
-    "/dm": "Invia un messaggio privato diretto (/dm <id|aka> <testo>)",
-    "/send": "Invia un messaggio broadcast sul canale (/send [canale] <testo>)",
-    "/switch": "Cambia la radio o porta seriale attiva (/switch <porta>)",
-    "/channels": "Mostra l'elenco e lo stato dei canali radio",
-    "/info": "Informazioni diagnostiche e stato del nodo locale",
-    "/view": "Tabella interattiva a schermo intero con ordinamento al click del mouse",
-    "/settings": "Gestione impostazioni (lingua it/en, tema, porta predefinita)",
-    "/clear": "Pulisce lo schermo della console",
-    "/quit": "Disconnette ed esce dall'applicazione",
-}
+SLASH_COMMANDS = command_descriptions("it")
 
 
-class MeshDeckCompleter(Completer):
-    """Smart prompt_toolkit completer for Mesh-Deck.
+@dataclass(frozen=True)
+class Completion:
+    """A replacement candidate shown by the Textual command input."""
+
+    value: str
+    start_position: int
+    description: str
+
+
+class MeshDeckCompleter:
+    """Smart completer for Mesh-Deck command input.
 
     Autocompletes slash commands and dynamically resolves node aliases (AKA)
     and Node IDs for commands requiring a node target (/node, /dm).
@@ -74,17 +70,13 @@ class MeshDeckCompleter(Completer):
             return self._get_ports_provider()
         return self._get_ports_provider
 
-    def get_completions(
-        self,
-        document: Document,
-        complete_event: CompleteEvent,
-    ) -> Iterable[Completion]:
-        """Yield completions based on current input buffer."""
-        text_before_cursor = document.text_before_cursor
+    def suggestions(self, text_before_cursor: str) -> list[Completion]:
+        """Return completions based on the current input buffer."""
         stripped = text_before_cursor.lstrip()
+        completions: list[Completion] = []
 
         if not stripped:
-            return
+            return completions
 
         # 1. Autocomplete slash commands when typing the command itself
         if " " not in stripped:
@@ -92,13 +84,12 @@ class MeshDeckCompleter(Completer):
             if prefix.startswith("/"):
                 for cmd, desc in self.commands.items():
                     if cmd.lower().startswith(prefix.lower()):
-                        yield Completion(
-                            text=cmd,
+                        completions.append(Completion(
+                            value=cmd,
                             start_position=-len(prefix),
-                            display=cmd,
-                            display_meta=desc,
-                        )
-            return
+                            description=desc,
+                        ))
+            return completions
 
         # 2. Dynamic argument completion for commands that target nodes (/node, /dm)
         for target_cmd in ("/node", "/dm"):
@@ -112,13 +103,13 @@ class MeshDeckCompleter(Completer):
                     # If quote is unclosed, we are still completing the target argument
                     if remainder.count(q_char) < 2:
                         query = remainder[1:].strip().lower()
-                        yield from self._complete_nodes(query, len(remainder), quote=q_char)
-                    return
+                        completions.extend(self._complete_nodes(query, len(remainder), quote=q_char))
+                    return completions
                 else:
                     if " " not in remainder:
                         query = remainder.strip().lower()
-                        yield from self._complete_nodes(query, len(remainder))
-                    return
+                        completions.extend(self._complete_nodes(query, len(remainder)))
+                    return completions
 
         # 3. Dynamic port completion for /switch
         if stripped.startswith("/switch "):
@@ -127,13 +118,12 @@ class MeshDeckCompleter(Completer):
                 query = remainder.strip().lower()
                 for port in self._resolve_ports():
                     if not query or query in port.lower():
-                        yield Completion(
-                            text=port,
+                        completions.append(Completion(
+                            value=port,
                             start_position=-len(remainder),
-                            display=port,
-                            display_meta="Porta Seriale USB",
-                        )
-            return
+                            description="Porta seriale USB",
+                        ))
+            return completions
 
         # 4. Dynamic settings completion for /settings
         if stripped.startswith("/settings "):
@@ -149,33 +139,36 @@ class MeshDeckCompleter(Completer):
                 q = remainder.lower().strip()
                 for opt, desc in opts:
                     if not q or opt.startswith(q):
-                        yield Completion(text=opt, start_position=-len(remainder), display=opt, display_meta=desc)
+                        completions.append(Completion(opt, -len(remainder), desc))
             elif len(parts) >= 1:
                 sub = parts[0].lower()
                 sub_rem = remainder[len(parts[0]):].strip().lower()
                 if sub == "lang":
                     for l, d in [("it", "Italiano"), ("en", "English")]:
                         if not sub_rem or l.startswith(sub_rem):
-                            yield Completion(text=l, start_position=-len(sub_rem), display=l, display_meta=d)
+                            completions.append(Completion(l, -len(sub_rem), d))
                 elif sub == "theme":
                     for th, d in [("cyberpunk", "Cyberpunk Cyan/Amber"), ("high_contrast", "High Contrast"), ("amber", "Retro Amber"), ("matrix", "Phosphor Green")]:
                         if not sub_rem or th.startswith(sub_rem):
-                            yield Completion(text=th, start_position=-len(sub_rem), display=th, display_meta=d)
+                            completions.append(Completion(th, -len(sub_rem), d))
                 elif sub == "sort":
                     for s in ["last_heard", "snr", "hops", "name"]:
                         if not sub_rem or s.startswith(sub_rem):
-                            yield Completion(text=s, start_position=-len(sub_rem), display=s, display_meta=s)
-            return
+                            completions.append(Completion(s, -len(sub_rem), s))
+            return completions
+
+        return completions
 
     def _complete_nodes(
         self,
         query: str,
         replace_len: int,
         quote: str | None = None,
-    ) -> Iterable[Completion]:
+    ) -> list[Completion]:
         """Generate completions for node AKA and Node ID."""
         nodes = self._resolve_nodes()
         seen: set[str] = set()
+        completions: list[Completion] = []
 
         for node in nodes:
             long_name = str(node.long_name or "")
@@ -200,12 +193,11 @@ class MeshDeckCompleter(Completer):
                         else:
                             insert_text = short_clean
 
-                        yield Completion(
-                            text=insert_text,
+                        completions.append(Completion(
+                            value=insert_text,
                             start_position=-replace_len,
-                            display=f"{short_clean:<8} (AKA)",
-                            display_meta=meta,
-                        )
+                            description=f"{short_clean} (AKA) - {meta}",
+                        ))
 
             # Suggest Hex Node ID (e.g. "!45a466e4")
             if node_id_clean:
@@ -213,9 +205,10 @@ class MeshDeckCompleter(Completer):
                     if node_id_clean not in seen:
                         seen.add(node_id_clean)
                         insert_text = f"{quote}{node_id_clean}{quote}" if quote else node_id_clean
-                        yield Completion(
-                            text=insert_text,
+                        completions.append(Completion(
+                            value=insert_text,
                             start_position=-replace_len,
-                            display=f"{node_id_clean:<11} (ID)",
-                            display_meta=f"{long_name} [{short_clean}]",
-                        )
+                            description=f"{node_id_clean} (ID) - {long_name} [{short_clean}]",
+                        ))
+
+        return completions

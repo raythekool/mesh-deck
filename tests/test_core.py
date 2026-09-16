@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import unittest
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock, patch
 
 from mesh_deck.core.events import DeviceConnectionInfo, MeshMessage, NodeData
 from mesh_deck.core.node_store import NodeStore
 from mesh_deck.core.radio_client import RadioClient
 from mesh_deck.core.scanner import scan_meshtastic_ports
+from mesh_deck.core.settings import Settings
 
 
 class TestEvents(unittest.TestCase):
@@ -79,6 +82,7 @@ class TestEvents(unittest.TestCase):
         # None coordinates
         n6 = NodeData(id="!6", num=6, latitude=None, longitude=None)
         self.assertFalse(n6.has_position)
+
 
     def test_node_data_from_meshtastic_dict(self):
         raw = {
@@ -159,6 +163,27 @@ class TestEvents(unittest.TestCase):
         self.assertFalse(dev.is_connected)
         d = dev.to_dict()
         self.assertEqual(d["port"], "/dev/ttyACM0")
+
+
+class TestSettings(unittest.TestCase):
+    """Test persistent user settings and bounded command history."""
+
+    def test_command_history_is_bounded_and_persistent(self):
+        with TemporaryDirectory() as temp_dir:
+            config_dir = Path(temp_dir) / "mesh-deck"
+            config_file = config_dir / "settings.json"
+            with patch("mesh_deck.core.settings.CONFIG_DIR", config_dir), patch(
+                "mesh_deck.core.settings.CONFIG_FILE", config_file
+            ):
+                settings = Settings()
+                for index in range(101):
+                    self.assertTrue(settings.add_command(f"/nodes {index}"))
+                self.assertTrue(settings.add_command("/nodes 100"))
+
+                loaded = Settings.load()
+                self.assertEqual(len(loaded.command_history), 100)
+                self.assertEqual(loaded.command_history[0], "/nodes 1")
+                self.assertEqual(loaded.command_history[-1], "/nodes 100")
 
 
 class TestScanner(unittest.TestCase):
