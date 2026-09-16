@@ -625,5 +625,66 @@ class TestCompleter(unittest.TestCase):
         self.assertEqual(len(completions_all), 3)
 
 
+class TestMeshDeckREPLIntegration(unittest.TestCase):
+    """Integration tests for MeshDeckREPL initialization, prompt and event wiring."""
+
+    def setUp(self):
+        from unittest.mock import MagicMock
+        from mesh_deck.ui import MeshDeckREPL
+
+        self.mock_client = MagicMock()
+        self.mock_store = MagicMock()
+        self.mock_client.store = self.mock_store
+        self.mock_client.port = "/dev/ttyACM0"
+        self.mock_client.is_connected = True
+
+        self.local_node = NodeData(
+            id="!45a466e4",
+            num=1168402148,
+            long_name="Morpheus Command Node",
+            short_name="MRPH",
+            hw_model="HELTEC_VISION_MASTER_E290",
+            role="CLIENT",
+            is_local=True,
+        )
+        self.mock_client.get_local_node.return_value = self.local_node
+        self.mock_store.get_all_nodes.return_value = [self.local_node]
+
+        self.console = Console(file=io.StringIO())
+        self.repl = MeshDeckREPL(self.mock_client, console=self.console)
+
+    def test_repl_initialization(self):
+        """Verify REPL instantiates completer, dispatcher and message callbacks cleanly."""
+        self.assertIsNotNone(self.repl.completer)
+        self.assertIsNotNone(self.repl.dispatcher)
+        self.mock_client.on_message_received.assert_called_once()
+
+    def test_repl_dynamic_prompt(self):
+        """Verify dynamic prompt generation with local node."""
+        prompt = self.repl._get_prompt()
+        self.assertIn("MRPH", str(prompt))
+
+        # Test prompt without local node
+        self.mock_client.get_local_node.return_value = None
+        prompt_no_node = self.repl._get_prompt()
+        self.assertIn("mesh-deck", str(prompt_no_node))
+
+    def test_repl_incoming_message_handler(self):
+        """Verify incoming message handler formats and prints without error."""
+        msg = MeshMessage(
+            sender_id="!62d927b8",
+            sender_name="Trinity",
+            receiver_id="^all",
+            text="Testing REPL stream non-disruptive print",
+            channel=0,
+            snr=10.5,
+            hops=0,
+        )
+        self.repl._handle_incoming_message(msg)
+        output = self.console.file.getvalue()
+        self.assertIn("Trinity", output)
+        self.assertIn("Testing REPL stream", output)
+
+
 if __name__ == "__main__":
     unittest.main()
