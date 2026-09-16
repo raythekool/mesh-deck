@@ -1,7 +1,7 @@
 [project]
 name = "mesh-deck"
 version = "0.1.0"
-description = "Add your description here"
+description = "Hermes-style interactive TUI/CLI for exploring and communicating with Meshtastic devices"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -11,3 +11,10 @@ dependencies = [
     "rich>=15.0.0",
     "textual>=8.2.8",
 ]
+
+[project.scripts]
+mesh-deck = "mesh_deck.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
