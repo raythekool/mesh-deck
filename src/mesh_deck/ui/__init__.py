@@ -1,0 +1,42 @@
+"""UI package for Mesh-Deck TUI / CLI."""
+
+from mesh_deck.models import DeviceConnectionInfo, MeshMessage, NodeData
+from mesh_deck.ui.banner import render_banner
+from mesh_deck.ui.completer import SLASH_COMMANDS, MeshDeckCompleter
+from mesh_deck.ui.repl import MeshDeckREPL
+from mesh_deck.ui.tables import (
+    render_message,
+    render_node_detail,
+    render_nodes_table,
+)
+from mesh_deck.ui.theme import (
+    CYBERPUNK_THEME,
+    THEME_COLORS,
+    format_battery,
+    format_distance,
+    format_hops,
+    format_role,
+    format_snr,
+    format_time_ago,
+)
+
+__all__ = [
+    "CYBERPUNK_THEME",
+    "THEME_COLORS",
+    "SLASH_COMMANDS",
+    "format_snr",
+    "format_battery",
+    "format_role",
+    "format_time_ago",
+    "format_hops",
+    "format_distance",
+    "render_banner",
+    "render_nodes_table",
+    "render_node_detail",
+    "render_message",
+    "MeshDeckCompleter",
+    "MeshDeckREPL",
+    "NodeData",
+    "MeshMessage",
+    "DeviceConnectionInfo",
+]
