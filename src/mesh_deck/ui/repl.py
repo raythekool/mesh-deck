@@ -38,8 +38,8 @@ class MeshDeckREPL:
             from mesh_deck.commands.dispatcher import CommandDispatcher
             self.dispatcher = CommandDispatcher(self.client, console=self.console)
         self.completer = MeshDeckCompleter(
-            node_getter=self._get_all_nodes,
-            port_getter=self._get_available_ports,
+            get_nodes=self._get_all_nodes,
+            get_ports=self._get_available_ports,
         )
         self.history = InMemoryHistory()
         self.session: PromptSession = PromptSession(

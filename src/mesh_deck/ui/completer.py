@@ -39,6 +39,9 @@ class MeshDeckCompleter(Completer):
         get_nodes: Callable[[], list[NodeData]] | list[NodeData] | None = None,
         get_ports: Callable[[], list[str]] | list[str] | None = None,
         commands: dict[str, str] | None = None,
+        node_getter: Callable[[], list[NodeData]] | list[NodeData] | None = None,
+        port_getter: Callable[[], list[str]] | list[str] | None = None,
+        **kwargs: Any,
     ) -> None:
         """Initialize completer.
 
@@ -46,9 +49,11 @@ class MeshDeckCompleter(Completer):
             get_nodes: Callable returning list of NodeData or static list of NodeData.
             get_ports: Optional callable or list of available serial ports for /switch.
             commands: Optional dictionary mapping slash commands to description strings.
+            node_getter: Alias for get_nodes.
+            port_getter: Alias for get_ports.
         """
-        self._get_nodes_provider = get_nodes
-        self._get_ports_provider = get_ports
+        self._get_nodes_provider = get_nodes if get_nodes is not None else node_getter
+        self._get_ports_provider = get_ports if get_ports is not None else port_getter
         self.commands = commands or SLASH_COMMANDS
 
     def _resolve_nodes(self) -> list[NodeData]:
