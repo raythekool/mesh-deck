@@ -224,6 +224,24 @@ class TestCommandDispatcher(unittest.TestCase):
         res_c = self.dispatcher.dispatch("/clear")
         self.assertTrue(res_c)
 
+    @unittest.mock.patch("mesh_deck.ui.interactive_table.launch_interactive_nodes")
+    def test_dispatch_view(self, mock_launch) -> None:
+        res = self.dispatcher.dispatch("/view")
+        self.assertTrue(res)
+        mock_launch.assert_called_once()
+
+    def test_dispatch_settings_view(self) -> None:
+        res = self.dispatcher.dispatch("/settings")
+        self.assertTrue(res)
+
+    def test_dispatch_settings_update(self) -> None:
+        self.assertTrue(self.dispatcher.dispatch("/settings lang en"))
+        self.assertTrue(self.dispatcher.dispatch("/settings lang it"))
+        self.assertTrue(self.dispatcher.dispatch("/settings theme high_contrast"))
+        self.assertTrue(self.dispatcher.dispatch("/settings theme cyberpunk"))
+        self.assertTrue(self.dispatcher.dispatch("/settings sort snr"))
+        self.assertTrue(self.dispatcher.dispatch("/settings port /dev/ttyACM0"))
+
     def test_dispatch_unknown_command(self) -> None:
         res = self.dispatcher.dispatch("/not_a_valid_command")
         self.assertTrue(res)

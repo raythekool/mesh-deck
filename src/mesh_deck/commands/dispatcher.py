@@ -35,6 +35,10 @@ class CommandDispatcher:
             "/dm": self.cmd_dm,
             "/channels": self.cmd_channels,
             "/info": self.cmd_info,
+            "/view": self.cmd_view,
+            "/tui": self.cmd_view,
+            "/settings": self.cmd_settings,
+            "/config": self.cmd_settings,
             "/switch": self.cmd_switch,
             "/scan": self.cmd_scan,
             "/clear": self.cmd_clear,
@@ -85,19 +89,21 @@ class CommandDispatcher:
             title_style=f"bold {THEME_COLORS['primary']}",
             border_style=THEME_COLORS["border"],
             show_header=True,
-            header_style=f"bold {THEME_COLORS['accent']}",
+            header_style=f"bold {THEME_COLORS['primary']}",
         )
         table.add_column("Comando", style="bold white", width=22)
-        table.add_column("Argomenti", style="dim cyan", width=20)
+        table.add_column("Argomenti", style="dim cyan", width=22)
         table.add_column("Descrizione", style="white")
 
         commands_info = [
             ("/nodes", "[active|snr|hops|name]", "Elenca i nodi visibili nella mesh con telemetria"),
+            ("/view, /tui", "", "Tabella interattiva a schermo intero con click su header per ordinare"),
             ("/node", "<id|aka>", "Visualizza la scheda analitica dettagliata di un nodo"),
             ("/send", "<testo>", "Invia un messaggio broadcast sul canale primario (anche solo digitando il testo)"),
             ("/dm", "<id|aka> <testo>", "Invia un messaggio diretto privato a un nodo"),
             ("/channels", "", "Mostra l'elenco dei canali radio configurati"),
             ("/info", "", "Visualizza lo stato della radio, frequenze, modem e preset"),
+            ("/settings", "[lang|theme|sort|port]", "Visualizza o modifica le impostazioni (lingua it/en, tema, porta)"),
             ("/switch", "[porta|indice]", "Passa a un altro dispositivo LoRa USB connesso"),
             ("/scan", "", "Rileva e mostra tutte le radio LoRa USB collegate al PC"),
             ("/banner", "", "Ristampa il banner di stato Hermes"),
@@ -134,6 +140,10 @@ class CommandDispatcher:
 
         table = render_nodes_table(nodes, local_node_id=local_id)
         self.console.print(table)
+        self.console.print(
+            f"[dim]💡 Suggerimento: usa [{THEME_COLORS['primary']}]/view[/dim] "
+            f"[dim]per aprire la tabella interattiva con ordinamento al click del mouse su ogni colonna.[/dim]\n"
+        )
 
     def cmd_node(self, args: list[str]) -> None:
         """Show detail panel for a specific node."""
@@ -334,6 +344,75 @@ class CommandDispatcher:
             channels=channels,
         )
         self.console.print(banner)
+
+    def cmd_view(self, args: list[str]) -> None:
+        """Launch interactive full-screen table with mouse-click column sorting."""
+        from mesh_deck.ui.interactive_table import launch_interactive_nodes
+        local_node = self.client.get_local_node()
+        self.console.print(f"[{THEME_COLORS['primary']}]Avvio tabella interattiva... (Fai click sulle intestazioni per ordinare, premi 'q' o 'Esc' per tornare al prompt)[/]")
+        launch_interactive_nodes(self.client.store, local_node=local_node)
+
+    def cmd_settings(self, args: list[str]) -> None:
+        """View or update user preferences (language, theme, port, sort)."""
+        from mesh_deck.core.settings import Settings
+        settings = Settings.load()
+
+        if not args:
+            table = Table(
+                title="⚙️ IMPOSTAZIONI MESH-DECK",
+                title_style=f"bold {THEME_COLORS['primary']}",
+                border_style=THEME_COLORS["border"],
+                show_header=True,
+                header_style=f"bold {THEME_COLORS['primary']}",
+            )
+            table.add_column("Parametro", style="bold white", width=24)
+            table.add_column("Valore Attuale", style="bold green", width=18)
+            table.add_column("Opzioni / Come Modificare", style="dim cyan")
+
+            table.add_row("Lingua (lang)", settings.language, "/settings lang <it|en>")
+            table.add_row("Tema (theme)", settings.theme, "/settings theme <cyberpunk|high_contrast|amber|matrix>")
+            table.add_row("Porta predefinita (port)", settings.default_port or "(Auto-detect)", "/settings port </dev/tty...>")
+            table.add_row("Ordinamento (sort)", settings.default_sort, "/settings sort <last_heard|snr|hops|name>")
+            table.add_row("Modalità UI (mode)", settings.ui_mode, "/settings mode <repl|tui>")
+
+            self.console.print(table)
+            return
+
+        sub = args[0].lower()
+        if sub in ("lang", "lingua") and len(args) > 1:
+            lang_val = args[1].lower()
+            if lang_val in ("it", "en"):
+                settings.update(language=lang_val)
+                self.console.print(f"[{THEME_COLORS['secondary']}]✓ Lingua impostata su:[/] [bold]{lang_val.upper()}[/]")
+            else:
+                self.console.print(f"[{THEME_COLORS['alert']}]Lingua non supportata. Usa 'it' o 'en'.[/]")
+        elif sub in ("theme", "tema") and len(args) > 1:
+            theme_val = args[1].lower()
+            if theme_val in ("cyberpunk", "high_contrast", "amber", "matrix"):
+                settings.update(theme=theme_val)
+                self.console.print(f"[{THEME_COLORS['secondary']}]✓ Tema impostato su:[/] [bold]{theme_val}[/]")
+            else:
+                self.console.print(f"[{THEME_COLORS['alert']}]Tema non valido. Usa 'cyberpunk', 'high_contrast', 'amber', o 'matrix'.[/]")
+        elif sub in ("sort", "ordinamento") and len(args) > 1:
+            sort_val = args[1].lower()
+            if sort_val in ("last_heard", "snr", "hops", "name"):
+                settings.update(default_sort=sort_val)
+                self.console.print(f"[{THEME_COLORS['secondary']}]✓ Ordinamento predefinito impostato su:[/] [bold]{sort_val}[/]")
+            else:
+                self.console.print(f"[{THEME_COLORS['alert']}]Ordinamento non valido. Usa 'last_heard', 'snr', 'hops', o 'name'.[/]")
+        elif sub in ("port", "porta") and len(args) > 1:
+            port_val = args[1]
+            settings.update(default_port=port_val)
+            self.console.print(f"[{THEME_COLORS['secondary']}]✓ Porta predefinita impostata su:[/] [bold]{port_val}[/]")
+        elif sub in ("mode", "modalita") and len(args) > 1:
+            mode_val = args[1].lower()
+            if mode_val in ("repl", "tui"):
+                settings.update(ui_mode=mode_val)
+                self.console.print(f"[{THEME_COLORS['secondary']}]✓ Modalità UI impostata su:[/] [bold]{mode_val}[/]")
+            else:
+                self.console.print(f"[{THEME_COLORS['alert']}]Modalità non valida. Usa 'repl' o 'tui'.[/]")
+        else:
+            self.console.print(f"[{THEME_COLORS['warning']}]Uso:[/] /settings [lang <it|en> | theme <nome> | sort <criterio> | port <porta> | mode <repl|tui>]")
 
     def cmd_clear(self, args: list[str]) -> None:
         """Clear terminal screen."""

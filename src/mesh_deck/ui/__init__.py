@@ -3,6 +3,7 @@
 from mesh_deck.models import DeviceConnectionInfo, MeshMessage, NodeData
 from mesh_deck.ui.banner import render_banner
 from mesh_deck.ui.completer import SLASH_COMMANDS, MeshDeckCompleter
+from mesh_deck.ui.interactive_table import InteractiveNodesApp, launch_interactive_nodes
 from mesh_deck.ui.repl import MeshDeckREPL
 from mesh_deck.ui.tables import (
     render_message,
@@ -12,6 +13,7 @@ from mesh_deck.ui.tables import (
 from mesh_deck.ui.theme import (
     CYBERPUNK_THEME,
     THEME_COLORS,
+    THEMES,
     format_battery,
     format_distance,
     format_hops,
@@ -23,6 +25,7 @@ from mesh_deck.ui.theme import (
 __all__ = [
     "CYBERPUNK_THEME",
     "THEME_COLORS",
+    "THEMES",
     "SLASH_COMMANDS",
     "format_snr",
     "format_battery",
@@ -36,6 +39,8 @@ __all__ = [
     "render_message",
     "MeshDeckCompleter",
     "MeshDeckREPL",
+    "InteractiveNodesApp",
+    "launch_interactive_nodes",
     "NodeData",
     "MeshMessage",
     "DeviceConnectionInfo",

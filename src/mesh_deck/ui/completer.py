@@ -22,6 +22,8 @@ SLASH_COMMANDS: dict[str, str] = {
     "/switch": "Cambia la radio o porta seriale attiva (/switch <porta>)",
     "/channels": "Mostra l'elenco e lo stato dei canali radio",
     "/info": "Informazioni diagnostiche e stato del nodo locale",
+    "/view": "Tabella interattiva a schermo intero con ordinamento al click del mouse",
+    "/settings": "Gestione impostazioni (lingua it/en, tema, porta predefinita)",
     "/clear": "Pulisce lo schermo della console",
     "/quit": "Disconnette ed esce dall'applicazione",
 }
@@ -131,6 +133,38 @@ class MeshDeckCompleter(Completer):
                             display=port,
                             display_meta="Porta Seriale USB",
                         )
+            return
+
+        # 4. Dynamic settings completion for /settings
+        if stripped.startswith("/settings "):
+            remainder = stripped[len("/settings "):]
+            parts = remainder.split()
+            if len(parts) <= 1 and not remainder.endswith(" "):
+                opts = [
+                    ("lang", "Imposta lingua (it, en)"),
+                    ("theme", "Imposta tema (cyberpunk, high_contrast, amber, matrix)"),
+                    ("sort", "Imposta ordinamento predefinito"),
+                    ("port", "Imposta porta seriale predefinita"),
+                ]
+                q = remainder.lower().strip()
+                for opt, desc in opts:
+                    if not q or opt.startswith(q):
+                        yield Completion(text=opt, start_position=-len(remainder), display=opt, display_meta=desc)
+            elif len(parts) >= 1:
+                sub = parts[0].lower()
+                sub_rem = remainder[len(parts[0]):].strip().lower()
+                if sub == "lang":
+                    for l, d in [("it", "Italiano"), ("en", "English")]:
+                        if not sub_rem or l.startswith(sub_rem):
+                            yield Completion(text=l, start_position=-len(sub_rem), display=l, display_meta=d)
+                elif sub == "theme":
+                    for th, d in [("cyberpunk", "Cyberpunk Cyan/Amber"), ("high_contrast", "High Contrast"), ("amber", "Retro Amber"), ("matrix", "Phosphor Green")]:
+                        if not sub_rem or th.startswith(sub_rem):
+                            yield Completion(text=th, start_position=-len(sub_rem), display=th, display_meta=d)
+                elif sub == "sort":
+                    for s in ["last_heard", "snr", "hops", "name"]:
+                        if not sub_rem or s.startswith(sub_rem):
+                            yield Completion(text=s, start_position=-len(sub_rem), display=s, display_meta=s)
             return
 
     def _complete_nodes(

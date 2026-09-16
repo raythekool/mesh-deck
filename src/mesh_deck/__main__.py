@@ -39,10 +39,19 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Print the nodes table and exit (non-interactive)",
     )
+    parser.add_argument(
+        "--tui",
+        action="store_true",
+        help="Launch directly into full-screen interactive table with mouse sorting",
+    )
     return parser.parse_args()
 
 
 def main() -> None:
+    from mesh_deck.core.settings import Settings
+    from mesh_deck.ui.interactive_table import launch_interactive_nodes
+
+    settings = Settings.load()
     args = parse_args()
 
     # If --list requested, scan and print
@@ -57,7 +66,7 @@ def main() -> None:
         sys.exit(0)
 
     # Determine port to connect
-    port = args.port
+    port = args.port or settings.default_port
     if not port:
         ports = scan_meshtastic_ports()
         if not ports:
@@ -69,7 +78,7 @@ def main() -> None:
         # Select first detected port by default
         port = ports[0].port
 
-    console.print(f"[{THEME_COLORS['accent']}]Connessione in corso a [bold]{port}[/]...[/]")
+    console.print(f"[{THEME_COLORS['primary']} bold]Connessione in corso a [cyan]{port}[/]...[/]")
     client = RadioClient()
     success = client.connect(port, blocking=True)
     if not success:
@@ -78,11 +87,19 @@ def main() -> None:
 
     # If --nodes requested, print table and exit
     if args.nodes:
-        nodes = client.store.get_all_nodes(sort_by="last_heard")
+        nodes = client.store.get_all_nodes(sort_by=settings.default_sort)
         local = client.get_local_node()
         table = render_nodes_table(nodes, local_node_id=local.id if local else None)
         console.print(table)
         client.disconnect()
+        sys.exit(0)
+
+    # If --tui requested or configured
+    if args.tui or settings.ui_mode == "tui":
+        try:
+            launch_interactive_nodes(client.store, local_node=client.get_local_node())
+        finally:
+            client.disconnect()
         sys.exit(0)
 
     # Launch interactive REPL

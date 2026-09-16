@@ -9,37 +9,70 @@ from datetime import datetime
 from typing import Final
 from rich.theme import Theme
 
-# Cyberpunk / Matrix Color Palette
+# High-Contrast Cyberpunk / Matrix Color Palette (No low-contrast dark pink)
 THEME_COLORS: Final[dict[str, str]] = {
     "neon_green": "#00ff66",  # Matrix glowing green (strong signals, online, success)
     "neon_cyan": "#00f3ff",   # Cyberpunk electric cyan (primary accents, titles, local node)
-    "neon_magenta": "#ff007f",# High-contrast hot fuchsia (routers, DMs, alerts)
+    "neon_magenta": "#c084fc",# Bright luminous violet / lavender (high-contrast DMs, alerts)
+    "neon_amber": "#ffb800",  # High-contrast golden amber (accent, warnings, repeaters)
     "neon_yellow": "#ffb800", # Amber/Gold (warnings, medium battery, repeaters)
     "neon_red": "#ff3366",    # Alert red (critical battery, weak SNR, errors)
-    "neon_purple": "#9d4edd", # Deep electric violet (special roles, keys)
-    "dim_gray": "#64748b",    # Slate gray for secondary text and units
+    "neon_purple": "#7c3aed", # Deep rich purple (routers, special roles)
+    "dim_gray": "#94a3b8",    # Slate gray for secondary text and units
     "border": "#00f3ff",      # Panel border accent
     "border_dim": "#334155",  # Table separator border
     "bg_dark": "#0a0e17",     # Deep void dark background
     "text_bright": "#f8fafc", # Bright white foreground
     # Semantic aliases
-    "primary": "#00f3ff",
-    "secondary": "#00ff66",
-    "accent": "#ff007f",
-    "warning": "#ffb800",
-    "alert": "#ff3366",
-    "muted": "#64748b",
-    "magenta": "#ff007f",
+    "primary": "#00f3ff",     # Electric cyan
+    "secondary": "#00ff66",   # Neon green
+    "accent": "#ffb800",      # Bright golden amber (high readability!)
+    "warning": "#ffb800",     # Amber
+    "alert": "#ff3366",       # Bright coral/red
+    "muted": "#94a3b8",       # Readable light slate
+    "magenta": "#c084fc",     # Bright luminous violet
+}
+
+THEMES: Final[dict[str, dict[str, str]]] = {
+    "cyberpunk": THEME_COLORS,
+    "high_contrast": {
+        **THEME_COLORS,
+        "primary": "#38bdf8",
+        "secondary": "#4ade80",
+        "accent": "#facc15",
+        "muted": "#cbd5e1",
+        "border": "#38bdf8",
+    },
+    "amber": {
+        **THEME_COLORS,
+        "primary": "#ffb000",
+        "secondary": "#ffd700",
+        "accent": "#ffcc00",
+        "warning": "#f59e0b",
+        "alert": "#ef4444",
+        "muted": "#d97706",
+        "border": "#ffb000",
+    },
+    "matrix": {
+        **THEME_COLORS,
+        "primary": "#22c55e",
+        "secondary": "#4ade80",
+        "accent": "#86efac",
+        "warning": "#eab308",
+        "alert": "#f87171",
+        "muted": "#16a34a",
+        "border": "#22c55e",
+    },
 }
 
 CYBERPUNK_THEME: Final[Theme] = Theme({
     "mesh.cyan": "bold #00f3ff",
     "mesh.green": "bold #00ff66",
-    "mesh.magenta": "bold #ff007f",
+    "mesh.magenta": "bold #c084fc",
     "mesh.yellow": "bold #ffb800",
     "mesh.red": "bold #ff3366",
-    "mesh.purple": "bold #9d4edd",
-    "mesh.dim": "#64748b",
+    "mesh.purple": "bold #7c3aed",
+    "mesh.dim": "#94a3b8",
     "mesh.border": "#00f3ff",
     "mesh.border_dim": "#334155",
     "mesh.title": "bold #00f3ff",
@@ -156,16 +189,16 @@ def format_role(role: str | None) -> str:
         role_clean = "CLIENT"
 
     badge_map = {
-        "ROUTER": "[bold black on #ff007f] ROUTER [/bold black on #ff007f]",
-        "ROUTER_CLIENT": "[bold black on #d946ef] ROUTER_CLI [/bold black on #d946ef]",
+        "ROUTER": "[bold white on #7c3aed] ROUTER [/bold white on #7c3aed]",
+        "ROUTER_CLIENT": "[bold white on #6366f1] ROUTER_CLI [/bold white on #6366f1]",
         "REPEATER": "[bold black on #ffb800] REPEATER [/bold black on #ffb800]",
         "CLIENT": "[bold black on #00ff66] CLIENT [/bold black on #00ff66]",
-        "CLIENT_MUTE": "[bold black on #94a3b8] CLIENT_MUTE [/bold black on #94a3b8]",
+        "CLIENT_MUTE": "[bold white on #64748b] CLIENT_MUTE [/bold white on #64748b]",
         "TRACKER": "[bold black on #00f3ff] TRACKER [/bold black on #00f3ff]",
         "SENSOR": "[bold black on #38bdf8] SENSOR [/bold black on #38bdf8]",
         "TAK": "[bold black on #f97316] TAK [/bold black on #f97316]",
         "TAK_TRACKER": "[bold black on #f97316] TAK_TRACK [/bold black on #f97316]",
-        "LOST_AND_FOUND": "[bold black on #ec4899] LOST&FOUND [/bold black on #ec4899]",
+        "LOST_AND_FOUND": "[bold white on #0284c7] LOST&FOUND [/bold white on #0284c7]",
     }
 
     return badge_map.get(

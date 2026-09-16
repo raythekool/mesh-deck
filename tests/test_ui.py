@@ -137,7 +137,7 @@ class TestThemeFormatters(unittest.TestCase):
 
     def test_format_role(self):
         self.assertIn("ROUTER", format_role("ROUTER"))
-        self.assertIn("#ff007f", format_role("ROUTER"))
+        self.assertIn("#7c3aed", format_role("ROUTER"))
 
         self.assertIn("CLIENT", format_role("CLIENT"))
         self.assertIn("#00ff66", format_role("client"))

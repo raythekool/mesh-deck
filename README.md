@@ -53,11 +53,13 @@ All'interno della console interattiva `mesh-deck`, puoi utilizzare i seguenti co
 | :--- | :--- | :--- |
 | **`/help`** *(o `/?`)* | *(nessuno)* | Mostra la tabella di aiuto con l'elenco di tutti i comandi disponibili. |
 | **`/nodes`** | `[active\|snr\|hops\|name]` | Elenca i nodi visibili nella mesh con telemetria, ordinamenti e filtri. |
+| **`/view`** *(o `/tui`)* | *(nessuno)* | **Tabella interattiva a schermo intero con ordinamento al click del mouse sull'intestazione**. |
 | **`/node`** | `<id\|aka\|nome>` | Visualizza la scheda analitica dettagliata con telemetria e coordinate GPS. |
 | **`/send`** | `<testo>` | Invia un messaggio broadcast sul canale primario *(oppure digita direttamente il testo)*. |
 | **`/dm`** | `<id\|aka\|nome> <testo>` | Invia un messaggio diretto privato riservato a uno specifico nodo. |
 | **`/channels`** | *(nessuno)* | Mostra l'elenco dei canali radio configurati, ruoli e stato crittografia PSK. |
 | **`/info`** | *(nessuno)* | Visualizza lo stato hardware della radio, firmware, regione RF e preset modem. |
+| **`/settings`** | `[lang\|theme\|port\|sort]` | Visualizza o modifica le preferenze (lingua `it`/`en`, temi ad alto contrasto, porta). |
 | **`/switch`** | `[porta\|indice]` | Passa a caldo a un'altra radio LoRa USB collegata al PC. |
 | **`/scan`** | *(nessuno)* | Rileva ed elenca tutte le radio LoRa collegate al computer e il loro stato. |
 | **`/banner`** | *(nessuno)* | Ristampa il banner tattico di stato Hermes in cima allo schermo. |
