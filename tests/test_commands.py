@@ -243,8 +243,19 @@ class TestCommandDispatcher(unittest.TestCase):
         self.assertTrue(self.dispatcher.dispatch("/settings port /dev/ttyACM0"))
 
     def test_dispatch_unknown_command(self) -> None:
-        res = self.dispatcher.dispatch("/not_a_valid_command")
+        console = MagicMock()
+        dispatcher = CommandDispatcher(self.mock_client, console=console)
+
+        res = dispatcher.dispatch("/not_a_valid_command")
         self.assertTrue(res)
+        console.print.assert_not_called()
+
+    def test_dispatch_restart(self) -> None:
+        console = MagicMock()
+        dispatcher = CommandDispatcher(self.mock_client, console=console)
+
+        self.assertTrue(dispatcher.dispatch("/restart"))
+        console.restart_console.assert_called_once()
 
     def test_dispatch_empty_input(self) -> None:
         self.assertTrue(self.dispatcher.dispatch(""))

@@ -10,14 +10,15 @@ from rich.text import Text
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
-from textual.screen import ModalScreen
+from textual.screen import ModalScreen, Screen
 from textual import work
-from textual.widgets import Button, Footer, Header, Input, Label, OptionList, RichLog, Select
+from textual.widgets import Button, Footer, Header, Input, Label, OptionList, RichLog, Select, Static
 from textual.widgets.option_list import Option
 
 from mesh_deck.core.settings import Settings
 from mesh_deck.i18n import command_descriptions, t
-from mesh_deck.core.events import MeshMessage
+from mesh_deck.core.events import DeviceConnectionInfo, MeshMessage
+from mesh_deck.ui.device_selector import DeviceSelectorScreen
 from mesh_deck.ui.completer import Completion, MeshDeckCompleter
 from mesh_deck.ui.tables import render_message
 
@@ -47,6 +48,9 @@ class TextualConsole:
 
     def update_language(self, language: str) -> None:
         self._invoke(self.app.update_language, language)
+
+    def restart_console(self) -> None:
+        self._invoke(self.app.restart_console)
 
     def _invoke(self, callback: Any, *args: Any) -> None:
         if self.app._thread_id == threading.get_ident():
@@ -99,6 +103,38 @@ class SettingsScreen(ModalScreen[None]):
         self.dismiss()
 
 
+class ConnectionScreen(ModalScreen[None]):
+    """Show progress and recoverable failures while the radio handshakes."""
+
+    CSS = """
+    ConnectionScreen { align: center middle; background: #000000aa; }
+    #connection-dialog { width: 64; height: auto; padding: 1 2; border: round #00f3ff; background: #10212b; }
+    #connection-heading { width: 100%; height: 3; background: #063b46; color: #00f3ff; content-align: center middle; text-align: center; text-style: bold; }
+    #connection-status { width: 100%; height: 3; margin-top: 1; color: #e8f1f5; content-align: center middle; text-align: center; }
+    #connection-back { width: 100%; margin-top: 1; display: none; }
+    """
+
+    def __init__(self, port: str, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self.port = port
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="connection-dialog"):
+            yield Label("Connessione alla periferica", id="connection-heading")
+            yield Static(f"Apertura di {self.port} e sincronizzazione del NodeDB...", id="connection-status")
+            yield Button("Torna all'elenco", id="connection-back")
+
+    def show_error(self) -> None:
+        self.query_one("#connection-status", Static).update(
+            f"Connessione a {self.port} non riuscita."
+        )
+        self.query_one("#connection-back", Button).display = True
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "connection-back":
+            self.app.return_to_device_selector()
+
+
 class MeshDeckApp(App):
     """Full-screen Textual command console with live radio output."""
 
@@ -106,7 +142,7 @@ class MeshDeckApp(App):
     SUB_TITLE = "Meshtastic command console"
     BINDINGS = [
         Binding("ctrl+c", "clear_input", "Clear input", show=False),
-        Binding("tab", "complete", "Complete", show=False),
+        Binding("tab", "complete", "Complete", show=False, priority=True),
         Binding("escape", "clear_suggestions", "Dismiss", show=False),
     ]
     CSS = """
@@ -118,9 +154,21 @@ class MeshDeckApp(App):
     Footer { background: #10212b; color: #9aa9b4; }
     """
 
-    def __init__(self, repl: MeshDeckREPL, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        repl: MeshDeckREPL,
+        devices: list[DeviceConnectionInfo] | None = None,
+        preferred_port: str | None = None,
+        initial_port: str | None = None,
+        open_explorer_on_connect: bool = False,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(**kwargs)
         self.repl = repl
+        self.devices = devices
+        self.preferred_port = preferred_port
+        self.initial_port = initial_port
+        self.open_explorer_on_connect = open_explorer_on_connect
         self.completions: list[Completion] = []
         self.history_position = len(self.repl.settings.command_history)
 
@@ -136,9 +184,53 @@ class MeshDeckApp(App):
         console = TextualConsole(self)
         self.repl.console = console
         self.repl.dispatcher.console = console
-        self.repl.dispatcher.cmd_banner([])
         self.query_one(OptionList).display = False
+        if self.initial_port:
+            self.begin_connection(self.initial_port)
+        elif self.devices is not None:
+            self.push_device_selector()
+        else:
+            self.activate_console()
+
+    def push_device_selector(self) -> None:
+        self.push_screen(
+            DeviceSelectorScreen(self.devices or [], preferred_port=self.preferred_port),
+            callback=self.on_device_selected,
+        )
+
+    def on_device_selected(self, port: str | None) -> None:
+        if port is None:
+            self.exit()
+            return
+        self.begin_connection(port)
+
+    def begin_connection(self, port: str) -> None:
+        self.push_screen(ConnectionScreen(port))
+        self.connect_radio(port)
+
+    @work(thread=True, exclusive=True)
+    def connect_radio(self, port: str) -> None:
+        success = self.repl.client.connect(port, blocking=True)
+        self.call_from_thread(self.connection_complete, success)
+
+    def connection_complete(self, success: bool) -> None:
+        if success:
+            self.pop_screen()
+            self.activate_console()
+            return
+        if isinstance(self.screen, ConnectionScreen):
+            self.screen.show_error()
+
+    def return_to_device_selector(self) -> None:
+        if isinstance(self.screen, ConnectionScreen):
+            self.pop_screen()
+        self.push_device_selector()
+
+    def activate_console(self) -> None:
+        self.repl.dispatcher.cmd_banner([])
         self.query_one(Input).focus()
+        if self.open_explorer_on_connect:
+            self.open_node_explorer(self.repl.client.store, self.repl.client.get_local_node())
 
     def write_output(self, renderable: Any) -> None:
         if isinstance(renderable, str):
@@ -164,6 +256,13 @@ class MeshDeckApp(App):
         self.repl.completer.commands = command_descriptions(language)
         self.query_one(Input).placeholder = self.repl._get_prompt()
 
+    def restart_console(self) -> None:
+        """Apply saved settings and redraw the connected command console."""
+        self.repl.settings = Settings.load()
+        self.update_language(self.repl.settings.language)
+        self.clear_output()
+        self.activate_console()
+
     def on_input_changed(self, event: Input.Changed) -> None:
         self.completions = self.repl.completer.suggestions(event.value)
         suggestions = self.query_one(OptionList)
@@ -175,15 +274,30 @@ class MeshDeckApp(App):
         suggestions.highlighted = 0 if self.completions else None
 
     def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
-        self._apply_completion(event.index)
+        if event.option_list.id == "suggestions":
+            if self._execute_command_completion(event.option_index):
+                return
+            self._apply_completion(event.option_index)
+            return
+        if event.option_list.id == "devices" and event.option_index < len(self.devices or []):
+            if isinstance(self.screen, DeviceSelectorScreen):
+                self.screen.dismiss(self.devices[event.option_index].port)
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         command = event.value
-        event.input.value = ""
+        if self._execute_command_completion(0):
+            return
+        self._submit_command(command)
+
+    def _submit_command(self, command: str) -> None:
+        """Clear the command input and schedule command execution."""
+        input_widget = self.query_one(Input)
+        input_widget.value = ""
         self.clear_suggestions()
         self.history_position = len(self.repl.settings.command_history)
         self.repl.settings.add_command(command)
         self._dispatch_command(command)
+
 
     @work(thread=True, exclusive=True)
     def _dispatch_command(self, command: str) -> None:
@@ -193,15 +307,26 @@ class MeshDeckApp(App):
     def on_key(self, event: Any) -> None:
         if event.key == "enter" and isinstance(self.focused, OptionList):
             highlighted = self.focused.highlighted
-            if highlighted is not None:
+            if self.focused.id == "suggestions" and highlighted is not None:
+                if self._execute_command_completion(highlighted):
+                    event.stop()
+                    event.prevent_default()
+                    return
                 self._apply_completion(highlighted)
+            elif self.focused.id == "devices" and highlighted is not None:
+                if isinstance(self.screen, DeviceSelectorScreen):
+                    self.screen.dismiss(self.devices[highlighted].port)
+            else:
+                return
             event.stop()
             event.prevent_default()
             return
-        if event.key == "down" and self.completions:
+        if event.key == "down" and self.completions and isinstance(self.focused, Input):
             self.query_one(OptionList).focus()
             event.stop()
             event.prevent_default()
+            return
+        if not isinstance(self.focused, Input):
             return
         if event.key not in {"up", "down"}:
             return
@@ -233,6 +358,21 @@ class MeshDeckApp(App):
         command.cursor_position = len(command.value)
         command.focus()
         self.clear_suggestions()
+
+    def _execute_command_completion(self, index: int) -> bool:
+        """Execute a selected incomplete slash-command suggestion."""
+        value = self.query_one(Input).value
+        if " " in value.strip() or not value.lstrip().startswith("/"):
+            return False
+        if index >= len(self.completions):
+            return False
+        candidate = self.completions[index]
+        replacement_start = len(value) + candidate.start_position
+        completed_value = value[:replacement_start] + candidate.value
+        if completed_value == value:
+            return False
+        self._submit_command(completed_value)
+        return True
 
     def action_clear_input(self) -> None:
         self.query_one(Input).value = ""

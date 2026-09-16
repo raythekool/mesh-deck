@@ -14,7 +14,9 @@ from rich.table import Table
 from rich.text import Text
 
 from mesh_deck.i18n import command_descriptions
-from mesh_deck.models import MeshMessage, NodeData
+from mesh_deck.models import DeviceConnectionInfo, MeshMessage, NodeData
+from mesh_deck.ui.device_selector import DeviceSelectorScreen
+from mesh_deck.ui.repl import ConnectionScreen, MeshDeckApp, MeshDeckREPL, SettingsScreen
 from mesh_deck.ui import (
     CYBERPUNK_THEME,
     MeshDeckCompleter,
@@ -552,6 +554,10 @@ class TestCompleter(unittest.TestCase):
         self.assertIn("/node", texts)
         self.assertNotIn("/dm", texts)
 
+    def test_settings_and_restart_are_suggested(self):
+        self.assertEqual([item.value for item in self.completer.suggestions("/set")], ["/settings"])
+        self.assertEqual([item.value for item in self.completer.suggestions("/res")], ["/restart"])
+
     def test_localized_command_descriptions(self):
         self.assertIn("List", command_descriptions("en")["/nodes"])
         self.assertIn("Elenca", command_descriptions("it")["/nodes"])
@@ -667,6 +673,122 @@ class TestMeshDeckREPLIntegration(unittest.TestCase):
         output = self.console.file.getvalue()
         self.assertIn("Trinity", output)
         self.assertIn("Testing REPL stream", output)
+
+
+class TestDeviceSelectorKeyboard(unittest.IsolatedAsyncioTestCase):
+    """Test keyboard navigation through startup screens in the unified TUI."""
+
+    async def test_arrows_select_device_with_saved_command_history(self):
+        from unittest.mock import MagicMock
+        from textual.widgets import OptionList
+
+        client = MagicMock()
+        client.store.get_all_nodes.return_value = []
+        client.get_local_node.return_value = None
+        client.get_channels.return_value = []
+        client.connect.return_value = False
+
+        repl = MeshDeckREPL(client)
+        repl.settings.command_history = ["/nodes", "/info"]
+        app = MeshDeckApp(repl, devices=[
+            DeviceConnectionInfo("/dev/ttyACM0", "Heltec", "Heltec"),
+            DeviceConnectionInfo("/dev/ttyACM1", "LilyGo", "LilyGo"),
+        ])
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            self.assertIsInstance(app.screen, DeviceSelectorScreen)
+            devices = app.screen.query_one(OptionList)
+
+            await pilot.press("down")
+            self.assertEqual(devices.highlighted, 1)
+            await pilot.press("up")
+            self.assertEqual(devices.highlighted, 0)
+            await pilot.press("down", "enter")
+            await pilot.pause()
+
+            client.connect.assert_called_once_with("/dev/ttyACM1", blocking=True)
+            self.assertIsInstance(app.screen, ConnectionScreen)
+
+    async def test_successful_connection_returns_to_command_input(self):
+        from unittest.mock import MagicMock
+        from textual.widgets import Input
+
+        client = MagicMock()
+        client.store.get_all_nodes.return_value = []
+        client.get_local_node.return_value = None
+        client.get_channels.return_value = []
+        client.connect.return_value = True
+
+        repl = MeshDeckREPL(client)
+        app = MeshDeckApp(repl, devices=[
+            DeviceConnectionInfo("/dev/ttyACM0", "Heltec", "Heltec"),
+        ])
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            await pilot.press("enter")
+            await pilot.pause()
+            await pilot.pause()
+
+            self.assertNotIsInstance(app.screen, DeviceSelectorScreen)
+            self.assertNotIsInstance(app.screen, ConnectionScreen)
+            self.assertIsInstance(app.focused, Input)
+
+
+class TestCommandAutocomplete(unittest.IsolatedAsyncioTestCase):
+    """Test Enter behavior for command suggestions in the Textual input."""
+
+    async def test_enter_executes_unique_incomplete_command(self):
+        from unittest.mock import MagicMock
+        from textual.widgets import Input
+
+        client = MagicMock()
+        client.store.get_all_nodes.return_value = []
+        client.get_local_node.return_value = None
+        client.get_channels.return_value = []
+        repl = MeshDeckREPL(client)
+        dispatch = repl.dispatcher.dispatch
+        repl.dispatcher.dispatch = MagicMock(wraps=dispatch)
+        app = MeshDeckApp(repl)
+
+        async with app.run_test() as pilot:
+            await pilot.press("/", "s", "e", "t", "enter")
+            await pilot.pause()
+            self.assertEqual(app.query_one(Input).value, "")
+            repl.dispatcher.dispatch.assert_called_once_with("/settings")
+
+    async def test_enter_executes_highlighted_command_when_multiple_match(self):
+        from unittest.mock import MagicMock
+
+        client = MagicMock()
+        client.store.get_all_nodes.return_value = []
+        client.get_local_node.return_value = None
+        client.get_channels.return_value = []
+        repl = MeshDeckREPL(client)
+        dispatch = repl.dispatcher.dispatch
+        repl.dispatcher.dispatch = MagicMock(wraps=dispatch)
+        app = MeshDeckApp(repl)
+
+        async with app.run_test() as pilot:
+            await pilot.press("/", "n", "down", "down", "enter")
+            await pilot.pause()
+            repl.dispatcher.dispatch.assert_called_once_with("/node")
+
+    async def test_enter_executes_complete_settings_command(self):
+        from unittest.mock import MagicMock
+
+        client = MagicMock()
+        client.store.get_all_nodes.return_value = []
+        client.get_local_node.return_value = None
+        client.get_channels.return_value = []
+        repl = MeshDeckREPL(client)
+        app = MeshDeckApp(repl)
+
+        async with app.run_test() as pilot:
+            await pilot.press("/", "s", "e", "t", "t", "i", "n", "g", "s", "enter")
+            await pilot.pause()
+            self.assertIsInstance(app.screen, SettingsScreen)
 
 
 if __name__ == "__main__":

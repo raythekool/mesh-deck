@@ -3,6 +3,7 @@
 from mesh_deck.models import DeviceConnectionInfo, MeshMessage, NodeData
 from mesh_deck.ui.banner import render_banner
 from mesh_deck.ui.completer import SLASH_COMMANDS, MeshDeckCompleter
+from mesh_deck.ui.device_selector import DeviceSelectorApp, select_device
 from mesh_deck.ui.interactive_table import InteractiveNodesApp, InteractiveNodesScreen, launch_interactive_nodes
 from mesh_deck.ui.repl import MeshDeckREPL
 from mesh_deck.ui.tables import (
@@ -38,6 +39,8 @@ __all__ = [
     "render_node_detail",
     "render_message",
     "MeshDeckCompleter",
+    "DeviceSelectorApp",
+    "select_device",
     "MeshDeckREPL",
     "InteractiveNodesApp",
     "InteractiveNodesScreen",

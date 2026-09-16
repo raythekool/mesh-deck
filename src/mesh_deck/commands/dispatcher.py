@@ -42,6 +42,7 @@ class CommandDispatcher:
             "/switch": self.cmd_switch,
             "/scan": self.cmd_scan,
             "/clear": self.cmd_clear,
+            "/restart": self.cmd_restart,
             "/banner": self.cmd_banner,
             "/quit": self.cmd_quit,
             "/exit": self.cmd_quit,
@@ -71,11 +72,6 @@ class CommandDispatcher:
                 except ValueError:
                     args = rest.split()
                 handler(args)
-            else:
-                self.console.print(
-                    f"[{THEME_COLORS['alert']}]Comando sconosciuto:[/] {cmd}. "
-                    f"Digita [{THEME_COLORS['primary']}]/help[/] per la lista dei comandi disponibili."
-                )
         else:
             # Plain text input defaults to broadcasting on channel 0
             self.cmd_send([line])
@@ -108,6 +104,7 @@ class CommandDispatcher:
             ("/scan", "", "Rileva e mostra tutte le radio LoRa USB collegate al PC"),
             ("/banner", "", "Ristampa il banner di stato Hermes"),
             ("/clear", "", "Pulisce la schermata del terminale"),
+            ("/restart", "", "Ricarica impostazioni e aggiorna la console"),
             ("/quit, /exit", "", "Chiude l'applicazione"),
         ]
 
@@ -429,6 +426,12 @@ class CommandDispatcher:
     def cmd_clear(self, args: list[str]) -> None:
         """Clear terminal screen."""
         self.console.clear()
+
+    def cmd_restart(self, args: list[str]) -> None:
+        """Reload console settings without disconnecting the active radio."""
+        restarter = getattr(self.console, "restart_console", None)
+        if callable(restarter):
+            restarter()
 
     def cmd_quit(self, args: list[str]) -> None:
         """Exit Mesh-Deck."""

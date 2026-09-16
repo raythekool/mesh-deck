@@ -9,18 +9,22 @@ Progettata per scenari multi-nodo sul campo (es. Heltec Vision Master E290, Lily
 ## 📸 Anteprima Visiva dell'Interfaccia Tattica
 
 ### 1. Banner Hermes & Stato Operativo Locale
+
 Visualizzazione a colpo d'occhio dello stato radio, nodo locale, canali attivi, preset modem e saturazione RF.
 ![Banner Tattico Hermes](docs/screenshots/banner.svg)
 
 ### 2. Node Explorer con Telemetria Mesh
+
 Tabella responsive con indicatore nodo locale `★`, segnale SNR con codifica cromatica, hop count, stato alimentazione e stima geodetica.
 ![Tabella Nodi Mesh](docs/screenshots/nodes_table.svg)
 
 ### 3. Scheda Analitica Dettagliata per Singolo Nodo (`/node`)
+
 Dossier completo con modello hardware, metriche RF, sensori ambientali (temperatura, umidità, pressione), coordinate GPS e link OpenStreetMap.
 ![Scheda Analitica Nodo](docs/screenshots/node_detail.svg)
 
 ### 4. Messaggistica Tattica & Messaggi Diretti Privati (`/dm`)
+
 Streaming asincrono dei messaggi di canale e risalto immediato per i messaggi privati (DM) con box neon fucsia ad alta visibilità.
 ![Messaggistica Tattica & DM](docs/screenshots/messaging.svg)
 
@@ -30,7 +34,7 @@ Streaming asincrono dei messaggi di canale e risalto immediato per i messaggi pr
 
 - **Multi-Device Auto-Discovery**: Individuazione automatica e fingerprinting delle radio connesse su porte USB (`/dev/ttyACM*`, `/dev/ttyUSB*`).
 - **Hot-Switching a Caldo**: Commutazione istantanea tra più radio LoRa collegate via comando `/switch` senza riavviare l'applicazione.
-- **Console Textual a Schermo Intero**: Input contestuale, cronologia persistente con frecce Su/Giù e suggerimenti dinamici per comandi, porte e alias dei nodi. `Tab` applica il primo suggerimento; freccia Giù e `Invio` permettono di scegliere un’alternativa.
+- **Console Textual a Schermo Intero**: Input contestuale, cronologia persistente con frecce Su/Giù e suggerimenti dinamici per comandi, porte e alias dei nodi. `Tab` completa senza eseguire; `Invio` esegue il comando suggerito, scelto con le frecce quando necessario.
 - **Streaming Asincrono Senza Interruzioni**: I messaggi radio in arrivo vengono aggiunti al log scorrevole Textual senza alterare il testo in digitazione dell'operatore.
 - **Node Explorer & Geodesia Haversine**: Calcolo automatico della distanza ortodromica dal nodo locale e generazione di collegamenti a mappe satellitari/OpenStreetMap.
 - **Crittografia & Canali Multipli**: Supporto per canali primari e secondari (PSK standard o personalizzata) e invio di DM cifrati punto-a-punto.
@@ -39,27 +43,33 @@ Streaming asincrono dei messaggi di canale e risalto immediato per i messaggi pr
 
 ## ⌨️ Controlli TUI
 
-| Azione                            | Controllo                           |
-| :-------------------------------- | :---------------------------------- |
-| Invia comando o messaggio         | `Invio`                             |
-| Applica il primo suggerimento     | `Tab`                               |
-| Sfoglia e applica un suggerimento | freccia Giù, frecce Su/Giù, `Invio` |
-| Sfoglia la cronologia             | frecce Su/Giù nel campo comando     |
-| Cancella il testo in digitazione  | `Ctrl+C`                            |
-| Nasconde i suggerimenti           | `Esc`                               |
-| Apre il Node Explorer             | `/view` o `/tui`                    |
+| Azione                            | Controllo                                         |
+| :-------------------------------- | :------------------------------------------------ |
+| Invia comando o messaggio         | `Invio`                                           |
+| Completa senza eseguire           | `Tab`                                             |
+| Esegue il comando suggerito       | `Invio`; con piu risultati usa quello evidenziato |
+| Sfoglia e applica un suggerimento | freccia Giù, frecce Su/Giù, `Invio`               |
+| Sfoglia la cronologia             | frecce Su/Giù nel campo comando                   |
+| Cancella il testo in digitazione  | `Ctrl+C`                                          |
+| Nasconde i suggerimenti           | `Esc`                                             |
+| Apre il Node Explorer             | `/view` o `/tui`                                  |
 
 La cronologia conserva gli ultimi 100 comandi in
 `~/.config/mesh-deck/settings.json`. I messaggi ricevuti e l'output dei comandi
 restano nel log scorrevole mentre l'input mantiene il focus.
 
+All'avvio interattivo, Mesh-Deck mostra prima l'elenco delle periferiche
+Meshtastic rilevate. Usa freccia Su/Giu e `Invio` per selezionarne una, `r` per
+aggiornare l'elenco e `q` o `Esc` per annullare. La porta predefinita, se
+configurata, viene evidenziata; `--port` la bypassa per gli script.
+
 ---
 
 ## 📚 Documentazione Completa
 
-* 📖 **[Manuale Utente & Guida Operativa (docs/USER_GUIDE.md)](docs/USER_GUIDE.md)**: Manuale completo con sintassi dettagliata dei comandi slash, interpretazione visiva dei badge (SNR, batteria, ruoli), architettura asincrona e guida al troubleshooting.
-* 📋 **[Requisiti di Dettaglio (REQUIREMENTS.md)](REQUIREMENTS.md)**: Specifica completa dei requisiti funzionali, non funzionali, di interfaccia e architettura.
-* 🚀 **[Piano di Implementazione (IMPLEMENTATION_PLAN.md)](IMPLEMENTATION_PLAN.md)**: Roadmap dettagliata delle fasi operative di sviluppo del progetto.
+- 📖 **[Manuale Utente & Guida Operativa (docs/USER_GUIDE.md)](docs/USER_GUIDE.md)**: Manuale completo con sintassi dettagliata dei comandi slash, interpretazione visiva dei badge (SNR, batteria, ruoli), architettura asincrona e guida al troubleshooting.
+- 📋 **[Requisiti di Dettaglio (REQUIREMENTS.md)](REQUIREMENTS.md)**: Specifica completa dei requisiti funzionali, non funzionali, di interfaccia e architettura.
+- 🚀 **[Piano di Implementazione (IMPLEMENTATION_PLAN.md)](IMPLEMENTATION_PLAN.md)**: Roadmap dettagliata delle fasi operative di sviluppo del progetto.
 
 ---
 
@@ -82,6 +92,7 @@ All'interno della console interattiva `mesh-deck`, puoi utilizzare i seguenti co
 | **`/scan`**                     | *(nessuno)*                 | Rileva ed elenca tutte le radio LoRa collegate al computer e il loro stato.                                 |
 | **`/banner`**                   | *(nessuno)*                 | Ristampa il banner tattico di stato Hermes in cima allo schermo.                                            |
 | **`/clear`**                    | *(nessuno)*                 | Pulisce la schermata del terminale preservando la sessione attiva.                                          |
+| **`/restart`**                  | *(nessuno)*                 | Ricarica le impostazioni e aggiorna la console senza disconnettere la radio.                                |
 | **`/quit`** *(o `/exit`, `/q`)* | *(nessuno)*                 | Chiude ordinatamente la connessione radio ed esce dall'applicazione (*73!*).                                |
 
 ---

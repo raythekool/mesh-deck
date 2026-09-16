@@ -126,6 +126,10 @@ STRINGS: dict[str, dict[str, str]] = {
         "it": "Chiude l'applicazione (73!)",
         "en": "Exit the application (73!)",
     },
+    "CMD_DESC_RESTART": {
+        "it": "Ricarica impostazioni e aggiorna la console",
+        "en": "Reload settings and refresh the console",
+    },
 
     # Settings strings
     "SETTINGS_TITLE": {
@@ -180,5 +184,6 @@ def command_descriptions(lang: str) -> dict[str, str]:
         "/view": t("CMD_DESC_VIEW", lang),
         "/settings": t("CMD_DESC_SETTINGS", lang),
         "/clear": t("CMD_DESC_CLEAR", lang),
+        "/restart": t("CMD_DESC_RESTART", lang),
         "/quit": t("CMD_DESC_QUIT", lang),
     }
