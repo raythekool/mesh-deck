@@ -96,41 +96,52 @@ def scan_meshtastic_ports() -> list[DeviceConnectionInfo]:
         return []
 
     for port_info in available_ports:
-        device_path = port_info.device
+        try:
+            device_path = getattr(port_info, "device", None)
+            if not device_path:
+                continue
 
-        # Skip motherboard standard UARTs (/dev/ttyS*) without valid USB VID
-        if device_path.startswith("/dev/ttyS") and port_info.vid is None:
-            continue
+            # Skip motherboard standard UARTs (/dev/ttyS*) without valid USB VID
+            if device_path.startswith("/dev/ttyS") and port_info.vid is None:
+                continue
 
-        is_meshtastic_candidate = False
+            is_meshtastic_candidate = False
 
-        # 1. Check VID against known Meshtastic / MCU vendors
-        if port_info.vid is not None and port_info.vid in KNOWN_MESHTASTIC_VIDS:
-            is_meshtastic_candidate = True
+            # 1. Check VID against known Meshtastic / MCU vendors
+            if port_info.vid is not None and port_info.vid in KNOWN_MESHTASTIC_VIDS:
+                is_meshtastic_candidate = True
 
-        # 2. Check textual descriptors (description, product, manufacturer, hwid)
-        combined_text = (
-            f"{port_info.description or ''} "
-            f"{port_info.manufacturer or ''} "
-            f"{port_info.product or ''} "
-            f"{port_info.hwid or ''}"
-        ).lower()
+            # 2. Check textual descriptors (description, product, manufacturer, hwid)
+            combined_text = (
+                f"{getattr(port_info, 'description', '') or ''} "
+                f"{getattr(port_info, 'manufacturer', '') or ''} "
+                f"{getattr(port_info, 'product', '') or ''} "
+                f"{getattr(port_info, 'hwid', '') or ''}"
+            ).lower()
 
-        if any(keyword in combined_text for keyword in DESCRIPTIVE_KEYWORDS):
-            is_meshtastic_candidate = True
+            if any(keyword in combined_text for keyword in DESCRIPTIVE_KEYWORDS):
+                is_meshtastic_candidate = True
 
-        if is_meshtastic_candidate:
-            hw_name = _extract_clean_hw_name(port_info)
-            description = (port_info.description or hw_name).strip()
+            if is_meshtastic_candidate:
+                hw_name = _extract_clean_hw_name(port_info)
+                description = (port_info.description or hw_name).strip()
 
-            detected_devices.append(
-                DeviceConnectionInfo(
-                    port=device_path,
-                    description=description,
-                    hw_name=hw_name,
-                    is_connected=False,
+                detected_devices.append(
+                    DeviceConnectionInfo(
+                        port=device_path,
+                        description=description,
+                        hw_name=hw_name,
+                        is_connected=False,
+                    )
                 )
-            )
+        except Exception as port_exc:
+            dev_name = "unknown"
+            try:
+                dev_name = str(getattr(port_info, "device", "unknown"))
+            except Exception:
+                pass
+            logger.debug("Error inspecting port %s: %s", dev_name, port_exc)
+            continue
 
     # Sort ports naturally (e.g. /dev/ttyACM0, /dev/ttyACM1)
     detected_devices.sort(key=lambda dev: dev.port)

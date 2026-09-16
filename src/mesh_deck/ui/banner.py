@@ -8,6 +8,7 @@ from __future__ import annotations
 from typing import Any
 from rich import box
 from rich.console import Group
+from rich.markup import escape
 from rich.panel import Panel
 from rich.rule import Rule
 from rich.table import Table
@@ -39,13 +40,19 @@ def render_banner(
     grid.add_column(ratio=6, justify="left")
     grid.add_column(ratio=5, justify="left")
 
+    port_safe = escape(str(port or "N/A"))
+
     if local_node is not None:
-        name_display = f"[bold #00ff66]{local_node.long_name}[/bold #00ff66] [dim]({local_node.id})[/dim]"
-        aka_display = f"[bold #00f3ff]{local_node.short_name}[/bold #00f3ff]"
-        hw_display = f"[white]{local_node.hardware}[/white] {format_role(local_node.role)}"
+        long_safe = escape(str(local_node.long_name or "Unknown"))
+        short_safe = escape(str(local_node.short_name or "????"))
+        id_safe = escape(str(local_node.id or "!unknown"))
+        hw_safe = escape(str(local_node.hardware or "UNSET"))
+        name_display = f"[bold #00ff66]{long_safe}[/bold #00ff66] [dim]({id_safe})[/dim]"
+        aka_display = f"[bold #00f3ff]{short_safe}[/bold #00f3ff]"
+        hw_display = f"[white]{hw_safe}[/white] {format_role(local_node.role)}"
         batt_display = format_battery(local_node.battery_level, local_node.voltage)
-        region = local_node.region or "EU_868"
-        preset = local_node.modem_preset or "LONG_FAST"
+        region = escape(str(local_node.region or "EU_868"))
+        preset = escape(str(local_node.modem_preset or "LONG_FAST"))
 
         # Determine effective channel utilization
         eff_ch_util = (
@@ -85,7 +92,7 @@ def render_banner(
 
     # Right Column: RF & Radio connection
     right_content = (
-        f"[dim #64748b]⚡ RADIO PORT:[/dim #64748b] [bold #00f3ff]{port}[/bold #00f3ff]\n"
+        f"[dim #64748b]⚡ RADIO PORT:[/dim #64748b] [bold #00f3ff]{port_safe}[/bold #00f3ff]\n"
         f"  [dim #64748b]Regione:[/dim #64748b]    [white]{region}[/white] [dim #64748b]• Preset:[/dim #64748b] [white]{preset}[/white]\n"
         f"  [dim #64748b]Ch. Util:[/dim #64748b]   {util_display}"
     )
@@ -102,8 +109,8 @@ def render_banner(
             idx = ch.get("index", 0)
             name = ch.get("name") or ("Primary" if idx == 0 else f"Ch_{idx}")
             modem = ch.get("modem")
-            modem_suffix = f" [dim]({modem})[/dim]" if modem else ""
-            chan_parts.append(f"[bold #00f3ff]#{name}[/bold #00f3ff][dim][{idx}][/dim]{modem_suffix}")
+            modem_suffix = f" [dim]({escape(str(modem))})[/dim]" if modem else ""
+            chan_parts.append(f"[bold #00f3ff]#{escape(str(name))}[/bold #00f3ff][dim][{idx}][/dim]{modem_suffix}")
         elements.append(Text.from_markup(f"[dim #64748b]◈ CANALI ATTIVI:[/dim #64748b] {'  [dim]•[/dim]  '.join(chan_parts)}"))
 
     # Divider & quick commands

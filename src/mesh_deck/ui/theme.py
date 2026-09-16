@@ -53,6 +53,9 @@ CYBERPUNK_THEME: Final[Theme] = Theme({
 })
 
 
+import math
+
+
 def format_snr(snr: float | None) -> str:
     """Format Signal-to-Noise Ratio (SNR) in dB with color coding.
 
@@ -60,19 +63,33 @@ def format_snr(snr: float | None) -> str:
     - 0..5 dB: Bright Cyan (good signal)
     - -10..0 dB: Yellow / Amber (marginal signal)
     - < -10 dB: Red (weak / critical signal)
-    - None: Dim placeholder
+    - None or NaN: Dim placeholder
     """
     if snr is None:
         return "[dim]-- dB[/dim]"
 
-    if snr >= 5.0:
-        return f"[bold #00ff66]+{snr:.1f} dB[/bold #00ff66]"
-    elif snr >= 0.0:
-        return f"[bold #00f3ff]+{snr:.1f} dB[/bold #00f3ff]"
-    elif snr >= -10.0:
-        return f"[bold #ffb800]{snr:.1f} dB[/bold #ffb800]"
+    try:
+        val = float(snr)
+    except (ValueError, TypeError):
+        return "[dim]-- dB[/dim]"
+
+    if math.isnan(val):
+        return "[dim]-- dB[/dim]"
+
+    if math.isinf(val):
+        if val > 0:
+            return "[bold #00ff66]+inf dB[/bold #00ff66]"
+        else:
+            return "[bold #ff3366]-inf dB[/bold #ff3366]"
+
+    if val >= 5.0:
+        return f"[bold #00ff66]+{val:.1f} dB[/bold #00ff66]"
+    elif val >= 0.0:
+        return f"[bold #00f3ff]+{val:.1f} dB[/bold #00f3ff]"
+    elif val >= -10.0:
+        return f"[bold #ffb800]{val:.1f} dB[/bold #ffb800]"
     else:
-        return f"[bold #ff3366]{snr:.1f} dB[/bold #ff3366]"
+        return f"[bold #ff3366]{val:.1f} dB[/bold #ff3366]"
 
 
 def format_battery(level: int | None, voltage: float | None) -> str:
@@ -86,44 +103,64 @@ def format_battery(level: int | None, voltage: float | None) -> str:
     if level is None and voltage is None:
         return "[dim]--[/dim]"
 
+    # Clean and validate voltage
+    valid_voltage: float | None = None
+    if voltage is not None:
+        try:
+            v = float(voltage)
+            if not math.isnan(v) and not math.isinf(v) and v >= 0:
+                valid_voltage = v
+        except (ValueError, TypeError):
+            valid_voltage = None
+
     # External USB power indicator
     if level is not None and level > 100:
-        volt_str = f" ({voltage:.2f}V)" if voltage is not None else ""
+        volt_str = f" ({valid_voltage:.2f}V)" if valid_voltage is not None else ""
         return f"[bold #00ff66]⚡ USB{volt_str}[/bold #00ff66]"
 
     if level is not None:
-        volt_str = f" ({voltage:.2f}V)" if voltage is not None else ""
-        if level > 70:
-            return f"[bold #00ff66]{level}%{volt_str}[/bold #00ff66]"
-        elif level >= 30:
-            return f"[bold #ffb800]{level}%{volt_str}[/bold #ffb800]"
+        try:
+            lvl = int(level)
+        except (ValueError, TypeError):
+            lvl = 0
+
+        volt_str = f" ({valid_voltage:.2f}V)" if valid_voltage is not None else ""
+        if lvl > 70:
+            return f"[bold #00ff66]{lvl}%{volt_str}[/bold #00ff66]"
+        elif lvl >= 30:
+            return f"[bold #ffb800]{lvl}%{volt_str}[/bold #ffb800]"
         else:
-            return f"[bold #ff3366]{level}%{volt_str}[/bold #ff3366]"
+            return f"[bold #ff3366]{lvl}%{volt_str}[/bold #ff3366]"
 
     # Only voltage available
-    if voltage is not None:
-        if voltage >= 4.20:
-            return f"[bold #00ff66]⚡ {voltage:.2f}V[/bold #00ff66]"
-        elif voltage >= 3.85:
-            return f"[bold #00ff66]{voltage:.2f}V[/bold #00ff66]"
-        elif voltage >= 3.65:
-            return f"[bold #ffb800]{voltage:.2f}V[/bold #ffb800]"
+    if valid_voltage is not None:
+        if valid_voltage >= 4.20:
+            return f"[bold #00ff66]⚡ {valid_voltage:.2f}V[/bold #00ff66]"
+        elif valid_voltage >= 3.85:
+            return f"[bold #00ff66]{valid_voltage:.2f}V[/bold #00ff66]"
+        elif valid_voltage >= 3.65:
+            return f"[bold #ffb800]{valid_voltage:.2f}V[/bold #ffb800]"
         else:
-            return f"[bold #ff3366]{voltage:.2f}V[/bold #ff3366]"
+            return f"[bold #ff3366]{valid_voltage:.2f}V[/bold #ff3366]"
 
     return "[dim]--[/dim]"
 
 
-def format_role(role: str) -> str:
+def format_role(role: str | None) -> str:
     """Format Meshtastic device role with pill badge markup."""
-    role_clean = role.upper().strip() if role else "CLIENT"
+    if role is None:
+        role_clean = "CLIENT"
+    else:
+        role_clean = str(role).upper().strip()
+    if not role_clean:
+        role_clean = "CLIENT"
 
     badge_map = {
         "ROUTER": "[bold black on #ff007f] ROUTER [/bold black on #ff007f]",
         "ROUTER_CLIENT": "[bold black on #d946ef] ROUTER_CLI [/bold black on #d946ef]",
         "REPEATER": "[bold black on #ffb800] REPEATER [/bold black on #ffb800]",
         "CLIENT": "[bold black on #00ff66] CLIENT [/bold black on #00ff66]",
-        "CLIENT_MUTE": "[bold black on #94a3b8] CLI_MUTE [/bold black on #94a3b8]",
+        "CLIENT_MUTE": "[bold black on #94a3b8] CLIENT_MUTE [/bold black on #94a3b8]",
         "TRACKER": "[bold black on #00f3ff] TRACKER [/bold black on #00f3ff]",
         "SENSOR": "[bold black on #38bdf8] SENSOR [/bold black on #38bdf8]",
         "TAK": "[bold black on #f97316] TAK [/bold black on #f97316]",
@@ -176,9 +213,17 @@ def format_distance(dist_km: float | None) -> str:
     if dist_km is None:
         return "[dim]--[/dim]"
 
-    if dist_km < 1.0:
-        return f"{int(dist_km * 1000)} m"
-    elif dist_km < 10.0:
-        return f"{dist_km:.2f} km"
+    try:
+        val = float(dist_km)
+    except (ValueError, TypeError):
+        return "[dim]--[/dim]"
+
+    if math.isnan(val) or math.isinf(val) or val < 0:
+        return "[dim]--[/dim]"
+
+    if val < 1.0:
+        return f"{int(val * 1000)} m"
+    elif val < 10.0:
+        return f"{val:.2f} km"
     else:
-        return f"{dist_km:.1f} km"
+        return f"{val:.1f} km"

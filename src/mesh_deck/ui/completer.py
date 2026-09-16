@@ -76,8 +76,11 @@ class MeshDeckCompleter(Completer):
         text_before_cursor = document.text_before_cursor
         stripped = text_before_cursor.lstrip()
 
+        if not stripped:
+            return
+
         # 1. Autocomplete slash commands when typing the command itself
-        if " " not in text_before_cursor:
+        if " " not in stripped:
             prefix = stripped
             if prefix.startswith("/"):
                 for cmd, desc in self.commands.items():
@@ -95,12 +98,20 @@ class MeshDeckCompleter(Completer):
             cmd_prefix = f"{target_cmd} "
             if stripped.startswith(cmd_prefix):
                 remainder = stripped[len(cmd_prefix):]
-                # For /node, there is only 1 argument.
-                # For /dm, syntax is /dm <target> <message>. Once a space is present, stop node suggestions.
-                if " " not in remainder:
-                    query = remainder.strip().lower()
-                    yield from self._complete_nodes(query, len(remainder))
-                return
+                # Check if currently inside quotes or before first argument space
+                is_quoted = remainder.startswith('"') or remainder.startswith("'")
+                if is_quoted:
+                    q_char = remainder[0]
+                    # If quote is unclosed, we are still completing the target argument
+                    if remainder.count(q_char) < 2:
+                        query = remainder[1:].strip().lower()
+                        yield from self._complete_nodes(query, len(remainder), quote=q_char)
+                    return
+                else:
+                    if " " not in remainder:
+                        query = remainder.strip().lower()
+                        yield from self._complete_nodes(query, len(remainder))
+                    return
 
         # 3. Dynamic port completion for /switch
         if stripped.startswith("/switch "):
@@ -108,7 +119,7 @@ class MeshDeckCompleter(Completer):
             if " " not in remainder:
                 query = remainder.strip().lower()
                 for port in self._resolve_ports():
-                    if query in port.lower():
+                    if not query or query in port.lower():
                         yield Completion(
                             text=port,
                             start_position=-len(remainder),
@@ -117,38 +128,55 @@ class MeshDeckCompleter(Completer):
                         )
             return
 
-    def _complete_nodes(self, query: str, replace_len: int) -> Iterable[Completion]:
+    def _complete_nodes(
+        self,
+        query: str,
+        replace_len: int,
+        quote: str | None = None,
+    ) -> Iterable[Completion]:
         """Generate completions for node AKA and Node ID."""
         nodes = self._resolve_nodes()
         seen: set[str] = set()
 
         for node in nodes:
-            meta = f"{node.long_name} [{node.role}]"
+            long_name = str(node.long_name or "")
+            short_clean = str(node.short_name or "").strip()
+            node_id_clean = str(node.id or "").strip()
+            role_str = str(node.role or "CLIENT")
+
+            meta = f"{long_name} [{role_str}]"
             if node.snr is not None:
                 meta += f" | SNR: {node.snr:+.1f}dB"
 
             # Suggest AKA / Short name
-            short_clean = node.short_name.strip()
             if short_clean and short_clean != "????":
-                if not query or query in short_clean.lower() or query in node.long_name.lower():
+                if not query or query in short_clean.lower() or query in long_name.lower():
                     if short_clean not in seen:
                         seen.add(short_clean)
+                        # Quote short name if it contains spaces
+                        if quote:
+                            insert_text = f"{quote}{short_clean}{quote}"
+                        elif " " in short_clean:
+                            insert_text = f'"{short_clean}"'
+                        else:
+                            insert_text = short_clean
+
                         yield Completion(
-                            text=short_clean,
+                            text=insert_text,
                             start_position=-replace_len,
-                            display=f"{short_clean:<6} (AKA)",
+                            display=f"{short_clean:<8} (AKA)",
                             display_meta=meta,
                         )
 
             # Suggest Hex Node ID (e.g. "!45a466e4")
-            node_id_clean = node.id.strip()
             if node_id_clean:
                 if not query or query in node_id_clean.lower() or query in node_id_clean.lstrip("!").lower():
                     if node_id_clean not in seen:
                         seen.add(node_id_clean)
+                        insert_text = f"{quote}{node_id_clean}{quote}" if quote else node_id_clean
                         yield Completion(
-                            text=node_id_clean,
+                            text=insert_text,
                             start_position=-replace_len,
                             display=f"{node_id_clean:<11} (ID)",
-                            display_meta=f"{node.long_name} [{short_clean}]",
+                            display_meta=f"{long_name} [{short_clean}]",
                         )

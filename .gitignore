@@ -45,3 +45,7 @@ venv.bak/
 # Meshtastic specific (if any)
 *.db
 mesh_history.json
+
+# Scratch files
+scratch/
+

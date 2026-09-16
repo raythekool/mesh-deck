@@ -356,6 +356,13 @@ class RadioClient:
         lost_port = self._port
         with self._lock:
             self._is_connected = False
+            if self._interface is not None:
+                try:
+                    self._interface.close()
+                except Exception:
+                    pass
+                self._interface = None
+            self._port = None
         self._notify_connection_change(False, lost_port)
 
     def _notify_node_updated(self, node: NodeData) -> None:

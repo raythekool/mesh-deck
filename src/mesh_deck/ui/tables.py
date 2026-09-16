@@ -8,6 +8,7 @@ from __future__ import annotations
 from typing import Union
 from rich import box
 from rich.console import Group
+from rich.markup import escape
 from rich.panel import Panel
 from rich.rule import Rule
 from rich.table import Table
@@ -48,11 +49,11 @@ def render_nodes_table(
         show_lines=False,
     )
 
-    table.add_column("#", justify="right", style="dim", min_width=2)
+    table.add_column("#", justify="right", style="dim", min_width=2, no_wrap=True)
     table.add_column("Nome Nodo", justify="left", min_width=12, no_wrap=True, overflow="ellipsis")
     table.add_column("AKA", justify="center", min_width=5, no_wrap=True)
     table.add_column("ID", justify="center", style="dim", min_width=9, no_wrap=True)
-    table.add_column("Hardware", justify="left", min_width=10, overflow="ellipsis")
+    table.add_column("Hardware", justify="left", min_width=10, overflow="ellipsis", no_wrap=True)
     table.add_column("Ruolo", justify="center", min_width=7, no_wrap=True)
     table.add_column("SNR", justify="right", min_width=8, no_wrap=True)
     table.add_column("Hops", justify="center", min_width=11, no_wrap=True)
@@ -70,18 +71,23 @@ def render_nodes_table(
                 or (node.short_name.lower() == clean_local.lower())
             )
 
+        long_name_safe = escape(str(node.long_name or "Unknown"))
+        short_name_safe = escape(str(node.short_name or "????"))
+        node_id_safe = escape(str(node.id or "!unknown"))
+        hw_safe = escape(str(node.hardware or "UNSET"))
+
         if is_local:
-            node_name = f"[bold #00ff66]★ [/bold #00ff66][bold #00f3ff]{node.long_name}[/bold #00f3ff] [dim](LOCALE)[/dim]"
-            aka = f"[bold #00ff66]{node.short_name}[/bold #00ff66]"
-            node_id_str = f"[bold #00f3ff]{node.id}[/bold #00f3ff]"
+            node_name = f"[bold #00ff66]★ [/bold #00ff66][bold #00f3ff]{long_name_safe}[/bold #00f3ff] [dim](LOCALE)[/dim]"
+            aka = f"[bold #00ff66]{short_name_safe}[/bold #00ff66]"
+            node_id_str = f"[bold #00f3ff]{node_id_safe}[/bold #00f3ff]"
             row_style = "bold"
         else:
-            node_name = f"[bold #f8fafc]{node.long_name}[/bold #f8fafc]"
-            aka = f"[#00f3ff]{node.short_name}[/#00f3ff]"
-            node_id_str = f"[dim]{node.id}[/dim]"
+            node_name = f"[bold #f8fafc]{long_name_safe}[/bold #f8fafc]"
+            aka = f"[#00f3ff]{short_name_safe}[/#00f3ff]"
+            node_id_str = f"[dim]{node_id_safe}[/dim]"
             row_style = None
 
-        hw_display = f"[white]{node.hardware}[/white]"
+        hw_display = f"[white]{hw_safe}[/white]"
         role_badge = format_role(node.role)
         snr_display = format_snr(node.snr)
         hops_display = format_hops(node.hops_away)
@@ -125,6 +131,11 @@ def render_node_detail(
     """
     effective_dist = distance_km if distance_km is not None else node.distance_km
 
+    long_name_safe = escape(str(node.long_name or "Unknown"))
+    short_name_safe = escape(str(node.short_name or "????"))
+    node_id_safe = escape(str(node.id or "!unknown"))
+    hw_safe = escape(str(node.hardware or "UNSET"))
+
     # Section 1: Identity & Role
     id_grid = Table.grid(expand=True)
     id_grid.add_column(ratio=6)
@@ -132,10 +143,10 @@ def render_node_detail(
 
     licensed_str = "[bold #00ff66]Sì (Amateur Radio)[/bold #00ff66]" if node.is_licensed else "[dim]No / ISM[/dim]"
     id_grid.add_row(
-        f"[dim #64748b]Nome Completo:[/dim #64748b]   [bold #00ff66]{node.long_name}[/bold #00ff66]\n"
-        f"[dim #64748b]Alias (AKA):[/dim #64748b]      [bold #00f3ff]{node.short_name}[/bold #00f3ff]\n"
-        f"[dim #64748b]Node ID:[/dim #64748b]          [white]{node.id}[/white] [dim](Dec: {node.num or '--'})[/dim]",
-        f"[dim #64748b]Modello HW:[/dim #64748b]       [white]{node.hardware}[/white]\n"
+        f"[dim #64748b]Nome Completo:[/dim #64748b]   [bold #00ff66]{long_name_safe}[/bold #00ff66]\n"
+        f"[dim #64748b]Alias (AKA):[/dim #64748b]      [bold #00f3ff]{short_name_safe}[/bold #00f3ff]\n"
+        f"[dim #64748b]Node ID:[/dim #64748b]          [white]{node_id_safe}[/white] [dim](Dec: {node.num or '--'})[/dim]",
+        f"[dim #64748b]Modello HW:[/dim #64748b]       [white]{hw_safe}[/white]\n"
         f"[dim #64748b]Ruolo Dispositivo:[/dim #64748b] {format_role(node.role)}\n"
         f"[dim #64748b]Licenza Radio:[/dim #64748b]    {licensed_str}",
     )
@@ -210,7 +221,7 @@ def render_node_detail(
 
     # Section 5: Security / Public Key (if available)
     pubkey_str = (
-        f"[dim #64748b]{node.public_key}[/dim #64748b]"
+        f"[dim #64748b]{escape(str(node.public_key))}[/dim #64748b]"
         if node.public_key
         else "[dim]Non trasmessa o crittografia standard[/dim]"
     )
@@ -233,7 +244,7 @@ def render_node_detail(
 
     return Panel(
         Group(*elements),
-        title=f"[bold #00f3ff]◈ SCHEDA ANALITICA // {node.short_name} ({node.id})[/bold #00f3ff]",
+        title=f"[bold #00f3ff]◈ SCHEDA ANALITICA // {short_name_safe} ({node_id_safe})[/bold #00f3ff]",
         title_align="left",
         subtitle="[dim #64748b]Meshtastic Node Dossier[/dim #64748b]",
         subtitle_align="right",
@@ -259,19 +270,23 @@ def render_message(
     Returns:
         Rich Text or Panel object.
     """
-    timestamp_str = msg.timestamp.strftime("[%H:%M:%S]")
-    sender_display = msg.sender_name or msg.sender_short_name or msg.sender_id
+    timestamp_str = msg.timestamp.strftime("[%H:%M:%S]") if msg.timestamp else "[--:--:--]"
+    sender_raw = msg.sender_name or msg.sender_short_name or msg.sender_id or "Sconosciuto"
+    sender_display = escape(str(sender_raw))
+    sender_id_safe = escape(str(msg.sender_id or "!unknown"))
     snr_display = f" [{format_snr(msg.snr)}]" if msg.snr is not None else ""
+    text_safe = escape(str(msg.text or ""))
 
     should_render_panel = msg.is_direct if as_panel is None else as_panel
 
     if should_render_panel:
-        recipient_display = msg.recipient_name or msg.recipient_id
+        recipient_raw = msg.recipient_name or msg.recipient_id or "^all"
+        recipient_display = escape(str(recipient_raw))
         content = (
             f"[dim #64748b]{timestamp_str}[/dim #64748b] "
-            f"[bold #00ff66]{sender_display}[/bold #00ff66] [dim]({msg.sender_id})[/dim]{snr_display} "
+            f"[bold #00ff66]{sender_display}[/bold #00ff66] [dim]({sender_id_safe})[/dim]{snr_display} "
             f"[bold #ff007f]➔[/bold #ff007f] [bold #00f3ff]{recipient_display}[/bold #00f3ff]\n\n"
-            f"[bold #f8fafc]{msg.text}[/bold #f8fafc]"
+            f"[bold #f8fafc]{text_safe}[/bold #f8fafc]"
         )
         return Panel(
             Text.from_markup(content),
@@ -284,17 +299,17 @@ def render_message(
     else:
         # Broadcast / channel chatter
         if msg.channel_name:
-            chan_tag = f"[bold #00f3ff]#{msg.channel_name}[/bold #00f3ff]"
+            chan_tag = f"[bold #00f3ff]#{escape(str(msg.channel_name))}[/bold #00f3ff]"
         elif msg.channel == 0:
             chan_tag = "[bold #00f3ff]#Primary[/bold #00f3ff]"
         else:
-            chan_tag = f"[bold #00f3ff]#Ch_{msg.channel}[/bold #00f3ff]"
+            chan_tag = f"[bold #00f3ff]#Ch_{escape(str(msg.channel))}[/bold #00f3ff]"
 
         formatted = (
             f"[dim #64748b]{timestamp_str}[/dim #64748b] "
             f"{chan_tag} "
             f"[bold #00ff66]{sender_display}[/bold #00ff66]{snr_display} "
             f"[dim #64748b]❯[/dim #64748b] "
-            f"[#f8fafc]{msg.text}[/#f8fafc]"
+            f"[#f8fafc]{text_safe}[/#f8fafc]"
         )
         return Text.from_markup(formatted)

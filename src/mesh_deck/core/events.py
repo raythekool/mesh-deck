@@ -119,8 +119,20 @@ class NodeData:
 
     @property
     def has_position(self) -> bool:
-        """Check if node has valid coordinates."""
-        return self.latitude is not None and self.longitude is not None
+        """Check if node has valid geographical coordinates."""
+        if self.latitude is None or self.longitude is None:
+            return False
+        try:
+            lat = float(self.latitude)
+            lon = float(self.longitude)
+            if not (-90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0):
+                return False
+            # 0.0, 0.0 indicates an unacquired GPS fix in Meshtastic hardware
+            if lat == 0.0 and lon == 0.0:
+                return False
+            return True
+        except (ValueError, TypeError):
+            return False
 
     @property
     def has_coords(self) -> bool:

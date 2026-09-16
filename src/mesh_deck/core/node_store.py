@@ -101,13 +101,17 @@ class NodeStore:
         1. Exact match on node ID (e.g. '!45a466e4', '45a466e4', '0x45a466e4')
         2. Exact match on AKA / short name (case-insensitive)
         3. Exact match on decimal node number
-        4. Substring match on long name (case-insensitive)
-        5. Substring match on short name (case-insensitive)
+        4. Hexadecimal conversion match on node number (e.g. 0x45a466e4)
+        5. Substring match on long name (case-insensitive, supports unicode & emojis)
+        6. Substring match on short name (case-insensitive)
+        7. Substring match on hex ID (e.g. '66e4' or '!45a4')
         """
-        if not query:
+        if not query or not isinstance(query, str):
             return None
 
         q = query.strip()
+        if not q:
+            return None
         q_lower = q.lower()
 
         with self._lock:
@@ -116,11 +120,9 @@ class NodeStore:
             if direct:
                 return direct
 
-            # Check without leading ! or 0x
-            normalized_q = q_lower
-            if normalized_q.startswith("!"):
-                normalized_q = normalized_q[1:]
-            elif normalized_q.startswith("0x"):
+            # Strip leading !, 0x, #
+            normalized_q = q_lower.lstrip("!#")
+            if normalized_q.startswith("0x"):
                 normalized_q = normalized_q[2:]
 
             for nid, node in self._nodes.items():
@@ -135,22 +137,38 @@ class NodeStore:
 
             # 3. Exact match on decimal node number
             try:
-                num_val = int(q)
+                num_val = int(q, 10)
                 node_by_num = self.get_node_by_num(num_val)
                 if node_by_num:
                     return node_by_num
             except ValueError:
                 pass
 
-            # 4. Case-insensitive substring match on long name
+            # 4. Hex match on node number
+            try:
+                hex_val = int(normalized_q, 16)
+                node_by_num = self.get_node_by_num(hex_val)
+                if node_by_num:
+                    return node_by_num
+            except ValueError:
+                pass
+
+            # 5. Case-insensitive substring match on long name (handles unicode/emojis)
             for node in self._nodes.values():
                 if node.long_name and q_lower in node.long_name.lower():
                     return node
 
-            # 5. Case-insensitive substring match on short name
+            # 6. Case-insensitive substring match on short name
             for node in self._nodes.values():
                 if node.short_name and q_lower in node.short_name.lower():
                     return node
+
+            # 7. Substring match on hex ID (e.g. '66e4' matching '!45a466e4')
+            if len(normalized_q) >= 2:
+                for nid, node in self._nodes.items():
+                    clean_nid = nid.lstrip("!").lower()
+                    if normalized_q in clean_nid or q_lower in nid.lower():
+                        return node
 
             return None
 
@@ -181,37 +199,52 @@ class NodeStore:
                     if n.is_local:
                         filtered.append(n)
                     elif n.last_heard is not None:
-                        delta = (now - n.last_heard).total_seconds()
-                        if delta <= active_threshold_seconds:
-                            filtered.append(n)
+                        try:
+                            if n.last_heard.tzinfo is not None:
+                                now_cmp = datetime.now(n.last_heard.tzinfo)
+                            else:
+                                now_cmp = now
+                            delta = (now_cmp - n.last_heard).total_seconds()
+                            if 0 <= delta <= active_threshold_seconds:
+                                filtered.append(n)
+                        except Exception:
+                            pass
                 node_list = filtered
 
             # Sorting
             if sort_by == "snr":
                 # Highest SNR first; None placed last
                 node_list.sort(
-                    key=lambda n: (n.snr is not None, n.snr if n.snr is not None else -999.0),
+                    key=lambda n: (
+                        n.snr is not None,
+                        float(n.snr) if n.snr is not None else float("-inf"),
+                    ),
                     reverse=True,
                 )
             elif sort_by == "hops":
                 # Lowest hops first; None placed last
                 node_list.sort(
-                    key=lambda n: (n.hops_away is None, n.hops_away if n.hops_away is not None else 999),
+                    key=lambda n: (
+                        n.hops_away is None,
+                        int(n.hops_away) if n.hops_away is not None else float("inf"),
+                    ),
                 )
             elif sort_by == "name":
                 # Alphabetical by long_name, then short_name, then ID
                 node_list.sort(
-                    key=lambda n: (n.long_name or n.short_name or n.id).lower(),
+                    key=lambda n: (str(n.long_name or n.short_name or n.id or "")).lower(),
                 )
             else:
                 # Default "last_heard": most recent first; None placed last
-                node_list.sort(
-                    key=lambda n: (
-                        n.last_heard is not None,
-                        n.last_heard.timestamp() if n.last_heard else 0.0,
-                    ),
-                    reverse=True,
-                )
+                def _last_heard_key(node: NodeData):
+                    if node.last_heard is None:
+                        return (False, 0.0)
+                    try:
+                        return (True, node.last_heard.timestamp())
+                    except Exception:
+                        return (False, 0.0)
+
+                node_list.sort(key=_last_heard_key, reverse=True)
 
             return node_list
 
@@ -346,7 +379,10 @@ class NodeStore:
             return new_node
 
     def update_from_telemetry_packet(self, packet: dict[str, Any]) -> NodeData | None:
-        """Update node state from a received telemetry packet."""
+        """Update node state from a received telemetry packet.
+
+        Parses deviceMetrics, environmentMetrics, powerMetrics, and localStats.
+        """
         from_num = packet.get("from")
         from_id = packet.get("fromId")
         if from_num is None and not from_id:
@@ -365,21 +401,48 @@ class NodeStore:
 
             telemetry = packet.get("decoded", {}).get("telemetry", {})
             dev_metrics = telemetry.get("deviceMetrics", {})
+            env_metrics = telemetry.get("environmentMetrics", {})
+            power_metrics = telemetry.get("powerMetrics", {})
+            local_stats = telemetry.get("localStats", {})
 
+            # Device metrics
             if dev_metrics.get("batteryLevel") is not None:
                 node.battery_level = int(dev_metrics["batteryLevel"])
             if dev_metrics.get("voltage") is not None:
                 node.voltage = float(dev_metrics["voltage"])
+            elif env_metrics.get("voltage") is not None:
+                node.voltage = float(env_metrics["voltage"])
+            elif power_metrics.get("ch1Voltage") is not None:
+                node.voltage = float(power_metrics["ch1Voltage"])
+
             if dev_metrics.get("channelUtilization") is not None:
                 node.channel_util = float(dev_metrics["channelUtilization"])
+            elif local_stats.get("channelUtilization") is not None:
+                node.channel_util = float(local_stats["channelUtilization"])
+
             if dev_metrics.get("airUtilTx") is not None:
                 node.air_util_tx = float(dev_metrics["airUtilTx"])
+            elif local_stats.get("airUtilTx") is not None:
+                node.air_util_tx = float(local_stats["airUtilTx"])
+
+            # Environment metrics
+            if env_metrics.get("temperature") is not None:
+                node.temperature = float(env_metrics["temperature"])
+            if env_metrics.get("relativeHumidity") is not None:
+                node.relative_humidity = float(env_metrics["relativeHumidity"])
+            elif env_metrics.get("humidity") is not None:
+                node.relative_humidity = float(env_metrics["humidity"])
+
+            if env_metrics.get("barometricPressure") is not None:
+                node.barometric_pressure = float(env_metrics["barometricPressure"])
+            elif env_metrics.get("pressure") is not None:
+                node.barometric_pressure = float(env_metrics["pressure"])
 
             self._update_common_packet_fields(node, packet)
             return node
 
     def update_from_position_packet(self, packet: dict[str, Any]) -> NodeData | None:
-        """Update node coordinates from a received position packet."""
+        """Update node coordinates from a received position packet with bounds validation."""
         from_num = packet.get("from")
         from_id = packet.get("fromId")
         if from_num is None and not from_id:
@@ -404,15 +467,29 @@ class NodeStore:
             if lon is None and "longitudeI" in pos and pos["longitudeI"] is not None:
                 lon = float(pos["longitudeI"] * 1e-7)
 
-            if lat is not None:
-                node.latitude = float(lat)
-            if lon is not None:
-                node.longitude = float(lon)
+            # Validate coordinate ranges [-90, 90] and [-180, 180]
+            valid_coords = False
+            if lat is not None and lon is not None:
+                try:
+                    f_lat, f_lon = float(lat), float(lon)
+                    if -90.0 <= f_lat <= 90.0 and -180.0 <= f_lon <= 180.0:
+                        # Reject 0.0, 0.0 if existing node already has a valid fix
+                        if not (f_lat == 0.0 and f_lon == 0.0 and node.has_position):
+                            node.latitude = f_lat
+                            node.longitude = f_lon
+                            valid_coords = True
+                except (ValueError, TypeError):
+                    pass
+
             if pos.get("altitude") is not None:
-                node.altitude = float(pos["altitude"])
+                try:
+                    node.altitude = float(pos["altitude"])
+                except (ValueError, TypeError):
+                    pass
 
             self._update_common_packet_fields(node, packet)
-            node.distance_km = self.calculate_distance(node)
+            if valid_coords:
+                node.distance_km = self.calculate_distance(node)
             return node
 
     def update_from_packet(self, packet: dict[str, Any]) -> NodeData | None:
@@ -438,15 +515,21 @@ class NodeStore:
     def _update_common_packet_fields(self, node: NodeData, packet: dict[str, Any]) -> None:
         """Helper to update SNR, hops, and timestamp from packet header."""
         if packet.get("rxSnr") is not None:
-            node.snr = float(packet["rxSnr"])
+            try:
+                node.snr = float(packet["rxSnr"])
+            except (ValueError, TypeError):
+                pass
 
         # Calculate hops if hopStart and hopLimit are present
         hop_start = packet.get("hopStart")
         hop_limit = packet.get("hopLimit")
         if hop_start is not None and hop_limit is not None:
-            hops = hop_start - hop_limit
-            if hops >= 0:
-                node.hops_away = hops
+            try:
+                hops = int(hop_start) - int(hop_limit)
+                if hops >= 0:
+                    node.hops_away = hops
+            except (ValueError, TypeError):
+                pass
 
         rx_time = packet.get("rxTime")
         if isinstance(rx_time, (int, float)) and rx_time > 0:
@@ -465,8 +548,25 @@ class NodeStore:
             node_data.distance_km = self.calculate_distance(node_data)
 
     @staticmethod
-    def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-        """Calculate great-circle distance in kilometers using the Haversine formula."""
+    def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float | None:
+        """Calculate great-circle distance in kilometers using the Haversine formula.
+
+        Returns None if coordinates are missing, non-numeric, or out of geographical range.
+        """
+        try:
+            lat1, lon1 = float(lat1), float(lon1)
+            lat2, lon2 = float(lat2), float(lon2)
+        except (ValueError, TypeError):
+            return None
+
+        # Geographical bounds validation
+        if not (-90.0 <= lat1 <= 90.0 and -90.0 <= lat2 <= 90.0):
+            return None
+        if not (-180.0 <= lon1 <= 180.0 and -180.0 <= lon2 <= 180.0):
+            return None
+        if (lat1 == 0.0 and lon1 == 0.0) or (lat2 == 0.0 and lon2 == 0.0):
+            return None
+
         r_earth = 6371.0  # Mean radius of Earth in km
         phi1 = math.radians(lat1)
         phi2 = math.radians(lat2)
@@ -477,6 +577,8 @@ class NodeStore:
             math.sin(delta_phi / 2.0) ** 2
             + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2.0) ** 2
         )
+        # Protect against floating-point precision error where a > 1.0
+        a = min(1.0, max(0.0, a))
         c = 2.0 * math.atan2(math.sqrt(a), math.sqrt(1.0 - a))
         return round(r_earth * c, 2)
 
