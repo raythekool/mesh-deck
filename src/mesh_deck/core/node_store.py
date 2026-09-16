@@ -582,20 +582,27 @@ class NodeStore:
         c = 2.0 * math.atan2(math.sqrt(a), math.sqrt(1.0 - a))
         return round(r_earth * c, 2)
 
-    def calculate_distance(self, target: str | NodeData) -> float | None:
-        """Calculate distance in km between local node and a target node.
+    def calculate_distance(
+        self, target_or_a: str | NodeData, b: str | NodeData | None = None
+    ) -> float | None:
+        """Calculate distance in km between local node and target, or between two nodes.
 
-        Returns None if either the local node or target lacks valid coordinates.
+        If b is provided, calculates distance between target_or_a and b.
+        Otherwise, calculates distance between local node and target_or_a.
+        Returns None if either node lacks valid coordinates.
         """
+        if b is not None:
+            return self.distance_between(target_or_a, b)
+
         with self._lock:
             local = self.get_local_node()
             if not local or not local.has_position:
                 return None
 
-            if isinstance(target, str):
-                target_node = self.get_node(target)
+            if isinstance(target_or_a, str):
+                target_node = self.get_node(target_or_a)
             else:
-                target_node = target
+                target_node = target_or_a
 
             if not target_node or not target_node.has_position:
                 return None
