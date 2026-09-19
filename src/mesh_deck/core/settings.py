@@ -22,6 +22,8 @@ class Settings:
     default_sort: str = "last_heard"  # "last_heard" | "snr" | "hops" | "name"
     ui_mode: str = "repl"  # "repl" | "tui"
     command_history: list[str] = field(default_factory=list)
+    notifications_enabled: bool = True
+    history_enabled: bool = True
 
     @classmethod
     def load(cls) -> Settings:
@@ -40,6 +42,8 @@ class Settings:
                     default_sort=data.get("default_sort", "last_heard"),
                     ui_mode=data.get("ui_mode", "repl"),
                     command_history=cls._valid_history(data.get("command_history")),
+                    notifications_enabled=bool(data.get("notifications_enabled", True)),
+                    history_enabled=bool(data.get("history_enabled", True)),
                 )
         except Exception:
             pass

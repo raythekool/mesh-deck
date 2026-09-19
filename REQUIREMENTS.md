@@ -44,6 +44,22 @@ Questo documento definisce i requisiti funzionali, non funzionali, di architettu
 * **RF-4.3 Streaming Messaggi in Tempo Reale**:
   * I messaggi ricevuti in background devono apparire in tempo reale nella console, formattati con timestamp, autore, indicatore di intensità del segnale (SNR) e canale di ricezione, senza interrompere la digitazione nel prompt.
 
+### 2.5 Automazione e Integrazione con Agenti
+* **RF-5.1 CLI Strutturata**: Le operazioni di scansione, diagnostica, lettura nodi/canali e messaggistica devono essere disponibili come sottocomandi non interattivi.
+* **RF-5.2 Output Machine-Readable**: Ogni sottocomando deve offrire un envelope JSON stabile, errori strutturati e codici di uscita deterministici.
+* **RF-5.3 Server MCP Locale**: L'applicazione deve poter avviare un server MCP su stdio che esponga tool tipizzati per scansione, info radio, nodi, canali, broadcast e messaggi diretti.
+* **RF-5.4 Conferma Effetti Esterni**: Broadcast e DM via CLI o MCP devono produrre solo un'anteprima finché non viene fornita una conferma esplicita.
+* **RF-5.5 Perimetro MCP**: Il server MCP iniziale non deve modificare configurazione radio, PSK o preferenze persistenti.
+
+### 2.6 Chat Visuale, Notifiche e Storico Locale
+* **RF-6.1 Chat Multi-Canale Cliccabile (`/chat`)**: Schermata Textual a tutto schermo, utilizzabile interamente con il mouse, che elenca canali e messaggi diretti in una barra laterale selezionabile con click e mostra lo storico più i messaggi live in un pannello dedicato per la voce selezionata.
+* **RF-6.2 Invio Broadcast dalla Chat**: Il campo di input della schermata `/chat` invia un broadcast sul canale attualmente selezionato; l'invio è disabilitato quando è selezionata la voce "Messaggi Diretti" (i DM restano gestiti da `/dm`).
+* **RF-6.3 Badge Messaggi Non Letti**: I canali/DM diversi da quello attualmente visualizzato mostrano un badge numerico con il conteggio dei nuovi messaggi ricevuti, azzerato alla selezione.
+* **RF-6.4 Notifiche Toast in Tempo Reale**: Ogni messaggio ricevuto (broadcast o DM) genera una notifica toast nativa, con titolo e severità differenziati per i DM rispetto ai broadcast; disattivabile con `/settings notifications off`.
+* **RF-6.5 Storico Nodi su File**: Le osservazioni di ciascun nodo (caratteristiche hardware, ruolo, telemetria, posizione) sono registrate in modo append-only su file JSONL quando cambiano in modo sostanziale rispetto all'ultima osservazione, con timestamp di rilevazione.
+* **RF-6.6 Storico Messaggi su File**: I messaggi inviati e ricevuti su ciascun canale (e i DM) sono registrati in modo append-only su file JSONL, con direzione (`in`/`out`) e timestamp di registrazione, condivisi da CLI, TUI e MCP.
+* **RF-6.7 Persistenza Opt-In**: Storico nodi/messaggi e notifiche sono attivi per default ma disattivabili singolarmente via `/settings history <on|off>` e `/settings notifications <on|off>`; nessun file di storico viene creato se la funzione è disabilitata.
+
 ---
 
 ## 3. Requisiti di Interfaccia & UX (RUI)
@@ -57,6 +73,8 @@ Questo documento definisce i requisiti funzionali, non funzionali, di architettu
   * Banner superiore visibile all'avvio con: Nome del nodo locale attivo, ID, porta seriale, preset radio (es. `EU_868 / MEDIUM_FAST`), stato alimentazione e carico canale.
 * **RUI-4 Esploratore Nodi Integrato**:
   * La console Textual apre `/view` come schermata interna, con filtro e ordinamento al click, senza avviare un secondo ciclo eventi.
+* **RUI-5 Chat Canali Integrata**:
+  * La console Textual apre `/chat` come schermata interna, con selezione a click dei canali/DM nella barra laterale e invio broadcast dal campo di input, senza avviare un secondo ciclo eventi.
 
 ---
 
@@ -67,3 +85,6 @@ Questo documento definisce i requisiti funzionali, non funzionali, di architettu
 * **RNF-3 Manutenibilità**: Adozione dell'API ufficiale `meshtastic-python` per evitare re-implementazioni fragili del protocollo.
 * **RNF-4 Gestione Dipendenze**: Gestione interamente delegata a `uv` con lockfile deterministico (`uv.lock`). Avvio rapido tramite `uv run mesh-deck` o `uvx`.
 * **RNF-5 Sicurezza dei Dati**: Nessuna condivisione non autorizzata di chiavi private dei canali; memorizzazione sicura delle preferenze locali.
+* **RNF-6 Integrità stdio**: In modalità MCP nessun output applicativo o log deve essere scritto su stdout al di fuori del protocollo; i log devono usare stderr.
+* **RNF-7 Riutilizzo della Logica**: CLI, MCP e interfacce interattive devono riutilizzare il medesimo service layer per selezione porta, validazione e accesso alla radio.
+* **RNF-8 Concorrenza MCP**: Gli accessi alla sessione radio persistente del server MCP devono essere serializzati e la connessione deve essere chiusa all'arresto.

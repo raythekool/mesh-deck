@@ -4,8 +4,12 @@ from __future__ import annotations
 
 import argparse
 import sys
+from collections.abc import Sequence
+from typing import Any
+
 from rich.console import Console
 
+from mesh_deck.cli import add_agent_subcommands, resolve_connection_args, run_agent_command
 from mesh_deck.core.radio_client import RadioClient
 from mesh_deck.core.scanner import scan_meshtastic_ports
 from mesh_deck.ui.repl import MeshDeckApp, MeshDeckREPL
@@ -15,7 +19,7 @@ from mesh_deck.ui.theme import THEME_COLORS
 console = Console()
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="mesh-deck",
         description="📡 Mesh-Deck: Hermes-style interactive TUI/CLI for Meshtastic devices",
@@ -43,25 +47,45 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Launch directly into full-screen interactive table with mouse sorting",
     )
-    return parser.parse_args()
+    add_agent_subcommands(parser)
+    return parser.parse_args(argv)
 
 
-def main() -> None:
+def _build_history(settings: Any) -> Any:
+    """Return a HistoryStore for the real CLI/TUI entrypoints, honoring user settings."""
+    if not settings.history_enabled:
+        return None
+    from mesh_deck.core.history import HistoryStore
+
+    return HistoryStore()
+
+
+def main(argv: Sequence[str] | None = None) -> int:
     from mesh_deck.core.settings import Settings
 
     settings = Settings.load()
-    args = parse_args()
+    args = parse_args(argv)
+
+    if args.command == "mcp":
+        from mesh_deck.mcp_server import run_server
+
+        port, timeout = resolve_connection_args(args)
+        run_server(port=port, timeout=timeout)
+        return 0
+
+    if args.command:
+        return run_agent_command(args)
 
     # If --list requested, scan and print
     if args.list:
         ports = scan_meshtastic_ports()
         if not ports:
             console.print(f"[{THEME_COLORS['warning']}]Nessun dispositivo Meshtastic rilevato sulle porte USB.[/]")
-            sys.exit(0)
+            return 0
         console.print(f"[{THEME_COLORS['primary']} bold]📡 Dispositivi Meshtastic rilevati:[/] {len(ports)}")
         for p in ports:
             console.print(f"  • [bold cyan]{p.port}[/] - [white]{p.hw_name}[/] [dim]({p.description})[/]")
-        sys.exit(0)
+        return 0
 
     # If --nodes requested, print table and exit
     if args.nodes:
@@ -70,19 +94,19 @@ def main() -> None:
             ports = scan_meshtastic_ports()
             if not ports:
                 console.print(f"[{THEME_COLORS['alert']}]Nessun dispositivo Meshtastic rilevato.[/]")
-                sys.exit(1)
+                return 1
             port = ports[0].port
 
-        client = RadioClient()
+        client = RadioClient(history=_build_history(settings))
         if not client.connect(port, blocking=True):
             console.print(f"[{THEME_COLORS['alert']}]Impossibile connettersi al dispositivo su {port}.[/]")
-            sys.exit(1)
+            return 1
         nodes = client.store.get_all_nodes(sort_by=settings.default_sort)
         local = client.get_local_node()
         table = render_nodes_table(nodes, local_node_id=local.id if local else None)
         console.print(table)
         client.disconnect()
-        sys.exit(0)
+        return 0
 
     devices = None
     if not args.port:
@@ -92,9 +116,9 @@ def main() -> None:
                 f"[{THEME_COLORS['alert']}]Nessun dispositivo Meshtastic rilevato.[/] "
                 f"Verifica il cavo USB o specifica manualmente la porta con [bold]--port /dev/...[/bold]"
             )
-            sys.exit(1)
+            return 1
 
-    client = RadioClient()
+    client = RadioClient(history=_build_history(settings))
     repl = MeshDeckREPL(client, console=console)
     try:
         MeshDeckApp(
@@ -106,7 +130,8 @@ def main() -> None:
         ).run()
     finally:
         client.disconnect()
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

@@ -43,6 +43,9 @@ class TextualConsole:
     def open_node_explorer(self, node_store: Any, local_node: Any) -> None:
         self._invoke(self.app.open_node_explorer, node_store, local_node)
 
+    def open_channel_chat(self, radio_client: Any) -> None:
+        self._invoke(self.app.open_channel_chat, radio_client)
+
     def open_settings(self) -> None:
         self._invoke(self.app.open_settings)
 
@@ -51,6 +54,9 @@ class TextualConsole:
 
     def restart_console(self) -> None:
         self._invoke(self.app.restart_console)
+
+    def notify_message(self, msg: MeshMessage) -> None:
+        self._invoke(self.app.notify_message, msg)
 
     def _invoke(self, callback: Any, *args: Any) -> None:
         if self.app._thread_id == threading.get_ident():
@@ -85,6 +91,18 @@ class SettingsScreen(ModalScreen[None]):
             yield Select([(sort, sort) for sort in ("last_heard", "snr", "hops", "name")], value=self.settings.default_sort, id="sort")
             yield Label(t("SETTINGS_PORT", self.settings.language))
             yield Input(value=self.settings.default_port or "", placeholder=t("SETTINGS_AUTO_PORT", self.settings.language), id="port")
+            yield Label(t("SETTINGS_NOTIFICATIONS", self.settings.language))
+            yield Select(
+                [(t("SETTINGS_ON", self.settings.language), "on"), (t("SETTINGS_OFF", self.settings.language), "off")],
+                value="on" if self.settings.notifications_enabled else "off",
+                id="notifications",
+            )
+            yield Label(t("SETTINGS_HISTORY", self.settings.language))
+            yield Select(
+                [(t("SETTINGS_ON", self.settings.language), "on"), (t("SETTINGS_OFF", self.settings.language), "off")],
+                value="on" if self.settings.history_enabled else "off",
+                id="history",
+            )
             with Horizontal(id="settings-actions"):
                 yield Button(t("SETTINGS_CANCEL", self.settings.language), id="cancel")
                 yield Button(t("SETTINGS_SAVE", self.settings.language), variant="success", id="save")
@@ -98,6 +116,8 @@ class SettingsScreen(ModalScreen[None]):
             theme=str(self.query_one("#theme", Select).value),
             default_sort=str(self.query_one("#sort", Select).value),
             default_port=self.query_one("#port", Input).value.strip() or None,
+            notifications_enabled=str(self.query_one("#notifications", Select).value) == "on",
+            history_enabled=str(self.query_one("#history", Select).value) == "on",
         )
         self.app.update_language(self.settings.language)
         self.dismiss()
@@ -247,6 +267,10 @@ class MeshDeckApp(App):
         from mesh_deck.ui.interactive_table import InteractiveNodesScreen
         self.push_screen(InteractiveNodesScreen(node_store, local_node=local_node))
 
+    def open_channel_chat(self, radio_client: Any) -> None:
+        from mesh_deck.ui.channel_chat import ChannelChatScreen
+        self.push_screen(ChannelChatScreen(radio_client))
+
     def open_settings(self) -> None:
         self.push_screen(SettingsScreen(self.repl.settings))
 
@@ -262,6 +286,19 @@ class MeshDeckApp(App):
         self.update_language(self.repl.settings.language)
         self.clear_output()
         self.activate_console()
+
+    def notify_message(self, msg: MeshMessage) -> None:
+        """Show a toast notification for a newly received mesh message."""
+        sender = msg.sender_name or msg.sender_short_name or msg.sender_id or "?"
+        body = msg.text if len(msg.text) <= 140 else f"{msg.text[:137]}..."
+        if msg.is_dm:
+            title = f"🔒 DM da {sender}"
+            severity = "warning"
+        else:
+            channel_label = msg.channel_name or msg.channel
+            title = f"📡 Canale {channel_label} — {sender}"
+            severity = "information"
+        self.notify(body, title=title, severity=severity, timeout=6)
 
     def on_input_changed(self, event: Input.Changed) -> None:
         self.completions = self.repl.completer.suggestions(event.value)
@@ -421,6 +458,10 @@ class MeshDeckREPL:
 
     def _handle_incoming_message(self, msg: MeshMessage) -> None:
         self.console.print(render_message(msg))
+        if self.settings.notifications_enabled:
+            notifier = getattr(self.console, "notify_message", None)
+            if callable(notifier):
+                notifier(msg)
 
     def _get_prompt(self) -> str:
         """Return the contextual label used by the Textual command input."""

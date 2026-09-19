@@ -14,6 +14,7 @@ from meshtastic.serial_interface import SerialInterface
 from pubsub import pub
 
 from mesh_deck.core.events import MeshMessage, NodeData
+from mesh_deck.core.history import HistoryStore
 from mesh_deck.core.node_store import NodeStore
 
 logger = logging.getLogger(__name__)
@@ -22,8 +23,9 @@ logger = logging.getLogger(__name__)
 class RadioClient:
     """High-level client for Meshtastic serial connection, event dispatching, and state tracking."""
 
-    def __init__(self, node_store: NodeStore | None = None) -> None:
+    def __init__(self, node_store: NodeStore | None = None, history: HistoryStore | None = None) -> None:
         self._node_store = node_store if node_store is not None else NodeStore()
+        self._history = history
         self._interface: SerialInterface | None = None
         self._port: str | None = None
         self._is_connected: bool = False
@@ -43,6 +45,11 @@ class RadioClient:
     def node_store(self) -> NodeStore:
         """Underlying NodeStore instance."""
         return self._node_store
+
+    @property
+    def history(self) -> HistoryStore | None:
+        """Attached HistoryStore instance, or None if history persistence is disabled."""
+        return self._history
 
     @property
     def store(self) -> NodeStore:
@@ -79,6 +86,12 @@ class RadioClient:
         with self._lock:
             if callback not in self._message_callbacks:
                 self._message_callbacks.append(callback)
+
+    def off_message_received(self, callback: Callable[[MeshMessage], Any]) -> None:
+        """Unregister a previously registered message callback, if present."""
+        with self._lock:
+            if callback in self._message_callbacks:
+                self._message_callbacks.remove(callback)
 
     def on_node_updated(self, callback: Callable[[NodeData], Any]) -> None:
         """Register a callback for node updates or newly discovered nodes."""
@@ -296,6 +309,13 @@ class RadioClient:
                 except Exception as cb_exc:
                     logger.exception("Error in message callback: %s", cb_exc)
 
+            # 7. Persist to local history, if enabled
+            if self._history is not None:
+                try:
+                    self._history.record_message(msg, direction="in")
+                except Exception as hist_exc:
+                    logger.exception("Error recording message history: %s", hist_exc)
+
         except Exception as exc:
             logger.exception("Error processing received text message: %s", exc)
 
@@ -373,6 +393,12 @@ class RadioClient:
             except Exception as cb_exc:
                 logger.exception("Error in node_updated callback: %s", cb_exc)
 
+        if self._history is not None:
+            try:
+                self._history.record_node(node)
+            except Exception as hist_exc:
+                logger.exception("Error recording node history: %s", hist_exc)
+
     def _notify_connection_change(self, connected: bool, port: str | None) -> None:
         """Dispatch connection change event to all registered listeners."""
         for cb in list(self._connection_callbacks):
@@ -396,7 +422,15 @@ class RadioClient:
                 raise ConnectionError("RadioClient is not connected to any radio.")
             iface = self._interface
 
-        return iface.sendText(text=text, destinationId="^all", channelIndex=channel_index)
+        result = iface.sendText(text=text, destinationId="^all", channelIndex=channel_index)
+        self._record_outgoing_message(
+            text,
+            receiver_id="^all",
+            recipient_name="Broadcast",
+            channel=channel_index,
+            is_dm=False,
+        )
+        return result
 
     def send_dm(self, target_id: str | int, text: str) -> Any:
         """Send a direct private message to a specific node with ACK request.
@@ -413,7 +447,44 @@ class RadioClient:
                 raise ConnectionError("RadioClient is not connected to any radio.")
             iface = self._interface
 
-        return iface.sendText(text=text, destinationId=target_id, wantAck=True)
+        result = iface.sendText(text=text, destinationId=target_id, wantAck=True)
+        target_node = self._node_store.get_node(str(target_id))
+        self._record_outgoing_message(
+            text,
+            receiver_id=str(target_id),
+            recipient_name=target_node.display_name if target_node else str(target_id),
+            channel=0,
+            is_dm=True,
+        )
+        return result
+
+    def _record_outgoing_message(
+        self,
+        text: str,
+        *,
+        receiver_id: str,
+        recipient_name: str,
+        channel: int,
+        is_dm: bool,
+    ) -> None:
+        """Persist a locally-sent message to history, if enabled."""
+        if self._history is None:
+            return
+        local = self.get_local_node()
+        msg = MeshMessage(
+            sender_id=local.id if local else "^local",
+            sender_name=local.display_name if local else "Locale",
+            sender_short_name=local.short_name if local else None,
+            receiver_id=receiver_id,
+            recipient_name=recipient_name,
+            text=text,
+            channel=channel,
+            is_dm=is_dm,
+        )
+        try:
+            self._history.record_message(msg, direction="out")
+        except Exception as hist_exc:
+            logger.exception("Error recording outgoing message history: %s", hist_exc)
 
     def get_local_node(self) -> NodeData | None:
         """Return the NodeData object corresponding to the connected local radio."""

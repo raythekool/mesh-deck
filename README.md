@@ -1,141 +1,233 @@
 # 📡 Mesh-Deck
 
-**Mesh-Deck** è una console interattiva terminale (CLI/TUI) in stile *Hermes* ad alte prestazioni per esplorare, gestire e comunicare con dispositivi radio e reti **[Meshtastic](https://meshtastic.org/)**.
+Mesh-Deck is a high-performance interactive terminal console for exploring, managing, and communicating with **Meshtastic** radios and mesh networks.
 
-Progettata per scenari multi-nodo sul campo (es. Heltec Vision Master E290, LilyGo T-Beam / T3S3, RAK Wireless WisBlock), offre un'interfaccia ricca di dettagli visivi ad alto contrasto, autocompletamento intelligente, streaming dei messaggi in tempo reale senza interruzione del prompt e passaggio istantaneo (*hot-switching*) tra dispositivi LoRa USB collegati.
-
----
-
-## 📸 Anteprima Visiva dell'Interfaccia Tattica
-
-### 1. Banner Hermes & Stato Operativo Locale
-
-Visualizzazione a colpo d'occhio dello stato radio, nodo locale, canali attivi, preset modem e saturazione RF.
-![Banner Tattico Hermes](docs/screenshots/banner.svg)
-
-### 2. Node Explorer con Telemetria Mesh
-
-Tabella responsive con indicatore nodo locale `★`, segnale SNR con codifica cromatica, hop count, stato alimentazione e stima geodetica.
-![Tabella Nodi Mesh](docs/screenshots/nodes_table.svg)
-
-### 3. Scheda Analitica Dettagliata per Singolo Nodo (`/node`)
-
-Dossier completo con modello hardware, metriche RF, sensori ambientali (temperatura, umidità, pressione), coordinate GPS e link OpenStreetMap.
-![Scheda Analitica Nodo](docs/screenshots/node_detail.svg)
-
-### 4. Messaggistica Tattica & Messaggi Diretti Privati (`/dm`)
-
-Streaming asincrono dei messaggi di canale e risalto immediato per i messaggi privati (DM) con box neon fucsia ad alta visibilità.
-![Messaggistica Tattica & DM](docs/screenshots/messaging.svg)
+It is designed for field operations and multi-node monitoring across devices such as Heltec, LilyGo, and RAK boards. The interface emphasizes rapid visual scanning, node telemetry, command completion, and real-time message streaming without interrupting command input.
 
 ---
 
-## ⚡ Caratteristiche Principali
+## 📸 Tactical Interface Preview
 
-- **Multi-Device Auto-Discovery**: Individuazione automatica e fingerprinting delle radio connesse su porte USB (`/dev/ttyACM*`, `/dev/ttyUSB*`).
-- **Hot-Switching a Caldo**: Commutazione istantanea tra più radio LoRa collegate via comando `/switch` senza riavviare l'applicazione.
-- **Console Textual a Schermo Intero**: Input contestuale, cronologia persistente con frecce Su/Giù e suggerimenti dinamici per comandi, porte e alias dei nodi. `Tab` completa senza eseguire; `Invio` esegue il comando suggerito, scelto con le frecce quando necessario.
-- **Streaming Asincrono Senza Interruzioni**: I messaggi radio in arrivo vengono aggiunti al log scorrevole Textual senza alterare il testo in digitazione dell'operatore.
-- **Node Explorer & Geodesia Haversine**: Calcolo automatico della distanza ortodromica dal nodo locale e generazione di collegamenti a mappe satellitari/OpenStreetMap.
-- **Crittografia & Canali Multipli**: Supporto per canali primari e secondari (PSK standard o personalizzata) e invio di DM cifrati punto-a-punto.
+### 1. Hermes banner and local system status
 
----
+An at-a-glance view of radio state, local node status, active channels, modem preset, and RF saturation.
 
-## ⌨️ Controlli TUI
+![Hermes tactical banner](docs/screenshots/banner.svg)
 
-| Azione                            | Controllo                                         |
-| :-------------------------------- | :------------------------------------------------ |
-| Invia comando o messaggio         | `Invio`                                           |
-| Completa senza eseguire           | `Tab`                                             |
-| Esegue il comando suggerito       | `Invio`; con piu risultati usa quello evidenziato |
-| Sfoglia e applica un suggerimento | freccia Giù, frecce Su/Giù, `Invio`               |
-| Sfoglia la cronologia             | frecce Su/Giù nel campo comando                   |
-| Cancella il testo in digitazione  | `Ctrl+C`                                          |
-| Nasconde i suggerimenti           | `Esc`                                             |
-| Apre il Node Explorer             | `/view` o `/tui`                                  |
+### 2. Mesh node explorer and telemetry
 
-La cronologia conserva gli ultimi 100 comandi in
-`~/.config/mesh-deck/settings.json`. I messaggi ricevuti e l'output dei comandi
-restano nel log scorrevole mentre l'input mantiene il focus.
+A responsive node table with the local node marker, SNR color coding, hop count, power state, and geodesic distance estimate.
 
-All'avvio interattivo, Mesh-Deck mostra prima l'elenco delle periferiche
-Meshtastic rilevate. Usa freccia Su/Giu e `Invio` per selezionarne una, `r` per
-aggiornare l'elenco e `q` o `Esc` per annullare. La porta predefinita, se
-configurata, viene evidenziata; `--port` la bypassa per gli script.
+![Mesh node table](docs/screenshots/nodes_table.svg)
+
+### 3. Detailed single-node analytics panel (`/node`)
+
+A complete node dossier with hardware details, RF metrics, environmental sensors, GPS coordinates, and OpenStreetMap links.
+
+![Node detail panel](docs/screenshots/node_detail.svg)
+
+### 4. Tactical messaging and direct messages (`/dm`)
+
+Asynchronous channel streaming with immediate highlighting for private direct messages and highly visible DM traffic.
+
+![Messaging and DM view](docs/screenshots/messaging.svg)
 
 ---
 
-## 📚 Documentazione Completa
+## ⚡ Core Features
 
-- 📖 **[Manuale Utente & Guida Operativa (docs/USER_GUIDE.md)](docs/USER_GUIDE.md)**: Manuale completo con sintassi dettagliata dei comandi slash, interpretazione visiva dei badge (SNR, batteria, ruoli), architettura asincrona e guida al troubleshooting.
-- 📋 **[Requisiti di Dettaglio (REQUIREMENTS.md)](REQUIREMENTS.md)**: Specifica completa dei requisiti funzionali, non funzionali, di interfaccia e architettura.
-- 🚀 **[Piano di Implementazione (IMPLEMENTATION_PLAN.md)](IMPLEMENTATION_PLAN.md)**: Roadmap dettagliata delle fasi operative di sviluppo del progetto.
-
----
-
-## ⌨️ Tabella Rapida dei Comandi Slash
-
-All'interno della console interattiva `mesh-deck`, puoi utilizzare i seguenti comandi slash:
-
-| Comando                         | Argomenti                   | Descrizione                                                                                                 |
-| :------------------------------ | :-------------------------- | :---------------------------------------------------------------------------------------------------------- |
-| **`/help`** *(o `/?`)*          | *(nessuno)*                 | Mostra la tabella di aiuto con l'elenco di tutti i comandi disponibili.                                     |
-| **`/nodes`**                    | `[active\|snr\|hops\|name]` | Elenca i nodi visibili nella mesh con telemetria, ordinamenti e filtri.                                     |
-| **`/view`** *(o `/tui`)*        | *(nessuno)*                 | **Tabella interattiva a schermo intero con ordinamento al click del mouse sull'intestazione**.              |
-| **`/node`**                     | `<id\|aka\|nome>`           | Visualizza la scheda analitica dettagliata con telemetria e coordinate GPS.                                 |
-| **`/send`**                     | `<testo>`                   | Invia un messaggio broadcast sul canale primario *(oppure digita direttamente il testo)*.                   |
-| **`/dm`**                       | `<id\|aka\|nome> <testo>`   | Invia un messaggio diretto privato riservato a uno specifico nodo.                                          |
-| **`/channels`**                 | *(nessuno)*                 | Mostra l'elenco dei canali radio configurati, ruoli e stato crittografia PSK.                               |
-| **`/info`**                     | *(nessuno)*                 | Visualizza lo stato hardware della radio, firmware, regione RF e preset modem.                              |
-| **`/settings`**                 | `[lang\|theme\|port\|sort]` | Apre i controlli interattivi per lingua, tema, porta e ordinamento; accetta anche aggiornamenti da comando. |
-| **`/switch`**                   | `[porta\|indice]`           | Passa a caldo a un'altra radio LoRa USB collegata al PC.                                                    |
-| **`/scan`**                     | *(nessuno)*                 | Rileva ed elenca tutte le radio LoRa collegate al computer e il loro stato.                                 |
-| **`/banner`**                   | *(nessuno)*                 | Ristampa il banner tattico di stato Hermes in cima allo schermo.                                            |
-| **`/clear`**                    | *(nessuno)*                 | Pulisce la schermata del terminale preservando la sessione attiva.                                          |
-| **`/restart`**                  | *(nessuno)*                 | Ricarica le impostazioni e aggiorna la console senza disconnettere la radio.                                |
-| **`/quit`** *(o `/exit`, `/q`)* | *(nessuno)*                 | Chiude ordinatamente la connessione radio ed esce dall'applicazione (*73!*).                                |
+- **Multi-device auto-discovery**: Automatically detects Meshtastic radios on USB serial ports such as `/dev/ttyACM*` and `/dev/ttyUSB*`.
+- **Hot switching**: Switch between multiple connected LoRa radios with `/switch` without restarting the app.
+- **Full-screen Textual console**: Context-aware input, persistent command history, dynamic suggestions for commands, ports, and node aliases. `Tab` completes without executing; `Enter` accepts the highlighted suggestion.
+- **Asynchronous streaming**: Incoming radio messages are appended to the scrollable log without interrupting the operator’s typing.
+- **Node explorer and Haversine geodesy**: Calculates an approximate distance from the local node and produces links to maps and OpenStreetMap views.
+- **Encryption and multi-channel support**: Works with primary and secondary channels, standard or custom PSK, and direct encrypted DM traffic.
+- **Mouse-usable channel chat viewer**: `/chat` opens a full-screen, click-driven view of every channel plus a "Direct Messages" entry, combining local history with the live message stream and unread badges.
+- **Toast notifications**: Incoming broadcasts and DMs raise an in-app toast (severity-coded, DMs stand out) while you keep working in the console; toggle with `/settings notifications <on|off>`.
+- **Local on-disk history**: Node sightings (with their characteristics and observation timestamps) and sent/received messages are appended to JSONL files under `~/.config/mesh-deck/history/`, fully opt-in and toggleable with `/settings history <on|off>`.
 
 ---
 
-## 🛠️ Stack Tecnologico
+## ⌨️ TUI Controls
 
-- **Runtime & Gestione Pacchetti**: [Python 3.11+](https://www.python.org/) & [uv](https://github.com/astral-sh/uv)
-- **Protocollo Radio**: [meshtastic-python](https://pypi.org/project/meshtastic/) (interfaccia seriale e bridge eventi PubSub)
-- **Terminal UI & Styling**: [Rich](https://rich.readthedocs.io/) (rendering tabelle, pannelli, badge e esportazione SVG)
-- **Interactive TUI**: [Textual](https://textual.textualize.io/) con log Rich e input reattivo
-- **Comunicazione Seriale**: [pyserial](https://pyserial.readthedocs.io/)
+| Action | Control |
+| :--- | :--- |
+| Send a command or message | `Enter` |
+| Complete without executing | `Tab` |
+| Accept the suggested command | `Enter` |
+| Browse and apply a suggestion | Down arrow, Up/Down arrows, `Enter` |
+| Browse command history | Up/Down arrows in the command field |
+| Clear current input | `Ctrl+C` |
+| Hide suggestions | `Esc` |
+| Open the Node Explorer | `/view` or `/tui` |
+| Open the channel/DM chat viewer | `/chat` |
+
+The command history keeps the last 100 entries in `~/.config/mesh-deck/settings.json`. Incoming messages and command output stay in the scrollable log while the input field keeps focus.
+
+On interactive startup, Mesh-Deck first shows the Meshtastic devices it detected. Use the Up/Down arrows and `Enter` to select one, `r` to refresh the list, and `q` or `Esc` to cancel. The default port, if configured, is highlighted; `--port` bypasses it for scripts.
 
 ---
 
-## 🚀 Avvio Rapido
+## 📚 Documentation
+
+- 📖 [User Guide and Operational Guide](docs/USER_GUIDE.md): Full command syntax, visual badge interpretation, async architecture notes, and troubleshooting guidance.
+- 📋 [Requirements](REQUIREMENTS.md): Functional, non-functional, UI, and architecture requirements.
+- 🚀 [Implementation Plan](IMPLEMENTATION_PLAN.md): Roadmap for the project’s development phases.
+
+---
+
+## ⌨️ Quick Slash Command Reference
+
+Inside the interactive `mesh-deck` console, you can use the following slash commands:
+
+| Command | Arguments | Description |
+| :--- | :--- | :--- |
+| **`/help`** or **`/?`** | *(none)* | Displays the help table with all supported slash commands. |
+| **`/nodes`** | `[active|snr|hops|name|last_heard]` | Lists visible mesh nodes with telemetry, ordering, and filters. |
+| **`/view`** or **`/tui`** | *(none)* | Opens the interactive full-screen node table with mouse-click sorting on table headers. |
+| **`/chat`** | *(none)* | Opens the interactive full-screen channel/DM chat viewer: click a channel to view its history and live messages, type to send a broadcast. |
+| **`/node`** | `<id|aka|name>` | Shows the detailed analytics panel for a node. |
+| **`/send`** | `<text>` | Sends a broadcast message on the primary channel. |
+| **`/dm`** | `<id|aka|name> <text>` | Sends a private direct message to a specific node. |
+| **`/channels`** | *(none)* | Shows radio channel configuration, roles, and PSK security state. |
+| **`/info`** | *(none)* | Displays hardware status, firmware, RF region, and modem preset. |
+| **`/settings`** | `[lang|theme|port|sort|mode|notifications|history]` | Shows or updates user settings, including notification toasts and local history persistence. |
+| **`/switch`** | `[port|index]` | Hot-switches to another connected LoRa USB device. |
+| **`/scan`** | *(none)* | Detects and lists all connected LoRa/Meshtastic devices. |
+| **`/banner`** | *(none)* | Re-renders the tactical Hermes status banner. |
+| **`/clear`** | *(none)* | Clears the terminal screen while preserving the active session. |
+| **`/restart`** | *(none)* | Reloads settings and refreshes the console without disconnecting the radio. |
+| **`/quit`** or **`/exit`** or **`/q`** | *(none)* | Cleanly closes the connection and exits the app. |
+
+---
+
+## 🛠️ Tech Stack
+
+- **Runtime and package management**: [Python 3.11+](https://www.python.org/) and [uv](https://github.com/astral-sh/uv)
+- **Radio protocol**: [meshtastic-python](https://pypi.org/project/meshtastic/) for serial bridging and PubSub event handling
+- **Terminal UI and styling**: [Rich](https://rich.readthedocs.io/) for tables, panels, badges, and SVG export
+- **Interactive TUI**: [Textual](https://textual.textualize.io/) for reactive input and rich console interactions
+- **Serial communication**: [pyserial](https://pyserial.readthedocs.io/)
+
+---
+
+## 🚀 Quick Start
 
 ```bash
-# 1. Clona il repository
+# 1. Clone the repository
 git clone https://github.com/raythekool/mesh-deck.git
 cd mesh-deck
 
-# 2. Avvia la console interattiva con uv
+# 2. Launch the interactive console with uv
 uv run mesh-deck
 ```
 
-### Flag da Riga di Comando (CLI)
+### Command-line flags
 
 ```bash
-# Elenca tutte le radio Meshtastic collegate via USB ed esci
+# List all Meshtastic radios connected via USB and exit
 uv run mesh-deck --list
 
-# Connettiti forzatamente a una porta seriale specifica
+# Connect to a specific serial port
 uv run mesh-deck --port /dev/ttyACM0
 
-# Stampa la tabella nodi in modalità non-interattiva (per script / cronjob)
+# Print the node table in non-interactive mode for scripts or cron jobs
 uv run mesh-deck --nodes
 
-# Avvia direttamente il Node Explorer Textual
+# Launch directly into the Textual node explorer
 uv run mesh-deck --tui
 ```
 
+### Agent-friendly CLI
+
+The non-interactive subcommands support human-readable output by default and a
+stable JSON envelope with `--output json`:
+
+```bash
+uv run mesh-deck scan --output json
+uv run mesh-deck nodes --sort snr --active --output json
+uv run mesh-deck node TRIN --port /dev/ttyACM0 --output json
+uv run mesh-deck info --output json
+uv run mesh-deck channels --output json
+```
+
+Successful responses use:
+
+```json
+{"ok": true, "command": "scan", "data": {"devices": [], "count": 0}}
+```
+
+Failures use `ok: false` and a stable `error` object containing `code`,
+`message`, and `details`. Exit codes are `2` for invalid input, `3` for a
+missing node, `4` when no device is available, `5` for connection failures,
+and `6` for transmission failures.
+
+Message commands are previews unless `--confirm` is explicitly provided:
+
+```bash
+uv run mesh-deck send "Weather check" --output json
+uv run mesh-deck send "Weather check" --channel 1 --confirm --output json
+uv run mesh-deck dm TRIN "Return to base" --confirm --output json
+```
+
+### MCP server
+
+Run the local Model Context Protocol server over stdio:
+
+```bash
+uv run mesh-deck mcp
+# Or pin the radio used by all tools:
+uv run mesh-deck mcp --port /dev/ttyACM0
+```
+
+Generic MCP client configuration:
+
+```json
+{
+  "mcpServers": {
+    "mesh-deck": {
+      "command": "uv",
+      "args": ["run", "mesh-deck", "mcp", "--port", "/dev/ttyACM0"]
+    }
+  }
+}
+```
+
+The server exposes `scan_devices`, `get_radio_info`, `list_nodes`, `get_node`,
+`list_channels`, `send_broadcast`, and `send_direct_message`. The two send
+tools return a preview by default and transmit only when called with
+`confirm=true`. Channel keys and raw channel configuration are never returned.
+
+### Chat viewer, notifications & local history
+
+`/chat` opens a full-screen, mouse-usable chat viewer: click a channel (or the
+synthetic "Direct Messages" entry) in the sidebar to see its history and live
+messages, and type in the input field to send a broadcast on the selected
+channel (DMs must still be sent with `/dm`, since they need an explicit
+target). Toggle it off entirely by never invoking it — it adds no background
+overhead when unused.
+
+Incoming messages also raise an in-app toast notification (title/severity vary
+for DMs vs. broadcasts) so you notice new traffic even while focused
+elsewhere in the console. Disable with `/settings notifications off`.
+
+When enabled (default), Mesh-Deck keeps an on-disk, append-only history under
+`~/.config/mesh-deck/history/`:
+
+- `nodes.jsonl`: one line per *materially changed* node observation (name,
+  hardware, role, battery, position, SNR, hops), each tagged with an
+  `observed_at` timestamp.
+- `messages.jsonl`: one line per sent (`direction: "out"`) or received
+  (`direction: "in"`) message, tagged with a `recorded_at` timestamp, usable
+  to reconstruct per-channel/DM chat history (this is what powers `/chat`'s
+  history preload).
+
+Both files are plain JSONL (one JSON object per line) so they're easy to
+`grep`, `jq`, or import elsewhere. Disable persistence with
+`/settings history off`.
+
 ---
 
-## 📄 Licenza
+## 📄 License
 
-Distribuito sotto licenza [MIT](LICENSE).
+Distributed under the [MIT](LICENSE) license.

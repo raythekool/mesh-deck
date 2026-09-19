@@ -152,6 +152,14 @@ STRINGS: dict[str, dict[str, str]] = {
     "SETTINGS_AUTO_PORT": {"it": "Rilevamento automatico", "en": "Automatic detection"},
     "SETTINGS_CANCEL": {"it": "Annulla", "en": "Cancel"},
     "SETTINGS_SAVE": {"it": "Salva", "en": "Save"},
+    "SETTINGS_NOTIFICATIONS": {"it": "Notifiche messaggi", "en": "Message notifications"},
+    "SETTINGS_HISTORY": {"it": "Storico locale su file", "en": "Local file history"},
+    "SETTINGS_ON": {"it": "Attive", "en": "On"},
+    "SETTINGS_OFF": {"it": "Disattivate", "en": "Off"},
+    "CMD_DESC_CHAT": {
+        "it": "Apre la chat interattiva dei canali e dei messaggi diretti (click del mouse)",
+        "en": "Open the interactive channel and direct-message chat viewer (mouse click)",
+    },
 }
 
 
@@ -182,6 +190,7 @@ def command_descriptions(lang: str) -> dict[str, str]:
         "/channels": t("CMD_DESC_CHANNELS", lang),
         "/info": t("CMD_DESC_INFO", lang),
         "/view": t("CMD_DESC_VIEW", lang),
+        "/chat": t("CMD_DESC_CHAT", lang),
         "/settings": t("CMD_DESC_SETTINGS", lang),
         "/clear": t("CMD_DESC_CLEAR", lang),
         "/restart": t("CMD_DESC_RESTART", lang),

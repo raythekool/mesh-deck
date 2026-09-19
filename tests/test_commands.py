@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import io
+import json
 import unittest
 from unittest.mock import MagicMock, patch
 
 from rich.console import Console
 
+from mesh_deck.agent import AgentServiceError
+from mesh_deck.__main__ import parse_args
+from mesh_deck.cli import run_agent_command
 from mesh_deck.commands.dispatcher import CommandDispatcher
 from mesh_deck.core.events import DeviceConnectionInfo, NodeData
 
@@ -230,6 +235,12 @@ class TestCommandDispatcher(unittest.TestCase):
         self.assertTrue(res)
         mock_launch.assert_called_once()
 
+    @unittest.mock.patch("mesh_deck.ui.channel_chat.launch_channel_chat")
+    def test_dispatch_chat(self, mock_launch) -> None:
+        res = self.dispatcher.dispatch("/chat")
+        self.assertTrue(res)
+        mock_launch.assert_called_once_with(self.mock_client)
+
     def test_dispatch_settings_view(self) -> None:
         res = self.dispatcher.dispatch("/settings")
         self.assertTrue(res)
@@ -241,6 +252,19 @@ class TestCommandDispatcher(unittest.TestCase):
         self.assertTrue(self.dispatcher.dispatch("/settings theme cyberpunk"))
         self.assertTrue(self.dispatcher.dispatch("/settings sort snr"))
         self.assertTrue(self.dispatcher.dispatch("/settings port /dev/ttyACM0"))
+
+    def test_dispatch_settings_notifications_and_history_toggle(self) -> None:
+        from mesh_deck.core.settings import Settings
+
+        self.assertTrue(self.dispatcher.dispatch("/settings notifications off"))
+        self.assertFalse(Settings.load().notifications_enabled)
+        self.assertTrue(self.dispatcher.dispatch("/settings notifications on"))
+        self.assertTrue(Settings.load().notifications_enabled)
+
+        self.assertTrue(self.dispatcher.dispatch("/settings history off"))
+        self.assertFalse(Settings.load().history_enabled)
+        self.assertTrue(self.dispatcher.dispatch("/settings history on"))
+        self.assertTrue(Settings.load().history_enabled)
 
     def test_dispatch_unknown_command(self) -> None:
         console = MagicMock()
@@ -267,6 +291,184 @@ class TestCommandDispatcher(unittest.TestCase):
         self.assertFalse(res)
         self.assertFalse(self.dispatcher.running)
         self.mock_client.disconnect.assert_called()
+
+
+class TestAgentCLI(unittest.TestCase):
+    """Test stable CLI parsing, envelopes, and exit codes."""
+
+    def setUp(self):
+        self.service = MagicMock()
+        self.stdout_buffer = io.StringIO()
+        self.stderr_buffer = io.StringIO()
+        self.stdout = Console(
+            file=self.stdout_buffer,
+            force_terminal=False,
+            color_system=None,
+        )
+        self.stderr = Console(
+            file=self.stderr_buffer,
+            force_terminal=False,
+            color_system=None,
+        )
+
+    def test_nodes_json_envelope(self):
+        self.service.list_nodes.return_value = {
+            "nodes": [{"id": "!1"}],
+            "count": 1,
+            "sort": "snr",
+            "active_only": True,
+        }
+        args = parse_args(
+            ["nodes", "--sort", "snr", "--active", "--output", "json"]
+        )
+
+        exit_code = run_agent_command(
+            args,
+            service=self.service,
+            stdout=self.stdout,
+            stderr=self.stderr,
+        )
+
+        payload = json.loads(self.stdout_buffer.getvalue())
+        self.assertEqual(exit_code, 0)
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["command"], "nodes")
+        self.assertEqual(payload["data"]["count"], 1)
+        self.assertNotIn("\x1b", self.stdout_buffer.getvalue())
+        self.service.list_nodes.assert_called_once_with(
+            port=None,
+            timeout=30,
+            sort_by="snr",
+            active_only=True,
+        )
+
+    def test_json_error_uses_stable_exit_code(self):
+        self.service.get_node.side_effect = AgentServiceError(
+            "node_not_found",
+            "No matching node.",
+            exit_code=3,
+            details={"query": "missing"},
+        )
+        args = parse_args(["node", "missing", "--output", "json"])
+
+        exit_code = run_agent_command(
+            args,
+            service=self.service,
+            stdout=self.stdout,
+            stderr=self.stderr,
+        )
+
+        payload = json.loads(self.stdout_buffer.getvalue())
+        self.assertEqual(exit_code, 3)
+        self.assertFalse(payload["ok"])
+        self.assertEqual(payload["error"]["code"], "node_not_found")
+        self.assertEqual(self.stderr_buffer.getvalue(), "")
+
+    def test_send_is_preview_without_confirm(self):
+        self.service.send_broadcast.return_value = {
+            "sent": False,
+            "preview": True,
+            "operation": "broadcast",
+            "text": "hello",
+            "channel_index": 0,
+        }
+        args = parse_args(["send", "hello", "--output", "json"])
+
+        self.assertEqual(
+            run_agent_command(args, service=self.service, stdout=self.stdout),
+            0,
+        )
+        self.service.send_broadcast.assert_called_once_with(
+            "hello",
+            channel_index=0,
+            confirm=False,
+            port=None,
+            timeout=30,
+        )
+
+    def test_legacy_flags_still_parse(self):
+        args = parse_args(["--port", "/dev/ttyACM1", "--nodes"])
+        self.assertIsNone(args.command)
+        self.assertTrue(args.nodes)
+        self.assertEqual(args.port, "/dev/ttyACM1")
+
+    def test_port_before_subcommand_is_not_silently_dropped(self):
+        """Regression test: argparse subparsers overwrite a shared `dest` with
+        their own default unless subcommand connection args use distinct
+        attributes. `--port` given before the subcommand must still resolve.
+        """
+        from mesh_deck.cli import resolve_connection_args
+
+        before = parse_args(["--port", "/dev/ttyACM0", "nodes"])
+        self.assertEqual(resolve_connection_args(before), ("/dev/ttyACM0", 30))
+
+        after = parse_args(["nodes", "--port", "/dev/ttyACM9"])
+        self.assertEqual(resolve_connection_args(after), ("/dev/ttyACM9", 30))
+
+        # When both are given, the subcommand-local value wins.
+        both = parse_args(
+            ["--port", "/dev/ttyACM0", "nodes", "--port", "/dev/ttyACM9"]
+        )
+        self.assertEqual(resolve_connection_args(both), ("/dev/ttyACM9", 30))
+
+    def test_mcp_command_resolves_port_given_before_subcommand(self):
+        from mesh_deck.cli import resolve_connection_args
+
+        args = parse_args(["--port", "/dev/ttyACM7", "mcp"])
+        self.assertEqual(resolve_connection_args(args), ("/dev/ttyACM7", 30))
+
+
+class TestMCPServer(unittest.IsolatedAsyncioTestCase):
+    """Test MCP tool registration and non-mutating send defaults."""
+
+    async def test_tools_are_registered_and_send_defaults_to_preview(self):
+        from mesh_deck.mcp_server import create_server
+
+        service = MagicMock()
+        service.send_broadcast.return_value = {
+            "sent": False,
+            "preview": True,
+        }
+        server = create_server(service, default_port="/dev/ttyACM0")
+
+        names = {tool.name for tool in await server.list_tools()}
+        self.assertEqual(
+            names,
+            {
+                "scan_devices",
+                "get_radio_info",
+                "list_nodes",
+                "get_node",
+                "list_channels",
+                "send_broadcast",
+                "send_direct_message",
+            },
+        )
+        await server.call_tool("send_broadcast", {"text": "hello"})
+        service.send_broadcast.assert_called_once_with(
+            "hello",
+            channel_index=0,
+            confirm=False,
+            port="/dev/ttyACM0",
+            timeout=30,
+        )
+
+    async def test_expected_service_failure_is_an_mcp_tool_error(self):
+        from mesh_deck.mcp_server import create_server
+        from mcp.server.mcpserver.exceptions import ToolError
+
+        service = MagicMock()
+        service.get_node.side_effect = AgentServiceError(
+            "node_not_found",
+            "No matching node.",
+            exit_code=3,
+        )
+        server = create_server(service)
+
+        with self.assertRaises(ToolError) as context:
+            await server.call_tool("get_node", {"query": "missing"})
+
+        self.assertIn("node_not_found", str(context.exception))
 
 
 if __name__ == "__main__":

@@ -6,12 +6,14 @@ Covers theme formatters, banner, tables, detail dossiers, messages, and complete
 import io
 import math
 import unittest
+import unittest.mock
 from datetime import datetime, timedelta, timezone
 
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
+from textual.widgets import Input, OptionList, RichLog
 
 from mesh_deck.i18n import command_descriptions
 from mesh_deck.models import DeviceConnectionInfo, MeshMessage, NodeData
@@ -789,6 +791,135 @@ class TestCommandAutocomplete(unittest.IsolatedAsyncioTestCase):
             await pilot.press("/", "s", "e", "t", "t", "i", "n", "g", "s", "enter")
             await pilot.pause()
             self.assertIsInstance(app.screen, SettingsScreen)
+
+
+class TestChannelChatScreen(unittest.IsolatedAsyncioTestCase):
+    """Test the mouse-usable channel chat screen: history preload, live updates, sending."""
+
+    def _make_client(self):
+        from unittest.mock import MagicMock
+
+        client = MagicMock()
+        client.get_channels.return_value = [
+            {"index": 0, "name": "Primary", "role": "PRIMARY"},
+        ]
+        client.history = None
+        # Simulate on_message_received/off_message_received as plain callback registries.
+        client._callbacks = []
+        client.on_message_received.side_effect = lambda cb: client._callbacks.append(cb)
+        client.off_message_received.side_effect = lambda cb: client._callbacks.remove(cb)
+        return client
+
+    async def test_preloads_history_and_lists_channels_with_dm_entry(self):
+        from mesh_deck.ui.channel_chat import ChannelChatApp
+
+        client = self._make_client()
+        client.history = unittest.mock.MagicMock()
+        client.history.iter_messages.return_value = [
+            {
+                "sender_id": "!aaa",
+                "sender_name": "Neo",
+                "receiver_id": "^all",
+                "text": "Historical hello",
+                "channel": 0,
+                "is_dm": False,
+                "timestamp": "2024-01-01T10:00:00",
+                "direction": "in",
+                "recorded_at": "2024-01-01T10:00:01",
+            }
+        ]
+        app = ChannelChatApp(client)
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            option_list = app.screen.query_one("#channel-list", OptionList)
+            # Primary channel + synthetic "Messaggi Diretti" entry.
+            self.assertEqual(option_list.option_count, 2)
+
+            # History preloaded into the in-memory per-channel buffer used to render the log.
+            buffered = app.screen._buffers.get(0, [])
+            self.assertTrue(any(m.text == "Historical hello" for m in buffered))
+
+    async def test_incoming_message_on_other_channel_shows_unread_badge(self):
+        from mesh_deck.ui.channel_chat import ChannelChatApp, DM_KEY
+
+        client = self._make_client()
+        app = ChannelChatApp(client)
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            screen = app.screen
+            dm_msg = MeshMessage(sender_id="!bbb", sender_name="Trinity", text="psst", is_dm=True)
+            screen._handle_message(dm_msg)
+            await pilot.pause()
+
+            self.assertEqual(screen._unread.get(DM_KEY), 1)
+
+            option_list = screen.query_one("#channel-list", OptionList)
+            dm_index = next(i for i, (key, _n) in enumerate(screen._entries) if key == DM_KEY)
+            option_list.highlighted = dm_index
+            await pilot.press("enter")
+            await pilot.pause()
+
+            self.assertEqual(screen._unread.get(DM_KEY), 0)
+            self.assertEqual(screen._selected_key, DM_KEY)
+
+    async def test_submitting_input_sends_broadcast_on_selected_channel(self):
+        from mesh_deck.ui.channel_chat import ChannelChatApp
+
+        client = self._make_client()
+        app = ChannelChatApp(client)
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            chat_input = app.screen.query_one("#chat-input", Input)
+            chat_input.focus()
+            await pilot.pause()
+            await pilot.press(*"hello mesh")
+            await pilot.press("enter")
+            await pilot.pause()
+
+            client.send_broadcast.assert_called_once_with("hello mesh", channel_index=0)
+
+
+class TestNotifyMessageWiring(unittest.IsolatedAsyncioTestCase):
+    """Test that MeshDeckApp.notify_message builds the expected toast for DMs/broadcasts."""
+
+    def _make_app(self):
+        from unittest.mock import MagicMock
+        from mesh_deck.ui.repl import MeshDeckApp, MeshDeckREPL
+
+        client = MagicMock()
+        client.store.get_all_nodes.return_value = []
+        client.get_local_node.return_value = None
+        client.get_channels.return_value = []
+        client.connect.return_value = True
+
+        repl = MeshDeckREPL(client)
+        return MeshDeckApp(repl, devices=[])
+
+    async def test_dm_notification_uses_warning_severity(self):
+        app = self._make_app()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            with unittest.mock.patch.object(app, "notify") as mock_notify:
+                msg = MeshMessage(sender_id="!bbb", sender_name="Trinity", text="psst", is_dm=True)
+                app.notify_message(msg)
+                mock_notify.assert_called_once()
+                _, kwargs = mock_notify.call_args
+                self.assertEqual(kwargs["severity"], "warning")
+                self.assertIn("Trinity", kwargs["title"])
+
+    async def test_broadcast_notification_uses_information_severity(self):
+        app = self._make_app()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            with unittest.mock.patch.object(app, "notify") as mock_notify:
+                msg = MeshMessage(sender_id="!aaa", sender_name="Neo", text="hi all", channel=0, is_dm=False)
+                app.notify_message(msg)
+                mock_notify.assert_called_once()
+                _, kwargs = mock_notify.call_args
+                self.assertEqual(kwargs["severity"], "information")
 
 
 if __name__ == "__main__":

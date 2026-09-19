@@ -105,6 +105,90 @@ uv run mesh-deck --port /dev/ttyUSB0
 uv run mesh-deck --nodes > mesh_snapshot.txt
 ```
 
+### CLI per Agenti e Automazioni
+
+I sottocomandi non interattivi espongono le stesse operazioni con output umano
+predefinito oppure JSON stabile tramite `--output json`:
+
+| Sottocomando | Funzione |
+| :------------ | :------- |
+| `scan` | Elenca i dispositivi seriali Meshtastic rilevati. |
+| `info` | Restituisce connessione, nodo locale e metadati radio. |
+| `nodes` | Elenca i nodi; supporta `--sort` e `--active`. |
+| `node <query>` | Cerca un nodo per ID, numero, AKA o nome. |
+| `channels` | Elenca i metadati dei canali senza esporre le PSK. |
+| `send <testo>` | Prepara o invia un broadcast. |
+| `dm <target> <testo>` | Prepara o invia un messaggio diretto. |
+| `mcp` | Avvia il server MCP locale su stdio. |
+
+Le operazioni che richiedono la radio accettano `--port` e `--timeout`. In
+assenza di `--port`, Mesh-Deck usa la porta predefinita nelle impostazioni e
+poi il primo dispositivo rilevato.
+
+```bash
+uv run mesh-deck nodes --sort snr --active --output json
+uv run mesh-deck node TRIN --port /dev/ttyACM0 --output json
+uv run mesh-deck channels --output json
+```
+
+L'envelope JSON di successo contiene `ok`, `command` e `data`. Un errore
+contiene `ok: false` e `error.code`, `error.message`, `error.details`.
+
+| Exit code | Significato |
+| :-------- | :---------- |
+| `0` | Operazione completata, inclusa un'anteprima non trasmessa. |
+| `1` | Errore interno inatteso. |
+| `2` | Input o opzione non valida. |
+| `3` | Nodo non trovato. |
+| `4` | Nessun dispositivo disponibile. |
+| `5` | Connessione seriale fallita. |
+| `6` | Trasmissione fallita. |
+
+#### Sicurezza degli invii
+
+`send` e `dm` non trasmettono per impostazione predefinita: restituiscono
+un'anteprima con `preview: true`. L'invio effettivo richiede `--confirm`.
+
+```bash
+uv run mesh-deck send "Test radio" --output json
+uv run mesh-deck send "Test radio" --confirm --output json
+uv run mesh-deck dm TRIN "Messaggio riservato" --confirm --output json
+```
+
+Nota: l'anteprima di `send` (broadcast) non richiede alcuna connessione al
+dispositivo. L'anteprima di `dm`, invece, richiede comunque una connessione
+radio attiva perché deve risolvere il nodo destinatario nel node store prima
+di mostrare a chi verrebbe inviato il messaggio; se il dispositivo non è
+raggiungibile, anche l'anteprima di `dm` restituirà un errore di connessione.
+
+### Server MCP locale
+
+Il server MCP usa esclusivamente stdio e mantiene una sessione radio condivisa
+per la durata del processo:
+
+```bash
+uv run mesh-deck mcp --port /dev/ttyACM0
+```
+
+Configurazione client generica:
+
+```json
+{
+  "mcpServers": {
+    "mesh-deck": {
+      "command": "uv",
+      "args": ["run", "mesh-deck", "mcp", "--port", "/dev/ttyACM0"]
+    }
+  }
+}
+```
+
+I tool disponibili sono `scan_devices`, `get_radio_info`, `list_nodes`,
+`get_node`, `list_channels`, `send_broadcast` e `send_direct_message`. Gli
+ultimi due richiedono `confirm=true` per trasmettere; in caso contrario
+restituiscono solo l'anteprima. Il server non espone PSK o configurazioni raw
+dei canali e non offre modifiche alla configurazione radio.
+
 ---
 
 ## ⌨️ 3. Manuale Completo dei Comandi Slash
@@ -186,6 +270,28 @@ senza interrompere il testo in digitazione.
 
   ```text
   mesh-deck [VM290] ❯ /view
+  ```
+
+---
+
+### `/chat`
+- **Sintassi**: `/chat`
+- **Parametri**: Nessuno.
+- **Descrizione**: Apre una schermata Textual a tutto schermo, **utilizzabile
+  con il mouse**, dedicata alla visualizzazione rapida delle chat per canale.
+  La barra laterale (`OptionList`) elenca tutti i canali configurati più una
+  voce sintetica "Messaggi Diretti"; un click su una voce carica lo storico e
+  i messaggi live di quel canale/DM nel pannello di log centrale. Il campo di
+  input in basso permette di inviare un broadcast direttamente sul canale
+  selezionato (i DM restano da inviare con `/dm`, poiché richiedono un
+  destinatario esplicito). I canali con messaggi non letti mostrano un badge
+  numerico finché non vengono selezionati. Se disponibile, lo storico locale
+  su file (vedi § 4) viene precaricato all'apertura. `q` o `Esc` per tornare
+  alla console, `r` per aggiornare l'elenco canali.
+- **Esempio d'uso**:
+
+  ```text
+  mesh-deck [VM290] ❯ /chat
   ```
 
 ---
@@ -328,15 +434,18 @@ senza interrompere il testo in digitazione.
 ---
 
 ### `/settings` (o `/config`)
-- **Sintassi**: `/settings` oppure `/settings <lang|theme|sort|port> <valore>`.
+- **Sintassi**: `/settings` oppure `/settings <lang|theme|sort|port|mode|notifications|history> <valore>`.
 - **Parametri**:
   - Senza argomenti apre una finestra Textual con selettori per lingua, tema,
-    ordinamento dei nodi e porta seriale predefinita.
+    ordinamento dei nodi, porta seriale predefinita, notifiche messaggi e
+    storico locale su file.
   - Con argomenti aggiorna direttamente l'impostazione, ad esempio
-    `/settings lang en` o `/settings sort snr`.
+    `/settings lang en`, `/settings sort snr`, `/settings notifications off`
+    o `/settings history off`.
 - **Descrizione**: Le preferenze vengono salvate in
   `~/.config/mesh-deck/settings.json`. La lingua aggiorna subito etichette,
-  placeholder e descrizioni dell'autocomplete nella console attiva.
+  placeholder e descrizioni dell'autocomplete nella console attiva. Le
+  notifiche e lo storico locale sono descritti in dettaglio al § 4.
 
 ---
 
@@ -448,6 +557,47 @@ Mesh-Deck distingue chiaramente tra due modalità operative di comunicazione:
    - Comunicazioni riservate punto-a-punto indirizzate a uno specifico Node ID.
    - Cifratura gestita a livello hardware dal protocollo Meshtastic.
    - Visualizzazione con **pannello di allerta tattico fucsia neon (`#ff007f`)**, garantendo che comunicazioni critiche non vadano perse tra i log di canale.
+
+Per una visione rapida e cliccabile di tutte le chat, vedi `/chat` (§ 3).
+
+---
+
+### Notifiche Messaggi in Tempo Reale
+
+Quando `notifications_enabled` è attivo (default), ogni messaggio in arrivo —
+broadcast o DM — genera un **toast** nativo Textual, così da notare il
+traffico anche mentre si è concentrati su un altro comando:
+
+- **Broadcast**: titolo con icona 📡 e nome canale, severità `information`.
+- **DM**: titolo con icona 🔒 e nome mittente, severità `warning` per farlo
+  risaltare rispetto al normale traffico di canale.
+
+Disattivabile in qualsiasi momento con `/settings notifications off` (o dal
+pannello `/settings` senza argomenti).
+
+---
+
+### Storico Locale su File (Nodi e Messaggi)
+
+Quando `history_enabled` è attivo (default), Mesh-Deck mantiene uno storico
+**append-only** su disco in `~/.config/mesh-deck/history/`, in formato JSONL
+(un oggetto JSON per riga), condiviso da CLI, TUI e server MCP:
+
+- **`nodes.jsonl`**: una riga per ogni osservazione di un nodo che presenta
+  una **variazione sostanziale** rispetto all'ultima registrata (nome,
+  hardware, ruolo, batteria, posizione, SNR, hop count), con timestamp
+  `observed_at`. Questo evita di riempire il file ad ogni tick di telemetria
+  se nulla di rilevante è cambiato.
+- **`messages.jsonl`**: una riga per ogni messaggio inviato (`direction: "out"`)
+  o ricevuto (`direction: "in"`), con timestamp `recorded_at`, canale e stato
+  DM/broadcast. È la fonte dati usata da `/chat` per precaricare lo storico
+  di ogni canale/DM all'apertura.
+
+Lo storico è **opt-in per progettazione**: nessun file viene scritto se non
+esplicitamente abilitato, e la scrittura su disco non blocca mai la
+comunicazione radio (eventuali errori di I/O vengono loggati e ignorati).
+Disattivabile con `/settings history off`; la modifica ha effetto dal
+prossimo avvio della sessione.
 
 ---
 

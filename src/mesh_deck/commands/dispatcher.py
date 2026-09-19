@@ -37,6 +37,7 @@ class CommandDispatcher:
             "/info": self.cmd_info,
             "/view": self.cmd_view,
             "/tui": self.cmd_view,
+            "/chat": self.cmd_chat,
             "/settings": self.cmd_settings,
             "/config": self.cmd_settings,
             "/switch": self.cmd_switch,
@@ -94,12 +95,13 @@ class CommandDispatcher:
         commands_info = [
             ("/nodes", "[active|snr|hops|name]", "Elenca i nodi visibili nella mesh con telemetria"),
             ("/view, /tui", "", "Tabella interattiva a schermo intero con click su header per ordinare"),
+            ("/chat", "", "Chat interattiva canali e DM a schermo intero, con click del mouse"),
             ("/node", "<id|aka>", "Visualizza la scheda analitica dettagliata di un nodo"),
             ("/send", "<testo>", "Invia un messaggio broadcast sul canale primario (anche solo digitando il testo)"),
             ("/dm", "<id|aka> <testo>", "Invia un messaggio diretto privato a un nodo"),
             ("/channels", "", "Mostra l'elenco dei canali radio configurati"),
             ("/info", "", "Visualizza lo stato della radio, frequenze, modem e preset"),
-            ("/settings", "[lang|theme|sort|port]", "Visualizza o modifica le impostazioni (lingua it/en, tema, porta)"),
+            ("/settings", "[lang|theme|sort|port|notifications|history]", "Visualizza o modifica le impostazioni"),
             ("/switch", "[porta|indice]", "Passa a un altro dispositivo LoRa USB connesso"),
             ("/scan", "", "Rileva e mostra tutte le radio LoRa USB collegate al PC"),
             ("/banner", "", "Ristampa il banner di stato Hermes"),
@@ -354,6 +356,17 @@ class CommandDispatcher:
         self.console.print(f"[{THEME_COLORS['primary']}]Avvio tabella interattiva... (Fai click sulle intestazioni per ordinare, premi 'q' o 'Esc' per tornare al prompt)[/]")
         launch_interactive_nodes(self.client.store, local_node=local_node)
 
+    def cmd_chat(self, args: list[str]) -> None:
+        """Launch interactive mouse-usable chat viewer for channels and DMs."""
+        opener = getattr(self.console, "open_channel_chat", None)
+        if callable(opener):
+            opener(self.client)
+            return
+
+        from mesh_deck.ui.channel_chat import launch_channel_chat
+        self.console.print(f"[{THEME_COLORS['primary']}]Avvio chat canali interattiva... (premi 'q' o 'Esc' per tornare al prompt)[/]")
+        launch_channel_chat(self.client)
+
     def cmd_settings(self, args: list[str]) -> None:
         """View or update user preferences (language, theme, port, sort)."""
         from mesh_deck.core.settings import Settings
@@ -380,6 +393,8 @@ class CommandDispatcher:
             table.add_row("Porta predefinita (port)", settings.default_port or "(Auto-detect)", "/settings port </dev/tty...>")
             table.add_row("Ordinamento (sort)", settings.default_sort, "/settings sort <last_heard|snr|hops|name>")
             table.add_row("Modalità UI (mode)", settings.ui_mode, "/settings mode <repl|tui>")
+            table.add_row("Notifiche messaggi", "Attive" if settings.notifications_enabled else "Disattivate", "/settings notifications <on|off>")
+            table.add_row("Storico locale su file", "Attivo" if settings.history_enabled else "Disattivato", "/settings history <on|off>")
 
             self.console.print(table)
             return
@@ -420,8 +435,27 @@ class CommandDispatcher:
                 self.console.print(f"[{THEME_COLORS['secondary']}]✓ Modalità UI impostata su:[/] [bold]{mode_val}[/]")
             else:
                 self.console.print(f"[{THEME_COLORS['alert']}]Modalità non valida. Usa 'repl' o 'tui'.[/]")
+        elif sub in ("notifications", "notifiche") and len(args) > 1:
+            val = args[1].lower()
+            if val in ("on", "off"):
+                settings.update(notifications_enabled=(val == "on"))
+                state = "attivate" if val == "on" else "disattivate"
+                self.console.print(f"[{THEME_COLORS['secondary']}]✓ Notifiche messaggi {state}.[/]")
+            else:
+                self.console.print(f"[{THEME_COLORS['alert']}]Valore non valido. Usa 'on' o 'off'.[/]")
+        elif sub in ("history", "storico") and len(args) > 1:
+            val = args[1].lower()
+            if val in ("on", "off"):
+                settings.update(history_enabled=(val == "on"))
+                state = "attivato" if val == "on" else "disattivato"
+                self.console.print(f"[{THEME_COLORS['secondary']}]✓ Storico locale su file {state}. Effettivo dal prossimo avvio.[/]")
+            else:
+                self.console.print(f"[{THEME_COLORS['alert']}]Valore non valido. Usa 'on' o 'off'.[/]")
         else:
-            self.console.print(f"[{THEME_COLORS['warning']}]Uso:[/] /settings [lang <it|en> | theme <nome> | sort <criterio> | port <porta> | mode <repl|tui>]")
+            self.console.print(
+                f"[{THEME_COLORS['warning']}]Uso:[/] /settings [lang <it|en> | theme <nome> | sort <criterio> | "
+                "port <porta> | mode <repl|tui> | notifications <on|off> | history <on|off>]"
+            )
 
     def cmd_clear(self, args: list[str]) -> None:
         """Clear terminal screen."""

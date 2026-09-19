@@ -8,7 +8,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock, patch
 
+from mesh_deck.agent import AgentService, AgentServiceError
 from mesh_deck.core.events import DeviceConnectionInfo, MeshMessage, NodeData
+from mesh_deck.core.history import HistoryStore
 from mesh_deck.core.node_store import NodeStore
 from mesh_deck.core.radio_client import RadioClient
 from mesh_deck.core.scanner import scan_meshtastic_ports
@@ -165,6 +167,112 @@ class TestEvents(unittest.TestCase):
         self.assertEqual(d["port"], "/dev/ttyACM0")
 
 
+class TestAgentService(unittest.TestCase):
+    """Test machine-facing operations without physical radio hardware."""
+
+    def setUp(self):
+        self.client = MagicMock()
+        self.client.is_connected = False
+        self.client.port = None
+        self.client.connect.return_value = True
+        self.node = NodeData(
+            id="!62d927b8",
+            num=1658398648,
+            long_name="Trinity Recon Scout",
+            short_name="TRIN",
+            snr=11.5,
+        )
+        self.client.store.get_all_nodes.return_value = [self.node]
+        self.client.store.get_node.return_value = self.node
+        self.client.get_local_node.return_value = None
+        self.settings = Settings(default_port=None)
+        self.device = DeviceConnectionInfo(
+            port="/dev/ttyACM0",
+            description="Test radio",
+            hw_name="Test Radio",
+        )
+        self.service = AgentService(
+            client=self.client,
+            settings=self.settings,
+            scanner=lambda: [self.device],
+        )
+
+    def test_auto_connect_and_list_nodes(self):
+        result = self.service.list_nodes(sort_by="snr", active_only=True)
+
+        self.client.connect.assert_called_once_with(
+            "/dev/ttyACM0",
+            blocking=True,
+            timeout=30,
+        )
+        self.client.store.get_all_nodes.assert_called_once_with(
+            sort_by="snr",
+            active_only=True,
+        )
+        self.assertEqual(result["nodes"][0]["id"], "!62d927b8")
+
+    def test_no_device_is_explicit_error(self):
+        service = AgentService(
+            client=self.client,
+            settings=self.settings,
+            scanner=lambda: [],
+        )
+
+        with self.assertRaises(AgentServiceError) as context:
+            service.get_radio_info()
+
+        self.assertEqual(context.exception.code, "device_not_found")
+        self.assertEqual(context.exception.exit_code, 4)
+
+    def test_broadcast_requires_confirmation(self):
+        preview = self.service.send_broadcast("hello")
+
+        self.assertTrue(preview["preview"])
+        self.assertFalse(preview["sent"])
+        self.client.connect.assert_not_called()
+        self.client.send_broadcast.assert_not_called()
+
+        sent = self.service.send_broadcast("hello", channel_index=1, confirm=True)
+        self.assertTrue(sent["sent"])
+        self.client.send_broadcast.assert_called_once_with("hello", channel_index=1)
+
+    def test_direct_message_resolves_target_and_requires_confirmation(self):
+        preview = self.service.send_direct_message("TRIN", "secret")
+        self.assertTrue(preview["preview"])
+        self.client.send_dm.assert_not_called()
+
+        sent = self.service.send_direct_message("TRIN", "secret", confirm=True)
+        self.assertTrue(sent["sent"])
+        self.client.send_dm.assert_called_once_with("!62d927b8", "secret")
+
+    def test_channel_output_does_not_expose_raw_psk(self):
+        self.client.get_channels.return_value = [
+            {
+                "index": 0,
+                "name": "Primary",
+                "role": "PRIMARY",
+                "raw": {
+                    "uplinkEnabled": True,
+                    "settings": {"name": "Primary", "psk": "super-secret"},
+                },
+            }
+        ]
+
+        result = self.service.list_channels(port="/dev/ttyACM0")
+
+        channel = result["channels"][0]
+        self.assertTrue(channel["has_psk"])
+        self.assertNotIn("raw", channel)
+        self.assertNotIn("super-secret", str(result))
+
+    def test_invalid_sort_is_rejected_before_connecting(self):
+        with self.assertRaises(AgentServiceError) as context:
+            self.service.list_nodes(sort_by="distance")
+
+        self.assertEqual(context.exception.code, "invalid_input")
+        self.client.connect.assert_not_called()
+
+
 class TestSettings(unittest.TestCase):
     """Test persistent user settings and bounded command history."""
 
@@ -189,10 +297,30 @@ class TestSettings(unittest.TestCase):
 class TestScanner(unittest.TestCase):
     """Test serial port scanner and heuristics under normal and error conditions."""
 
-    def test_scan_meshtastic_ports_on_current_system(self):
+    @patch("serial.tools.list_ports.comports")
+    def test_scan_meshtastic_ports_for_known_devices(self, mock_comports):
+        heltec = MagicMock()
+        heltec.device = "/dev/ttyACM0"
+        heltec.vid = 0x303A
+        heltec.pid = 0x0002
+        heltec.product = "Heltec Vision Master E290"
+        heltec.description = "Heltec Vision Master E290 - TinyUSB CDC"
+        heltec.manufacturer = "Espressif"
+        heltec.hwid = "USB VID:PID=303A:0002"
+
+        lilygo = MagicMock()
+        lilygo.device = "/dev/ttyACM1"
+        lilygo.vid = 0x303A
+        lilygo.pid = 0x1001
+        lilygo.product = "LilyGo TLora-T3S3-V1"
+        lilygo.description = "LilyGo TLora-T3S3-V1 - TinyUSB CDC"
+        lilygo.manufacturer = "Espressif"
+        lilygo.hwid = "USB VID:PID=303A:1001"
+        mock_comports.return_value = [lilygo, heltec]
+
         ports = scan_meshtastic_ports()
         self.assertIsInstance(ports, list)
-        self.assertGreaterEqual(len(ports), 2)
+        self.assertEqual(len(ports), 2)
 
         port_names = [p.port for p in ports]
         self.assertIn("/dev/ttyACM0", port_names)
@@ -689,6 +817,135 @@ class TestRadioClient(unittest.TestCase):
         self.assertIsNone(client.get_local_node())
         self.assertEqual(client.get_my_info()["is_connected"], False)
         self.assertEqual(client.get_channels(), [])
+
+
+class TestHistoryStore(unittest.TestCase):
+    """Test HistoryStore JSONL persistence, dedupe logic, and filtering."""
+
+    def setUp(self):
+        self._tmp = TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.store = HistoryStore(base_dir=self._tmp.name)
+
+    def test_record_node_appends_and_dedupes(self):
+        node = NodeData(id="!45a466e4", long_name="Heltec Milan", battery_level=80)
+        self.assertTrue(self.store.record_node(node))
+        # Same meaningful fields -> skipped as duplicate.
+        self.assertFalse(self.store.record_node(node))
+        # Materially changed field -> appended again.
+        node.battery_level = 79
+        self.assertTrue(self.store.record_node(node))
+
+        history = self.store.iter_node_history("!45a466e4")
+        self.assertEqual(len(history), 2)
+        self.assertEqual(history[0]["long_name"], "Heltec Milan")
+        self.assertIn("observed_at", history[0])
+
+    def test_record_node_writes_to_disk(self):
+        node = NodeData(id="!45a466e4", long_name="Heltec Milan")
+        self.store.record_node(node)
+        self.assertTrue(self.store.nodes_file.exists())
+
+    def test_record_message_and_filter_by_channel(self):
+        bcast = MeshMessage(sender_id="!aaa", text="hello all", channel=0, is_dm=False)
+        dm = MeshMessage(sender_id="!bbb", text="psst", channel=0, is_dm=True)
+        other_channel = MeshMessage(sender_id="!ccc", text="on ch1", channel=1, is_dm=False)
+
+        self.store.record_message(bcast, direction="in")
+        self.store.record_message(dm, direction="in")
+        self.store.record_message(other_channel, direction="out")
+
+        all_msgs = self.store.iter_messages()
+        self.assertEqual(len(all_msgs), 3)
+        self.assertEqual(all_msgs[0]["direction"], "in")
+        self.assertIn("recorded_at", all_msgs[0])
+
+        ch0_only = self.store.iter_messages(channel=0)
+        self.assertEqual(len(ch0_only), 2)
+
+        ch0_no_dm = self.store.iter_messages(channel=0, include_dm=False)
+        self.assertEqual(len(ch0_no_dm), 1)
+        self.assertEqual(ch0_no_dm[0]["text"], "hello all")
+
+    def test_iter_messages_respects_limit(self):
+        for i in range(5):
+            self.store.record_message(MeshMessage(text=f"msg-{i}", channel=0), direction="in")
+        self.assertEqual(len(self.store.iter_messages(limit=2)), 2)
+        self.assertEqual(self.store.iter_messages(limit=2)[-1]["text"], "msg-4")
+
+    def test_empty_store_returns_no_entries(self):
+        self.assertEqual(self.store.iter_node_history(), [])
+        self.assertEqual(self.store.iter_messages(), [])
+
+
+class TestRadioClientHistoryWiring(unittest.TestCase):
+    """Test that RadioClient records to an attached HistoryStore when provided."""
+
+    def setUp(self):
+        self._tmp = TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.history = HistoryStore(base_dir=self._tmp.name)
+
+    def test_incoming_message_is_recorded_when_history_attached(self):
+        client = RadioClient(history=self.history)
+        pkt = {
+            "from": 3103310553,
+            "fromId": "!b8f862d9",
+            "to": 0xFFFFFFFF,
+            "toId": "^all",
+            "channel": 0,
+            "decoded": {"text": "Recorded broadcast"},
+        }
+        client._on_pubsub_text(pkt)
+        recorded = self.history.iter_messages()
+        self.assertEqual(len(recorded), 1)
+        self.assertEqual(recorded[0]["text"], "Recorded broadcast")
+        self.assertEqual(recorded[0]["direction"], "in")
+
+    def test_no_history_recorded_when_not_attached(self):
+        client = RadioClient()
+        pkt = {"from": 1, "fromId": "!1", "decoded": {"text": "hi"}}
+        client._on_pubsub_text(pkt)  # Should not raise even without a HistoryStore.
+        self.assertIsNone(client.history)
+
+    def test_outgoing_broadcast_and_dm_are_recorded(self):
+        client = RadioClient(history=self.history)
+        mock_iface = MagicMock()
+        mock_iface.sendText.return_value = {"id": 1}
+        client._interface = mock_iface
+        client._is_connected = True
+
+        client.send_broadcast("Out broadcast", channel_index=0)
+        client.send_dm("!b8f862d9", "Out dm")
+
+        recorded = self.history.iter_messages()
+        self.assertEqual(len(recorded), 2)
+        self.assertTrue(all(entry["direction"] == "out" for entry in recorded))
+        self.assertFalse(recorded[0]["is_dm"])
+        self.assertTrue(recorded[1]["is_dm"])
+
+    def test_node_update_is_recorded(self):
+        client = RadioClient(history=self.history)
+        telem_pkt = {
+            "from": 12345,
+            "fromId": "!00003039",
+            "decoded": {"telemetry": {"deviceMetrics": {"batteryLevel": 75}}},
+        }
+        client._on_pubsub_telemetry(telem_pkt)
+        history = self.history.iter_node_history("!00003039")
+        self.assertEqual(len(history), 1)
+        self.assertEqual(history[0]["battery_level"], 75)
+
+    def test_off_message_received_unsubscribes(self):
+        client = RadioClient()
+        messages = []
+        callback = lambda m: messages.append(m)
+        client.on_message_received(callback)
+        client.off_message_received(callback)
+
+        pkt = {"from": 1, "fromId": "!1", "decoded": {"text": "hi"}}
+        client._on_pubsub_text(pkt)
+        self.assertEqual(messages, [])
 
 
 if __name__ == "__main__":

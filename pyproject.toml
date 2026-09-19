@@ -5,6 +5,7 @@ description = "Hermes-style interactive TUI/CLI for exploring and communicating 
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "mcp>=2,<3",
     "meshtastic>=2.7.11",
     "pyserial>=3.5",
     "rich>=15.0.0",
