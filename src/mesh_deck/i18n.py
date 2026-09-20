@@ -7,7 +7,7 @@ from typing import Any
 STRINGS: dict[str, dict[str, str]] = {
     # General / Banner
     "BANNER_TITLE": {
-        "it": "📡 MESH-DECK // CONSOLE TATTICA",
+        "it": "📡 MESH-DECK // TACTICAL CONSOLE",
         "en": "📡 MESH-DECK // TACTICAL CONSOLE",
     },
     "LOCAL_NODE": {
@@ -160,6 +160,266 @@ STRINGS: dict[str, dict[str, str]] = {
         "it": "Apre la chat interattiva dei canali e dei messaggi diretti (click del mouse)",
         "en": "Open the interactive channel and direct-message chat viewer (mouse click)",
     },
+
+    # Shared formatters (theme.py)
+    "TIME_AGO_NEVER": {"it": "mai", "en": "never"},
+    "TIME_AGO_SUFFIX_SEC": {"it": "s fa", "en": "s ago"},
+    "TIME_AGO_SUFFIX_MIN": {"it": "m fa", "en": "m ago"},
+    "TIME_AGO_SUFFIX_HOUR": {"it": "h fa", "en": "h ago"},
+    "TIME_AGO_SUFFIX_DAY": {"it": "d fa", "en": "d ago"},
+    "HOPS_DIRECT": {"it": "Diretto", "en": "Direct"},
+
+    # Node table (tables.py: render_nodes_table)
+    "NODES_TABLE_TITLE": {
+        "it": "📡 NODI NELLA MESH ({count} rilevati)",
+        "en": "📡 MESH NODES ({count} detected)",
+    },
+    "NODE_UNKNOWN_NAME": {"it": "Sconosciuto", "en": "Unknown"},
+
+    # Node detail dossier (tables.py: render_node_detail)
+    "NODE_DETAIL_TITLE": {
+        "it": "◈ SCHEDA ANALITICA // {name} ({id})",
+        "en": "◈ NODE DOSSIER // {name} ({id})",
+    },
+    "NODE_DETAIL_SUBTITLE": {"it": "Dossier Nodo Meshtastic", "en": "Meshtastic Node Dossier"},
+    "SECTION_IDENTITY": {"it": "◈ IDENTITÀ & HARDWARE", "en": "◈ IDENTITY & HARDWARE"},
+    "SECTION_RADIO": {"it": "⚡ TELEMETRIA RADIO & PROPAGAZIONE", "en": "⚡ RADIO TELEMETRY & PROPAGATION"},
+    "SECTION_POWER": {"it": "🔋 ENERGIA & SENSORI AMBIENTALI", "en": "🔋 POWER & ENVIRONMENTAL SENSORS"},
+    "SECTION_GEO": {"it": "📍 POSIZIONE GEOGRAFICA", "en": "📍 GEOGRAPHIC POSITION"},
+    "LABEL_FULL_NAME": {"it": "Nome Completo", "en": "Full Name"},
+    "LABEL_AKA": {"it": "Alias (AKA)", "en": "Alias (AKA)"},
+    "LABEL_NODE_ID": {"it": "Node ID", "en": "Node ID"},
+    "LABEL_DEC": {"it": "(Dec: {num})", "en": "(Dec: {num})"},
+    "LABEL_HW_MODEL": {"it": "Modello HW", "en": "HW Model"},
+    "LABEL_DEVICE_ROLE": {"it": "Ruolo Dispositivo", "en": "Device Role"},
+    "LABEL_RADIO_LICENSE": {"it": "Licenza Radio", "en": "Radio License"},
+    "LICENSED_YES": {"it": "Sì (Amateur Radio)", "en": "Yes (Amateur Radio)"},
+    "LICENSED_NO": {"it": "No / ISM", "en": "No / ISM"},
+    "LABEL_SNR": {"it": "Segnale (SNR)", "en": "Signal (SNR)"},
+    "LABEL_HOPS_AWAY": {"it": "Hops Away", "en": "Hops Away"},
+    "LABEL_LAST_HEARD": {"it": "Ultimo Contatto", "en": "Last Heard"},
+    "LABEL_CH_UTIL": {"it": "Ch. Utilization", "en": "Ch. Utilization"},
+    "LABEL_AIR_UTIL": {"it": "Air Util TX", "en": "Air Util TX"},
+    "LABEL_MODEM_PRESET": {"it": "Preset Modem", "en": "Modem Preset"},
+    "LABEL_BATTERY_FULL": {"it": "Batteria", "en": "Battery"},
+    "LABEL_CELL_VOLTAGE": {"it": "Tensione Cella", "en": "Cell Voltage"},
+    "LABEL_TEMPERATURE": {"it": "Temperatura", "en": "Temperature"},
+    "LABEL_HUMIDITY": {"it": "Umidità Relativa", "en": "Relative Humidity"},
+    "LABEL_PRESSURE": {"it": "Pressione", "en": "Pressure"},
+    "LABEL_GPS_COORDS": {"it": "Coordinate GPS", "en": "GPS Coordinates"},
+    "LABEL_ALTITUDE": {"it": "Altitudine", "en": "Altitude"},
+    "ALTITUDE_SUFFIX": {"it": "m s.l.m.", "en": "m a.s.l."},
+    "LABEL_DISTANCE_EST": {"it": "Distanza Stima", "en": "Estimated Distance"},
+    "LABEL_OSM": {"it": "OpenStreetMap", "en": "OpenStreetMap"},
+    "OSM_LINK_TEXT": {"it": "Apri mappa ↗", "en": "Open map ↗"},
+    "NO_COORDS": {"it": "Non disponibili / GPS assente", "en": "Not available / No GPS"},
+    "NO_COORDS_MAP": {
+        "it": "Nessuna coordinata per il rendering mappa",
+        "en": "No coordinates available for map rendering",
+    },
+    "LABEL_PUBKEY": {"it": "Chiave Pubblica PKI", "en": "PKI Public Key"},
+    "PUBKEY_NONE": {
+        "it": "Non trasmessa o crittografia standard",
+        "en": "Not broadcast or standard encryption",
+    },
+
+    # Messages (tables.py: render_message)
+    "MSG_SENDER_UNKNOWN": {"it": "Sconosciuto", "en": "Unknown"},
+    "MSG_DM_TITLE": {
+        "it": "🔒 MESSAGGIO DIRETTO PRIVATO // DM",
+        "en": "🔒 PRIVATE DIRECT MESSAGE // DM",
+    },
+
+    # Status banner (banner.py: render_banner)
+    "BANNER_CONNECTING": {"it": "IN CONNESSIONE / RICERCA...", "en": "CONNECTING / SEARCHING..."},
+    "BANNER_UNKNOWN": {"it": "Sconosciuto", "en": "Unknown"},
+    "BANNER_ALIAS": {"it": "Alias / AKA", "en": "Alias / AKA"},
+    "BANNER_HW_LABEL": {"it": "HW", "en": "HW"},
+    "BANNER_SUBTITLE": {"it": "Interfaccia Hermes Meshtastic", "en": "Hermes Meshtastic Interface"},
+
+    # Command dispatcher (commands/dispatcher.py)
+    "WARN_INVALID_SORT": {
+        "it": "Opzione non valida: {opt}. Uso sort predefinito: last_heard.",
+        "en": "Invalid option: {opt}. Using default sort: last_heard.",
+    },
+    "NODES_EMPTY": {"it": "Nessun nodo trovato nel NodeDB corrente.", "en": "No nodes found in the current NodeDB."},
+    "NODES_HINT": {
+        "it": "💡 Suggerimento: usa {cmd} per aprire la tabella interattiva con ordinamento al click del mouse su ogni colonna.",
+        "en": "💡 Tip: use {cmd} to open the interactive table with mouse-click column sorting.",
+    },
+    "USAGE_NODE": {"it": "Uso: /node <id|aka|nome>", "en": "Usage: /node <id|aka|name>"},
+    "NODE_NOT_FOUND": {"it": "Nodo non trovato: {query}", "en": "Node not found: {query}"},
+    "USAGE_SEND": {"it": "Uso: /send <testo del messaggio>", "en": "Usage: /send <message text>"},
+    "SEND_SUCCESS": {"it": "📢 Inviato (Broadcast #0): {text}", "en": "📢 Sent (Broadcast #0): {text}"},
+    "SEND_ERROR": {"it": "Errore durante l'invio del messaggio broadcast.", "en": "Error sending broadcast message."},
+    "USAGE_DM": {"it": "Uso: /dm <target_id_o_aka> <testo>", "en": "Usage: /dm <target_id_or_aka> <text>"},
+    "DM_SUCCESS": {"it": "🔒 DM inviato a {name}: {text}", "en": "🔒 DM sent to {name}: {text}"},
+    "DM_ERROR": {"it": "Errore durante l'invio del DM a {name}.", "en": "Error sending DM to {name}."},
+    "CHANNELS_EMPTY": {
+        "it": "Nessun canale disponibile o radio non connessa.",
+        "en": "No channels available or radio not connected.",
+    },
+    "CHANNELS_TABLE_TITLE": {"it": "📡 CANALI RADIO CONFIGURATI", "en": "📡 CONFIGURED RADIO CHANNELS"},
+    "COL_CH_INDEX": {"it": "Index", "en": "Index"},
+    "COL_CH_NAME": {"it": "Nome Canale", "en": "Channel Name"},
+    "COL_CH_ROLE": {"it": "Ruolo / Tipo", "en": "Role / Type"},
+    "COL_CH_UPDOWN": {"it": "Uplink / Downlink", "en": "Uplink / Downlink"},
+    "COL_CH_PSK": {"it": "Crittografia (PSK)", "en": "Encryption (PSK)"},
+    "CH_PRIMARY_DEFAULT": {"it": "(Primary)", "en": "(Primary)"},
+    "PSK_ACTIVE": {"it": "Attiva", "en": "Active"},
+    "PSK_DEFAULT": {"it": "Predefinita", "en": "Default"},
+    "INFO_EMPTY": {"it": "Nessuna informazione radio disponibile.", "en": "No radio information available."},
+    "INFO_TABLE_TITLE": {"it": "📻 STATO HARDWARE & PARAMETRI RADIO", "en": "📻 HARDWARE STATUS & RADIO PARAMETERS"},
+    "ROW_SERIAL_PORT": {"it": "Porta Seriale", "en": "Serial Port"},
+    "ROW_CONN_STATUS": {"it": "Stato Connessione", "en": "Connection Status"},
+    "CONN_CONNECTED": {"it": "Connesso", "en": "Connected"},
+    "CONN_DISCONNECTED": {"it": "Disconnesso", "en": "Disconnected"},
+    "ROW_LOCAL_NODE": {"it": "Nodo Locale", "en": "Local Node"},
+    "ROW_HW_MODEL": {"it": "Modello Hardware", "en": "Hardware Model"},
+    "ROW_ROLE": {"it": "Ruolo", "en": "Role"},
+    "ROW_GPS": {"it": "Coordinate GPS", "en": "GPS Coordinates"},
+    "ROW_RF_REGION": {"it": "Regione RF", "en": "RF Region"},
+    "ROW_MODEM_PRESET": {"it": "Modem Preset", "en": "Modem Preset"},
+    "ROW_FIRMWARE": {"it": "Firmware Version", "en": "Firmware Version"},
+    "ROW_ACTIVE_CHANNELS": {"it": "Canali Attivi", "en": "Active Channels"},
+    "COL_PARAM": {"it": "Parametro", "en": "Setting"},
+    "COL_VALUE": {"it": "Valore", "en": "Value"},
+    "SCAN_EMPTY": {
+        "it": "Nessun dispositivo LoRa rilevato sulle porte USB.",
+        "en": "No LoRa device detected on USB ports.",
+    },
+    "SCAN_TABLE_TITLE": {"it": "🔍 DISPOSITIVI LORA / MESHTASTIC RILEVATI", "en": "🔍 DETECTED LORA / MESHTASTIC DEVICES"},
+    "COL_PORT": {"it": "Porta", "en": "Port"},
+    "COL_HW_DETECTED": {"it": "Hardware Rilevato", "en": "Detected Hardware"},
+    "COL_SYS_DESC": {"it": "Descrizione Sistema", "en": "System Description"},
+    "COL_CURRENT_STATUS": {"it": "Stato Attuale", "en": "Current Status"},
+    "STATUS_ACTIVE": {"it": "★ ATTIVO", "en": "★ ACTIVE"},
+    "STATUS_AVAILABLE": {"it": "Disponibile", "en": "Available"},
+    "SWITCH_EMPTY": {
+        "it": "Nessun dispositivo disponibile per lo switch.",
+        "en": "No device available to switch to.",
+    },
+    "SWITCH_NO_ALT": {"it": "Nessun'altra porta alternativa rilevata.", "en": "No alternative port detected."},
+    "SWITCH_INVALID_INDEX": {"it": "Indice non valido. Usa 1..{max}", "en": "Invalid index. Use 1..{max}"},
+    "SWITCH_IN_PROGRESS": {"it": "Passaggio in corso alla porta: {port}...", "en": "Switching to port: {port}..."},
+    "SWITCH_SUCCESS": {
+        "it": "✓ Connesso con successo a: {port} ({name})",
+        "en": "✓ Successfully connected to: {port} ({name})",
+    },
+    "SWITCH_FAILURE": {"it": "Impossibile connettersi alla porta {port}.", "en": "Could not connect to port {port}."},
+    "VIEW_LAUNCH": {
+        "it": "Avvio tabella interattiva... (Fai click sulle intestazioni per ordinare, premi 'q' o 'Esc' per tornare al prompt)",
+        "en": "Launching interactive table... (Click column headers to sort, press 'q' or 'Esc' to return to prompt)",
+    },
+    "CHAT_LAUNCH": {
+        "it": "Avvio chat canali interattiva... (premi 'q' o 'Esc' per tornare al prompt)",
+        "en": "Launching interactive channel chat... (press 'q' or 'Esc' to return to prompt)",
+    },
+    "SETTINGS_ROW_LANG": {"it": "Lingua (lang)", "en": "Language (lang)"},
+    "SETTINGS_ROW_THEME": {"it": "Tema (theme)", "en": "Theme (theme)"},
+    "SETTINGS_ROW_PORT": {"it": "Porta predefinita (port)", "en": "Default port (port)"},
+    "SETTINGS_AUTODETECT": {"it": "(Auto-detect)", "en": "(Auto-detect)"},
+    "SETTINGS_ROW_SORT": {"it": "Ordinamento (sort)", "en": "Sorting (sort)"},
+    "SETTINGS_ROW_MODE": {"it": "Modalità UI (mode)", "en": "UI mode (mode)"},
+    "STATE_ON": {"it": "Attivo", "en": "On"},
+    "STATE_OFF": {"it": "Disattivato", "en": "Off"},
+    "SETTINGS_LANG_SET": {"it": "✓ Lingua impostata su: {value}", "en": "✓ Language set to: {value}"},
+    "SETTINGS_LANG_INVALID": {
+        "it": "Lingua non supportata. Usa 'it' o 'en'.",
+        "en": "Unsupported language. Use 'it' or 'en'.",
+    },
+    "SETTINGS_THEME_SET": {"it": "✓ Tema impostato su: {theme}", "en": "✓ Theme set to: {theme}"},
+    "SETTINGS_THEME_INVALID": {
+        "it": "Tema non valido. Usa 'cyberpunk', 'high_contrast', 'amber', o 'matrix'.",
+        "en": "Invalid theme. Use 'cyberpunk', 'high_contrast', 'amber', or 'matrix'.",
+    },
+    "SETTINGS_SORT_SET": {"it": "✓ Ordinamento predefinito impostato su: {sort}", "en": "✓ Default sort set to: {sort}"},
+    "SETTINGS_SORT_INVALID": {
+        "it": "Ordinamento non valido. Usa 'last_heard', 'snr', 'hops', o 'name'.",
+        "en": "Invalid sort. Use 'last_heard', 'snr', 'hops', or 'name'.",
+    },
+    "SETTINGS_PORT_SET": {"it": "✓ Porta predefinita impostata su: {port}", "en": "✓ Default port set to: {port}"},
+    "SETTINGS_MODE_SET": {"it": "✓ Modalità UI impostata su: {mode}", "en": "✓ UI mode set to: {mode}"},
+    "SETTINGS_MODE_INVALID": {"it": "Modalità non valida. Usa 'repl' o 'tui'.", "en": "Invalid mode. Use 'repl' or 'tui'."},
+    "STATE_ENABLED_F": {"it": "attivate", "en": "enabled"},
+    "STATE_DISABLED_F": {"it": "disattivate", "en": "disabled"},
+    "STATE_ENABLED_M": {"it": "attivato", "en": "enabled"},
+    "STATE_DISABLED_M": {"it": "disattivato", "en": "disabled"},
+    "SETTINGS_NOTIF_SET": {"it": "✓ Notifiche messaggi {state}.", "en": "✓ Message notifications {state}."},
+    "SETTINGS_HISTORY_SET": {
+        "it": "✓ Storico locale su file {state}. Effettivo dal prossimo avvio.",
+        "en": "✓ Local file history {state}. Effective on next restart.",
+    },
+    "SETTINGS_INVALID_VALUE": {"it": "Valore non valido. Usa 'on' o 'off'.", "en": "Invalid value. Use 'on' or 'off'."},
+    "SETTINGS_USAGE": {
+        "it": "Uso: /settings [lang <it|en> | theme <nome> | sort <criterio> | port <porta> | mode <repl|tui> | notifications <on|off> | history <on|off>]",
+        "en": "Usage: /settings [lang <it|en> | theme <name> | sort <criteria> | port <port> | mode <repl|tui> | notifications <on|off> | history <on|off>]",
+    },
+    "QUIT_MESSAGE": {
+        "it": "Chiusura connessione radio e uscita da Mesh-Deck. 73!",
+        "en": "Closing radio connection and exiting Mesh-Deck. 73!",
+    },
+
+    # Interactive node explorer screen (ui/interactive_table.py)
+    "VIEW_TITLE": {"it": "📡 MESH-DECK // ESPLORATORE NODI INTERATTIVO", "en": "📡 MESH-DECK // INTERACTIVE NODE EXPLORER"},
+    "VIEW_SUBTITLE": {
+        "it": "Fai click su una colonna per ordinare • Premi 'q' o 'Esc' per tornare al prompt",
+        "en": "Click a column to sort • Press 'q' or 'Esc' to return to prompt",
+    },
+    "VIEW_SORTED_BY": {
+        "it": "Ordinato per: {column} {arrow} • Click su un header per cambiare ordinamento",
+        "en": "Sorted by: {column} {arrow} • Click a header to change sorting",
+    },
+    "BINDING_CLOSE": {"it": "Chiudi / Esci", "en": "Close / Exit"},
+    "BINDING_BACK": {"it": "Torna al prompt", "en": "Back to prompt"},
+    "BINDING_REFRESH": {"it": "Aggiorna", "en": "Refresh"},
+    "BINDING_FILTER": {"it": "Cerca / Filtra", "en": "Search / Filter"},
+    "FILTER_LABEL": {"it": "🔍 Filtra:", "en": "🔍 Filter:"},
+    "FILTER_PLACEHOLDER": {"it": "Cerca per nome, AKA, hardware o ID...", "en": "Search by name, AKA, hardware or ID..."},
+    "COL_NODE_NAME": {"it": "Nome Nodo", "en": "Node Name"},
+    "LOCAL_SUFFIX": {"it": "LOCALE", "en": "LOCAL"},
+
+    # Channel chat screen (ui/channel_chat.py)
+    "CHAT_TITLE": {"it": "💬 MESH-DECK // CHAT CANALI", "en": "💬 MESH-DECK // CHANNEL CHAT"},
+    "CHAT_SUBTITLE": {
+        "it": "Fai click su un canale per aprirlo • Invia dal campo in basso • 'q'/'Esc' per uscire",
+        "en": "Click a channel to open it • Send from the field below • 'q'/'Esc' to exit",
+    },
+    "BINDING_UPDATE_CHANNELS": {"it": "Aggiorna canali", "en": "Refresh channels"},
+    "CHAT_DM_ENTRY": {"it": "Messaggi Diretti", "en": "Direct Messages"},
+    "CHAT_CHANNEL_FALLBACK": {"it": "Canale {index}", "en": "Channel {index}"},
+    "CHAT_INPUT_PLACEHOLDER": {"it": "Scrivi un messaggio e premi invio...", "en": "Type a message and press enter..."},
+    "CHAT_DM_HINT": {
+        "it": "I DM si inviano con /dm <id|aka> <testo> dal prompt principale.",
+        "en": "DMs are sent with /dm <id|aka> <text> from the main prompt.",
+    },
+    "CHAT_SEND_FAILED_TITLE": {"it": "Invio fallito", "en": "Send failed"},
+
+    # Device selector startup screen (ui/device_selector.py)
+    "DEVICE_SELECTOR_SUBTITLE": {"it": "Seleziona una periferica Meshtastic", "en": "Select a Meshtastic device"},
+    "DEVICE_SELECTOR_HEADING": {"it": "Periferiche Meshtastic rilevate", "en": "Detected Meshtastic devices"},
+    "DEVICE_SELECTOR_HELP": {
+        "it": "Usa freccia Su/Giù e Invio per selezionare",
+        "en": "Use Up/Down arrows and Enter to select",
+    },
+    "BINDING_CANCEL": {"it": "Annulla", "en": "Cancel"},
+    "CONNECTION_HEADING": {"it": "Connessione alla periferica", "en": "Connecting to device"},
+    "CONNECTION_STATUS": {
+        "it": "Apertura di {port} e sincronizzazione del NodeDB...",
+        "en": "Opening {port} and syncing the NodeDB...",
+    },
+    "CONNECTION_BACK": {"it": "Torna all'elenco", "en": "Back to list"},
+    "CONNECTION_FAILED": {"it": "Connessione a {port} non riuscita.", "en": "Failed to connect to {port}."},
+
+    # Command sub-argument autocomplete (e.g. /settings <sub>, /switch <port>)
+    "COMPLETE_PORT_DESC": {"it": "Porta seriale USB", "en": "USB serial port"},
+    "COMPLETE_LANG_DESC": {"it": "Imposta lingua (it, en)", "en": "Set language (it, en)"},
+    "COMPLETE_THEME_DESC": {
+        "it": "Imposta tema (cyberpunk, high_contrast, amber, matrix)",
+        "en": "Set theme (cyberpunk, high_contrast, amber, matrix)",
+    },
+    "COMPLETE_SORT_DESC": {"it": "Imposta ordinamento predefinito", "en": "Set default sorting"},
+    "COMPLETE_PORT_SUB_DESC": {"it": "Imposta porta seriale predefinita", "en": "Set default serial port"},
 }
 
 

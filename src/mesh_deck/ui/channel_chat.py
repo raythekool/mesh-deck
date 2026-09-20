@@ -20,6 +20,7 @@ from textual.widgets import Footer, Header, Input, OptionList, RichLog, Static
 from textual.widgets.option_list import Option
 
 from mesh_deck.core.events import MeshMessage
+from mesh_deck.i18n import t
 from mesh_deck.ui.tables import render_message
 from mesh_deck.ui.theme import THEME_COLORS
 
@@ -46,9 +47,6 @@ def _message_from_history_entry(entry: dict[str, Any]) -> MeshMessage:
 class ChannelChatScreen(Screen):
     """Interactive chat viewer: click a channel to see its message history live."""
 
-    TITLE = "💬 MESH-DECK // CHAT CANALI"
-    SUB_TITLE = "Fai click su un canale per aprirlo • Invia dal campo in basso • 'q'/'Esc' per uscire"
-
     BINDINGS = [
         Binding("q", "close", "Chiudi", show=True),
         Binding("escape", "close", "Torna al prompt", show=True),
@@ -65,13 +63,16 @@ class ChannelChatScreen(Screen):
     #chat-hint { color: #64748b; padding: 0 1; height: 1; }
     """
 
-    def __init__(self, radio_client: RadioClient, **kwargs: Any) -> None:
+    def __init__(self, radio_client: RadioClient, lang: str = "it", **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self.client = radio_client
+        self.lang = lang
         self._entries: list[tuple[int | str, str]] = []
         self._selected_key: int | str = 0
         self._buffers: dict[int | str, list[MeshMessage]] = {}
         self._unread: dict[int | str, int] = {}
+        self.title = t("CHAT_TITLE", self.lang)
+        self.sub_title = t("CHAT_SUBTITLE", self.lang)
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -80,7 +81,7 @@ class ChannelChatScreen(Screen):
             with Vertical(id="chat-panel"):
                 yield RichLog(id="chat-log", markup=True, wrap=True, highlight=True)
                 yield Static("", id="chat-hint")
-                yield Input(placeholder="Scrivi un messaggio e premi invio...", id="chat-input")
+                yield Input(placeholder=t("CHAT_INPUT_PLACEHOLDER", self.lang), id="chat-input")
         yield Footer()
 
     def on_mount(self) -> None:
@@ -98,11 +99,11 @@ class ChannelChatScreen(Screen):
         entries: list[tuple[int | str, str]] = []
         for ch in self.client.get_channels():
             idx = ch.get("index", 0)
-            name = ch.get("name") or ("Primary" if idx == 0 else f"Canale {idx}")
+            name = ch.get("name") or ("Primary" if idx == 0 else t("CHAT_CHANNEL_FALLBACK", self.lang, index=idx))
             entries.append((idx, str(name)))
         if not entries:
             entries.append((0, "Primary"))
-        entries.append((DM_KEY, "Messaggi Diretti"))
+        entries.append((DM_KEY, t("CHAT_DM_ENTRY", self.lang)))
         return entries
 
     def _preload_history(self) -> None:
@@ -142,11 +143,11 @@ class ChannelChatScreen(Screen):
         log = self.query_one("#chat-log", RichLog)
         log.clear()
         for msg in self._buffers.get(self._selected_key, []):
-            log.write(render_message(msg))
+            log.write(render_message(msg, lang=self.lang))
         hint = self.query_one("#chat-hint", Static)
         input_box = self.query_one("#chat-input", Input)
         if self._selected_key == DM_KEY:
-            hint.update("I DM si inviano con /dm <id|aka> <testo> dal prompt principale.")
+            hint.update(t("CHAT_DM_HINT", self.lang))
             input_box.disabled = True
         else:
             hint.update("")
@@ -160,7 +161,7 @@ class ChannelChatScreen(Screen):
         key = DM_KEY if msg.is_dm else msg.channel
         self._buffers.setdefault(key, []).append(msg)
         if key == self._selected_key:
-            self.query_one("#chat-log", RichLog).write(render_message(msg))
+            self.query_one("#chat-log", RichLog).write(render_message(msg, lang=self.lang))
         else:
             self._unread[key] = self._unread.get(key, 0) + 1
             self._refresh_channel_list()
@@ -175,7 +176,7 @@ class ChannelChatScreen(Screen):
         try:
             self.client.send_broadcast(text, channel_index=int(self._selected_key))
         except Exception as exc:
-            self.app.notify(str(exc), title="Invio fallito", severity="error")
+            self.app.notify(str(exc), title=t("CHAT_SEND_FAILED_TITLE", self.lang), severity="error")
 
     def action_close(self) -> None:
         self.dismiss()
@@ -187,17 +188,18 @@ class ChannelChatScreen(Screen):
 class ChannelChatApp(App):
     """Standalone wrapper for launching the reusable channel chat screen."""
 
-    def __init__(self, radio_client: RadioClient, **kwargs: Any) -> None:
+    def __init__(self, radio_client: RadioClient, lang: str = "it", **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self.client = radio_client
+        self.lang = lang
 
     def on_mount(self) -> None:
         self.push_screen(
-            ChannelChatScreen(self.client),
+            ChannelChatScreen(self.client, lang=self.lang),
             callback=lambda _: self.exit(),
         )
 
 
-def launch_channel_chat(radio_client: RadioClient) -> None:
+def launch_channel_chat(radio_client: RadioClient, lang: str = "it") -> None:
     """Run the channel chat viewer as a standalone application."""
-    ChannelChatApp(radio_client).run()
+    ChannelChatApp(radio_client, lang=lang).run()

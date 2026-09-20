@@ -14,6 +14,7 @@ from rich.rule import Rule
 from rich.table import Table
 from rich.text import Text
 
+from mesh_deck.i18n import t
 from mesh_deck.models import NodeData
 from mesh_deck.ui.theme import format_battery, format_role
 
@@ -23,6 +24,7 @@ def render_banner(
     port: str,
     channel_util: float | None = None,
     channels: list[dict[str, Any]] | None = None,
+    lang: str = "it",
 ) -> Panel:
     """Render a tactical Rich panel displaying active node, radio status, and quick commands.
 
@@ -31,6 +33,7 @@ def render_banner(
         port: Serial port string (e.g. '/dev/ttyACM0').
         channel_util: Channel utilization percentage override.
         channels: Optional list of channel info dictionaries.
+        lang: Language code ("it" or "en") for label translation.
 
     Returns:
         Rich Panel styled with neon accents and rounded corners.
@@ -61,9 +64,9 @@ def render_banner(
             else local_node.channel_utilization
         )
     else:
-        name_display = "[bold #ffb800]IN CONNESSIONE / RICERCA...[/bold #ffb800]"
+        name_display = f"[bold #ffb800]{t('BANNER_CONNECTING', lang)}[/bold #ffb800]"
         aka_display = "[dim]--[/dim]"
-        hw_display = "[dim]Sconosciuto[/dim]"
+        hw_display = f"[dim]{t('BANNER_UNKNOWN', lang)}[/dim]"
         batt_display = "[dim]--[/dim]"
         region = "EU_868"
         preset = "LONG_FAST"
@@ -85,16 +88,16 @@ def render_banner(
 
     # Left Column: Node identity & power
     left_content = (
-        f"[dim #64748b]◈ NODO LOCALE:[/dim #64748b] {name_display}\n"
-        f"  [dim #64748b]Alias / AKA:[/dim #64748b] {aka_display} [dim #64748b]| HW:[/dim #64748b] {hw_display}\n"
-        f"  [dim #64748b]Batteria:[/dim #64748b]    {batt_display}"
+        f"[dim #64748b]◈ {t('LOCAL_NODE', lang)}:[/dim #64748b] {name_display}\n"
+        f"  [dim #64748b]{t('BANNER_ALIAS', lang)}:[/dim #64748b] {aka_display} [dim #64748b]| {t('BANNER_HW_LABEL', lang)}:[/dim #64748b] {hw_display}\n"
+        f"  [dim #64748b]{t('BATTERY', lang)}:[/dim #64748b]    {batt_display}"
     )
 
     # Right Column: RF & Radio connection
     right_content = (
-        f"[dim #64748b]⚡ RADIO PORT:[/dim #64748b] [bold #00f3ff]{port_safe}[/bold #00f3ff]\n"
-        f"  [dim #64748b]Regione:[/dim #64748b]    [white]{region}[/white] [dim #64748b]• Preset:[/dim #64748b] [white]{preset}[/white]\n"
-        f"  [dim #64748b]Ch. Util:[/dim #64748b]   {util_display}"
+        f"[dim #64748b]⚡ {t('RADIO_PORT', lang)}:[/dim #64748b] [bold #00f3ff]{port_safe}[/bold #00f3ff]\n"
+        f"  [dim #64748b]{t('REGION', lang)}:[/dim #64748b]    [white]{region}[/white] [dim #64748b]• {t('PRESET', lang)}:[/dim #64748b] [white]{preset}[/white]\n"
+        f"  [dim #64748b]{t('CH_UTIL', lang)}:[/dim #64748b]   {util_display}"
     )
 
     grid.add_row(left_content, right_content)
@@ -111,25 +114,22 @@ def render_banner(
             modem = ch.get("modem")
             modem_suffix = f" [dim]({escape(str(modem))})[/dim]" if modem else ""
             chan_parts.append(f"[bold #00f3ff]#{escape(str(name))}[/bold #00f3ff][dim][{idx}][/dim]{modem_suffix}")
-        elements.append(Text.from_markup(f"[dim #64748b]◈ CANALI ATTIVI:[/dim #64748b] {'  [dim]•[/dim]  '.join(chan_parts)}"))
+        elements.append(Text.from_markup(f"[dim #64748b]◈ {t('ACTIVE_CHANNELS', lang)}:[/dim #64748b] {'  [dim]•[/dim]  '.join(chan_parts)}"))
 
     # Divider & quick commands
     elements.append(Rule(style="#334155"))
-    cmd_text = (
-        "[dim #64748b]❯ COMANDI:[/dim #64748b] "
-        "[bold #00f3ff]/help[/bold #00f3ff] [dim #64748b]•[/dim #64748b] "
-        "[bold #00f3ff]/nodes[/bold #00f3ff] [dim #64748b]•[/dim #64748b] "
-        "[bold #00f3ff]/dm[/bold #00f3ff] [dim #64748b]•[/dim #64748b] "
-        "[bold #00f3ff]/switch[/bold #00f3ff] [dim #64748b]•[/dim #64748b] "
-        "[bold #00f3ff]/quit[/bold #00f3ff]"
-    )
+    cmd_names = ["/help", "/nodes", "/view", "/dm", "/switch", "/settings", "/quit"]
+    cmd_sep = " [dim #64748b]•[/dim #64748b] "
+    cmd_list = cmd_sep.join(f"[bold #00f3ff]{name}[/bold #00f3ff]" for name in cmd_names)
+    cmd_prefix = t("COMMANDS_SHORTCUTS", lang).split(":", 1)[0]
+    cmd_text = f"[dim #64748b]❯ {cmd_prefix}:[/dim #64748b] {cmd_list}"
     elements.append(Text.from_markup(cmd_text))
 
     return Panel(
         Group(*elements),
-        title="[bold #00f3ff]📡 MESH-DECK // TACTICAL CONSOLE[/bold #00f3ff]",
+        title=f"[bold #00f3ff]{t('BANNER_TITLE', lang)}[/bold #00f3ff]",
         title_align="left",
-        subtitle="[dim #64748b]Hermes Meshtastic Interface[/dim #64748b]",
+        subtitle=f"[dim #64748b]{t('BANNER_SUBTITLE', lang)}[/dim #64748b]",
         subtitle_align="right",
         border_style="#00f3ff",
         box=box.ROUNDED,

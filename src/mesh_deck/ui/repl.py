@@ -40,11 +40,11 @@ class TextualConsole:
     def clear(self) -> None:
         self._invoke(self.app.clear_output)
 
-    def open_node_explorer(self, node_store: Any, local_node: Any) -> None:
-        self._invoke(self.app.open_node_explorer, node_store, local_node)
+    def open_node_explorer(self, node_store: Any, local_node: Any, lang: str = "it") -> None:
+        self._invoke(self.app.open_node_explorer, node_store, local_node, lang)
 
-    def open_channel_chat(self, radio_client: Any) -> None:
-        self._invoke(self.app.open_channel_chat, radio_client)
+    def open_channel_chat(self, radio_client: Any, lang: str = "it") -> None:
+        self._invoke(self.app.open_channel_chat, radio_client, lang)
 
     def open_settings(self) -> None:
         self._invoke(self.app.open_settings)
@@ -134,19 +134,20 @@ class ConnectionScreen(ModalScreen[None]):
     #connection-back { width: 100%; margin-top: 1; display: none; }
     """
 
-    def __init__(self, port: str, **kwargs: Any) -> None:
+    def __init__(self, port: str, lang: str = "it", **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self.port = port
+        self.lang = lang
 
     def compose(self) -> ComposeResult:
         with Vertical(id="connection-dialog"):
-            yield Label("Connessione alla periferica", id="connection-heading")
-            yield Static(f"Apertura di {self.port} e sincronizzazione del NodeDB...", id="connection-status")
-            yield Button("Torna all'elenco", id="connection-back")
+            yield Label(t("CONNECTION_HEADING", self.lang), id="connection-heading")
+            yield Static(t("CONNECTION_STATUS", self.lang, port=self.port), id="connection-status")
+            yield Button(t("CONNECTION_BACK", self.lang), id="connection-back")
 
     def show_error(self) -> None:
         self.query_one("#connection-status", Static).update(
-            f"Connessione a {self.port} non riuscita."
+            t("CONNECTION_FAILED", self.lang, port=self.port)
         )
         self.query_one("#connection-back", Button).display = True
 
@@ -214,7 +215,7 @@ class MeshDeckApp(App):
 
     def push_device_selector(self) -> None:
         self.push_screen(
-            DeviceSelectorScreen(self.devices or [], preferred_port=self.preferred_port),
+            DeviceSelectorScreen(self.devices or [], preferred_port=self.preferred_port, lang=self.repl.settings.language),
             callback=self.on_device_selected,
         )
 
@@ -225,7 +226,7 @@ class MeshDeckApp(App):
         self.begin_connection(port)
 
     def begin_connection(self, port: str) -> None:
-        self.push_screen(ConnectionScreen(port))
+        self.push_screen(ConnectionScreen(port, lang=self.repl.settings.language))
         self.connect_radio(port)
 
     @work(thread=True, exclusive=True)
@@ -250,7 +251,7 @@ class MeshDeckApp(App):
         self.repl.dispatcher.cmd_banner([])
         self.query_one(Input).focus()
         if self.open_explorer_on_connect:
-            self.open_node_explorer(self.repl.client.store, self.repl.client.get_local_node())
+            self.open_node_explorer(self.repl.client.store, self.repl.client.get_local_node(), self.repl.settings.language)
 
     def write_output(self, renderable: Any) -> None:
         if isinstance(renderable, str):
@@ -263,13 +264,13 @@ class MeshDeckApp(App):
     def clear_output(self) -> None:
         self.query_one(RichLog).clear()
 
-    def open_node_explorer(self, node_store: Any, local_node: Any) -> None:
+    def open_node_explorer(self, node_store: Any, local_node: Any, lang: str = "it") -> None:
         from mesh_deck.ui.interactive_table import InteractiveNodesScreen
-        self.push_screen(InteractiveNodesScreen(node_store, local_node=local_node))
+        self.push_screen(InteractiveNodesScreen(node_store, local_node=local_node, lang=lang))
 
-    def open_channel_chat(self, radio_client: Any) -> None:
+    def open_channel_chat(self, radio_client: Any, lang: str = "it") -> None:
         from mesh_deck.ui.channel_chat import ChannelChatScreen
-        self.push_screen(ChannelChatScreen(radio_client))
+        self.push_screen(ChannelChatScreen(radio_client, lang=lang))
 
     def open_settings(self) -> None:
         self.push_screen(SettingsScreen(self.repl.settings))
@@ -278,6 +279,7 @@ class MeshDeckApp(App):
         self.repl.settings.language = language
         self.sub_title = t("APP_SUBTITLE", language)
         self.repl.completer.commands = command_descriptions(language)
+        self.repl.completer.lang = language
         self.query_one(Input).placeholder = self.repl._get_prompt()
 
     def restart_console(self) -> None:
@@ -441,11 +443,12 @@ class MeshDeckREPL:
             self.dispatcher = dispatcher
         else:
             from mesh_deck.commands.dispatcher import CommandDispatcher
-            self.dispatcher = CommandDispatcher(self.client, console=self.console)
+            self.dispatcher = CommandDispatcher(self.client, console=self.console, settings=self.settings)
         self.completer = MeshDeckCompleter(
             self._get_all_nodes,
             self._get_available_ports,
             commands=command_descriptions(self.settings.language),
+            lang=self.settings.language,
         )
         self.client.on_message_received(self._handle_incoming_message)
 
@@ -457,7 +460,7 @@ class MeshDeckREPL:
         return [port.port for port in scan_meshtastic_ports()]
 
     def _handle_incoming_message(self, msg: MeshMessage) -> None:
-        self.console.print(render_message(msg))
+        self.console.print(render_message(msg, lang=self.settings.language))
         if self.settings.notifications_enabled:
             notifier = getattr(self.console, "notify_message", None)
             if callable(notifier):

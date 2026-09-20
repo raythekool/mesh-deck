@@ -14,6 +14,7 @@ from rich.rule import Rule
 from rich.table import Table
 from rich.text import Text
 
+from mesh_deck.i18n import t
 from mesh_deck.models import MeshMessage, NodeData
 from mesh_deck.ui.theme import (
     format_battery,
@@ -28,6 +29,7 @@ from mesh_deck.ui.theme import (
 def render_nodes_table(
     nodes: list[NodeData],
     local_node_id: str | None = None,
+    lang: str = "it",
 ) -> Table:
     """Render a tactical Rich table listing all discovered nodes in the mesh.
 
@@ -39,7 +41,7 @@ def render_nodes_table(
         Rich Table configured with rounded borders and cyberpunk color scheme.
     """
     table = Table(
-        title=f"[bold #00f3ff]📡 NODI NELLA MESH[/bold #00f3ff] [dim]({len(nodes)} rilevati)[/dim]",
+        title=f"[bold #00f3ff]{t('NODES_TABLE_TITLE', lang, count=len(nodes))}[/bold #00f3ff]",
         title_justify="left",
         box=box.ROUNDED,
         header_style="bold #00f3ff",
@@ -50,16 +52,16 @@ def render_nodes_table(
     )
 
     table.add_column("#", justify="right", style="dim", min_width=2, no_wrap=True)
-    table.add_column("Nome Nodo", justify="left", min_width=12, no_wrap=True, overflow="ellipsis")
-    table.add_column("AKA", justify="center", min_width=5, no_wrap=True)
-    table.add_column("ID", justify="center", style="dim", min_width=9, no_wrap=True)
-    table.add_column("Hardware", justify="left", min_width=10, overflow="ellipsis", no_wrap=True)
-    table.add_column("Ruolo", justify="center", min_width=7, no_wrap=True)
-    table.add_column("SNR", justify="right", min_width=8, no_wrap=True)
-    table.add_column("Hops", justify="center", min_width=11, no_wrap=True)
-    table.add_column("Batteria", justify="center", min_width=11, no_wrap=True)
-    table.add_column("Distanza", justify="right", min_width=8, no_wrap=True)
-    table.add_column("Ultimo Contatto", justify="right", min_width=8, no_wrap=True)
+    table.add_column(t("COL_NAME", lang), justify="left", min_width=12, no_wrap=True, overflow="ellipsis")
+    table.add_column(t("COL_AKA", lang), justify="center", min_width=5, no_wrap=True)
+    table.add_column(t("COL_ID", lang), justify="center", style="dim", min_width=9, no_wrap=True)
+    table.add_column(t("COL_HARDWARE", lang), justify="left", min_width=10, overflow="ellipsis", no_wrap=True)
+    table.add_column(t("COL_ROLE", lang), justify="center", min_width=7, no_wrap=True)
+    table.add_column(t("COL_SNR", lang), justify="right", min_width=8, no_wrap=True)
+    table.add_column(t("COL_HOPS", lang), justify="center", min_width=11, no_wrap=True)
+    table.add_column(t("COL_BATTERY", lang), justify="center", min_width=11, no_wrap=True)
+    table.add_column(t("COL_DISTANCE", lang), justify="right", min_width=8, no_wrap=True)
+    table.add_column(t("COL_LAST_HEARD", lang), justify="right", min_width=8, no_wrap=True)
 
     for idx, node in enumerate(nodes, start=1):
         is_local = False
@@ -71,13 +73,13 @@ def render_nodes_table(
                 or (node.short_name.lower() == clean_local.lower())
             )
 
-        long_name_safe = escape(str(node.long_name or "Unknown"))
+        long_name_safe = escape(str(node.long_name or t("NODE_UNKNOWN_NAME", lang)))
         short_name_safe = escape(str(node.short_name or "????"))
         node_id_safe = escape(str(node.id or "!unknown"))
         hw_safe = escape(str(node.hardware or "UNSET"))
 
         if is_local:
-            node_name = f"[bold #00ff66]★ [/bold #00ff66][bold #00f3ff]{long_name_safe}[/bold #00f3ff] [dim](LOCALE)[/dim]"
+            node_name = f"[bold #00ff66]★ [/bold #00ff66][bold #00f3ff]{long_name_safe}[/bold #00f3ff] [dim]({t('LOCAL_BADGE', lang)})[/dim]"
             aka = f"[bold #00ff66]{short_name_safe}[/bold #00ff66]"
             node_id_str = f"[bold #00f3ff]{node_id_safe}[/bold #00f3ff]"
             row_style = "bold"
@@ -90,10 +92,10 @@ def render_nodes_table(
         hw_display = f"[white]{hw_safe}[/white]"
         role_badge = format_role(node.role)
         snr_display = format_snr(node.snr)
-        hops_display = format_hops(node.hops_away)
+        hops_display = format_hops(node.hops_away, lang)
         batt_display = format_battery(node.battery_level, node.voltage)
         dist_display = format_distance(node.distance_km)
-        seen_display = format_time_ago(node.last_heard)
+        seen_display = format_time_ago(node.last_heard, lang)
 
         table.add_row(
             str(idx),
@@ -116,6 +118,7 @@ def render_nodes_table(
 def render_node_detail(
     node: NodeData,
     distance_km: float | None = None,
+    lang: str = "it",
 ) -> Panel:
     """Render an in-depth analytical dossier panel for a single node.
 
@@ -125,13 +128,14 @@ def render_node_detail(
     Args:
         node: NodeData object.
         distance_km: Optional distance in kilometers relative to current position.
+        lang: Language code ("it" or "en") for label translation.
 
     Returns:
         Rich Panel containing organized analytical telemetry grids.
     """
     effective_dist = distance_km if distance_km is not None else node.distance_km
 
-    long_name_safe = escape(str(node.long_name or "Unknown"))
+    long_name_safe = escape(str(node.long_name or t("NODE_UNKNOWN_NAME", lang)))
     short_name_safe = escape(str(node.short_name or "????"))
     node_id_safe = escape(str(node.id or "!unknown"))
     hw_safe = escape(str(node.hardware or "UNSET"))
@@ -141,14 +145,19 @@ def render_node_detail(
     id_grid.add_column(ratio=6)
     id_grid.add_column(ratio=6)
 
-    licensed_str = "[bold #00ff66]Sì (Amateur Radio)[/bold #00ff66]" if node.is_licensed else "[dim]No / ISM[/dim]"
+    licensed_str = (
+        f"[bold #00ff66]{t('LICENSED_YES', lang)}[/bold #00ff66]"
+        if node.is_licensed
+        else f"[dim]{t('LICENSED_NO', lang)}[/dim]"
+    )
     id_grid.add_row(
-        f"[dim #64748b]Nome Completo:[/dim #64748b]   [bold #00ff66]{long_name_safe}[/bold #00ff66]\n"
-        f"[dim #64748b]Alias (AKA):[/dim #64748b]      [bold #00f3ff]{short_name_safe}[/bold #00f3ff]\n"
-        f"[dim #64748b]Node ID:[/dim #64748b]          [white]{node_id_safe}[/white] [dim](Dec: {node.num or '--'})[/dim]",
-        f"[dim #64748b]Modello HW:[/dim #64748b]       [white]{hw_safe}[/white]\n"
-        f"[dim #64748b]Ruolo Dispositivo:[/dim #64748b] {format_role(node.role)}\n"
-        f"[dim #64748b]Licenza Radio:[/dim #64748b]    {licensed_str}",
+        f"[dim #64748b]{t('LABEL_FULL_NAME', lang)}:[/dim #64748b]   [bold #00ff66]{long_name_safe}[/bold #00ff66]\n"
+        f"[dim #64748b]{t('LABEL_AKA', lang)}:[/dim #64748b]      [bold #00f3ff]{short_name_safe}[/bold #00f3ff]\n"
+        f"[dim #64748b]{t('LABEL_NODE_ID', lang)}:[/dim #64748b]          [white]{node_id_safe}[/white] "
+        f"[dim]{t('LABEL_DEC', lang, num=node.num or '--')}[/dim]",
+        f"[dim #64748b]{t('LABEL_HW_MODEL', lang)}:[/dim #64748b]       [white]{hw_safe}[/white]\n"
+        f"[dim #64748b]{t('LABEL_DEVICE_ROLE', lang)}:[/dim #64748b] {format_role(node.role)}\n"
+        f"[dim #64748b]{t('LABEL_RADIO_LICENSE', lang)}:[/dim #64748b]    {licensed_str}",
     )
 
     # Section 2: Radio Metrics & Propagation
@@ -157,7 +166,7 @@ def render_node_detail(
         if node.last_heard
         else "N/A"
     )
-    last_heard_display = f"{format_time_ago(node.last_heard)} [dim]({last_heard_full})[/dim]"
+    last_heard_display = f"{format_time_ago(node.last_heard, lang)} [dim]({last_heard_full})[/dim]"
 
     ch_util_str = f"{node.channel_utilization:.1f}%" if node.channel_utilization is not None else "[dim]--[/dim]"
     air_util_str = f"{node.air_util_tx:.2f}%" if node.air_util_tx is not None else "[dim]--[/dim]"
@@ -167,12 +176,12 @@ def render_node_detail(
     radio_grid.add_column(ratio=6)
 
     radio_grid.add_row(
-        f"[dim #64748b]Segnale (SNR):[/dim #64748b]    {format_snr(node.snr)}\n"
-        f"[dim #64748b]Hops Away:[/dim #64748b]        {format_hops(node.hops_away)}\n"
-        f"[dim #64748b]Ultimo Contatto:[/dim #64748b]  {last_heard_display}",
-        f"[dim #64748b]Ch. Utilization:[/dim #64748b]  [white]{ch_util_str}[/white]\n"
-        f"[dim #64748b]Air Util TX:[/dim #64748b]      [white]{air_util_str}[/white]\n"
-        f"[dim #64748b]Preset Modem:[/dim #64748b]     [white]{node.modem_preset or 'LONG_FAST'}[/white]",
+        f"[dim #64748b]{t('LABEL_SNR', lang)}:[/dim #64748b]    {format_snr(node.snr)}\n"
+        f"[dim #64748b]{t('LABEL_HOPS_AWAY', lang)}:[/dim #64748b]        {format_hops(node.hops_away, lang)}\n"
+        f"[dim #64748b]{t('LABEL_LAST_HEARD', lang)}:[/dim #64748b]  {last_heard_display}",
+        f"[dim #64748b]{t('LABEL_CH_UTIL', lang)}:[/dim #64748b]  [white]{ch_util_str}[/white]\n"
+        f"[dim #64748b]{t('LABEL_AIR_UTIL', lang)}:[/dim #64748b]      [white]{air_util_str}[/white]\n"
+        f"[dim #64748b]{t('LABEL_MODEM_PRESET', lang)}:[/dim #64748b]     [white]{node.modem_preset or 'LONG_FAST'}[/white]",
     )
 
     # Section 3: Power & Environmental Telemetry
@@ -187,10 +196,11 @@ def render_node_detail(
     power_grid.add_column(ratio=6)
 
     power_grid.add_row(
-        f"[dim #64748b]Batteria:[/dim #64748b]         {batt_str}\n"
-        f"[dim #64748b]Tensione Cella:[/dim #64748b]   [white]{volt_str}[/white]",
-        f"[dim #64748b]Temperatura:[/dim #64748b]      [white]{temp_str}[/white]\n"
-        f"[dim #64748b]Umidità Relativa:[/dim #64748b] [white]{hum_str}[/white] [dim #64748b]| Pressione:[/dim #64748b] [white]{press_str}[/white]",
+        f"[dim #64748b]{t('LABEL_BATTERY_FULL', lang)}:[/dim #64748b]         {batt_str}\n"
+        f"[dim #64748b]{t('LABEL_CELL_VOLTAGE', lang)}:[/dim #64748b]   [white]{volt_str}[/white]",
+        f"[dim #64748b]{t('LABEL_TEMPERATURE', lang)}:[/dim #64748b]      [white]{temp_str}[/white]\n"
+        f"[dim #64748b]{t('LABEL_HUMIDITY', lang)}:[/dim #64748b] [white]{hum_str}[/white] "
+        f"[dim #64748b]| {t('LABEL_PRESSURE', lang)}:[/dim #64748b] [white]{press_str}[/white]",
     )
 
     # Section 4: Geographic Position & OpenStreetMap
@@ -200,53 +210,53 @@ def render_node_detail(
 
     if node.has_coords:
         coords_val = f"[bold #00f3ff]{node.latitude:.5f}, {node.longitude:.5f}[/bold #00f3ff]"
-        alt_val = f"{node.altitude:.0f} m s.l.m." if node.altitude is not None else "[dim]--[/dim]"
+        alt_val = f"{node.altitude:.0f} {t('ALTITUDE_SUFFIX', lang)}" if node.altitude is not None else "[dim]--[/dim]"
         osm_link = (
-            f"[link={node.osm_url}][bold #00ff66]Apri mappa ↗[/bold #00ff66][/link] "
+            f"[link={node.osm_url}][bold #00ff66]{t('OSM_LINK_TEXT', lang)}[/bold #00ff66][/link] "
             f"[dim #64748b]({node.osm_url})[/dim #64748b]"
         )
     else:
-        coords_val = "[dim]Non disponibili / GPS assente[/dim]"
+        coords_val = f"[dim]{t('NO_COORDS', lang)}[/dim]"
         alt_val = "[dim]--[/dim]"
-        osm_link = "[dim]Nessuna coordinata per il rendering mappa[/dim]"
+        osm_link = f"[dim]{t('NO_COORDS_MAP', lang)}[/dim]"
 
     dist_str = format_distance(effective_dist)
 
     geo_grid.add_row(
-        f"[dim #64748b]Coordinate GPS:[/dim #64748b]   {coords_val}\n"
-        f"[dim #64748b]Altitudine:[/dim #64748b]       [white]{alt_val}[/white]\n"
-        f"[dim #64748b]Distanza Stima:[/dim #64748b]   [bold #ffb800]{dist_str}[/bold #ffb800]",
-        f"[dim #64748b]OpenStreetMap:[/dim #64748b]\n{osm_link}",
+        f"[dim #64748b]{t('LABEL_GPS_COORDS', lang)}:[/dim #64748b]   {coords_val}\n"
+        f"[dim #64748b]{t('LABEL_ALTITUDE', lang)}:[/dim #64748b]       [white]{alt_val}[/white]\n"
+        f"[dim #64748b]{t('LABEL_DISTANCE_EST', lang)}:[/dim #64748b]   [bold #ffb800]{dist_str}[/bold #ffb800]",
+        f"[dim #64748b]{t('LABEL_OSM', lang)}:[/dim #64748b]\n{osm_link}",
     )
 
     # Section 5: Security / Public Key (if available)
     pubkey_str = (
         f"[dim #64748b]{escape(str(node.public_key))}[/dim #64748b]"
         if node.public_key
-        else "[dim]Non trasmessa o crittografia standard[/dim]"
+        else f"[dim]{t('PUBKEY_NONE', lang)}[/dim]"
     )
 
     elements = [
-        Text.from_markup("[bold #00f3ff]◈ IDENTITÀ & HARDWARE[/bold #00f3ff]"),
+        Text.from_markup(f"[bold #00f3ff]{t('SECTION_IDENTITY', lang)}[/bold #00f3ff]"),
         id_grid,
         Rule(style="#334155"),
-        Text.from_markup("[bold #00f3ff]⚡ TELEMETRIA RADIO & PROPAGAZIONE[/bold #00f3ff]"),
+        Text.from_markup(f"[bold #00f3ff]{t('SECTION_RADIO', lang)}[/bold #00f3ff]"),
         radio_grid,
         Rule(style="#334155"),
-        Text.from_markup("[bold #00f3ff]🔋 ENERGIA & SENSORI AMBIENTALI[/bold #00f3ff]"),
+        Text.from_markup(f"[bold #00f3ff]{t('SECTION_POWER', lang)}[/bold #00f3ff]"),
         power_grid,
         Rule(style="#334155"),
-        Text.from_markup("[bold #00f3ff]📍 POSIZIONE GEOGRAFICA[/bold #00f3ff]"),
+        Text.from_markup(f"[bold #00f3ff]{t('SECTION_GEO', lang)}[/bold #00f3ff]"),
         geo_grid,
         Rule(style="#334155"),
-        Text.from_markup(f"[dim #64748b]Chiave Pubblica PKI:[/dim #64748b] {pubkey_str}"),
+        Text.from_markup(f"[dim #64748b]{t('LABEL_PUBKEY', lang)}:[/dim #64748b] {pubkey_str}"),
     ]
 
     return Panel(
         Group(*elements),
-        title=f"[bold #00f3ff]◈ SCHEDA ANALITICA // {short_name_safe} ({node_id_safe})[/bold #00f3ff]",
+        title=f"[bold #00f3ff]{t('NODE_DETAIL_TITLE', lang, name=short_name_safe, id=node_id_safe)}[/bold #00f3ff]",
         title_align="left",
-        subtitle="[dim #64748b]Meshtastic Node Dossier[/dim #64748b]",
+        subtitle=f"[dim #64748b]{t('NODE_DETAIL_SUBTITLE', lang)}[/dim #64748b]",
         subtitle_align="right",
         border_style="#00f3ff",
         box=box.ROUNDED,
@@ -257,6 +267,7 @@ def render_node_detail(
 def render_message(
     msg: MeshMessage,
     as_panel: bool | None = None,
+    lang: str = "it",
 ) -> Union[Text, Panel]:
     """Format an incoming or transmitted mesh message.
 
@@ -266,12 +277,13 @@ def render_message(
     Args:
         msg: MeshMessage object.
         as_panel: If True, forces Panel output. If None, defaults to True for DMs.
+        lang: Language code ("it" or "en") for label translation.
 
     Returns:
         Rich Text or Panel object.
     """
     timestamp_str = msg.timestamp.strftime("[%H:%M:%S]") if msg.timestamp else "[--:--:--]"
-    sender_raw = msg.sender_name or msg.sender_short_name or msg.sender_id or "Sconosciuto"
+    sender_raw = msg.sender_name or msg.sender_short_name or msg.sender_id or t("MSG_SENDER_UNKNOWN", lang)
     sender_display = escape(str(sender_raw))
     sender_id_safe = escape(str(msg.sender_id or "!unknown"))
     snr_display = f" [{format_snr(msg.snr)}]" if msg.snr is not None else ""
@@ -290,7 +302,7 @@ def render_message(
         )
         return Panel(
             Text.from_markup(content),
-            title="[bold #ff007f]🔒 MESSAGGIO DIRETTO PRIVATO // DM[/bold #ff007f]",
+            title=f"[bold #ff007f]{t('MSG_DM_TITLE', lang)}[/bold #ff007f]",
             title_align="left",
             border_style="#ff007f",
             box=box.ROUNDED,

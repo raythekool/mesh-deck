@@ -9,6 +9,8 @@ from datetime import datetime
 from typing import Final
 from rich.theme import Theme
 
+from mesh_deck.i18n import t
+
 # High-Contrast Cyberpunk / Matrix Color Palette (No low-contrast dark pink)
 THEME_COLORS: Final[dict[str, str]] = {
     "neon_green": "#00ff66",  # Matrix glowing green (strong signals, online, success)
@@ -207,10 +209,10 @@ def format_role(role: str | None) -> str:
     )
 
 
-def format_time_ago(dt: datetime | None) -> str:
-    """Format datetime relative to now as 'Xs fa', 'Xm fa', 'Xh fa', 'Xd fa'."""
+def format_time_ago(dt: datetime | None, lang: str = "it") -> str:
+    """Format datetime relative to now as 'Xs fa', 'Xm fa', 'Xh fa', 'Xd fa' (or English equivalents)."""
     if dt is None:
-        return "[dim]mai[/dim]"
+        return f"[dim]{t('TIME_AGO_NEVER', lang)}[/dim]"
 
     now = datetime.now(dt.tzinfo) if dt.tzinfo else datetime.now()
     diff = (now - dt).total_seconds()
@@ -219,22 +221,22 @@ def format_time_ago(dt: datetime | None) -> str:
         diff = 0
 
     if diff < 60:
-        return f"[bold #00ff66]{int(diff)}s fa[/bold #00ff66]"
+        return f"[bold #00ff66]{int(diff)}{t('TIME_AGO_SUFFIX_SEC', lang)}[/bold #00ff66]"
     elif diff < 3600:
-        return f"[bold #00f3ff]{int(diff // 60)}m fa[/bold #00f3ff]"
+        return f"[bold #00f3ff]{int(diff // 60)}{t('TIME_AGO_SUFFIX_MIN', lang)}[/bold #00f3ff]"
     elif diff < 86400:
-        return f"[#ffb800]{int(diff // 3600)}h fa[/#ffb800]"
+        return f"[#ffb800]{int(diff // 3600)}{t('TIME_AGO_SUFFIX_HOUR', lang)}[/#ffb800]"
     else:
-        return f"[dim]{int(diff // 86400)}d fa[/dim]"
+        return f"[dim]{int(diff // 86400)}{t('TIME_AGO_SUFFIX_DAY', lang)}[/dim]"
 
 
-def format_hops(hops: int | None) -> str:
-    """Format hops count as 'Diretto (0)' or 'N hops'."""
+def format_hops(hops: int | None, lang: str = "it") -> str:
+    """Format hops count as 'Diretto (0)'/'Direct (0)' or 'N hops'."""
     if hops is None:
         return "[dim]--[/dim]"
 
     if hops == 0:
-        return "[bold #00ff66]Diretto (0)[/bold #00ff66]"
+        return f"[bold #00ff66]{t('HOPS_DIRECT', lang)} (0)[/bold #00ff66]"
     elif hops == 1:
         return "[bold #00f3ff]1 hop[/bold #00f3ff]"
     else:

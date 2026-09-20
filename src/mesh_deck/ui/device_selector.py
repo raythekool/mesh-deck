@@ -13,6 +13,7 @@ from textual.widgets.option_list import Option
 
 from mesh_deck.core.events import DeviceConnectionInfo
 from mesh_deck.core.scanner import scan_meshtastic_ports
+from mesh_deck.i18n import t
 
 
 class DeviceSelectorScreen(Screen[str | None]):
@@ -38,16 +39,19 @@ class DeviceSelectorScreen(Screen[str | None]):
         self,
         devices: list[DeviceConnectionInfo],
         preferred_port: str | None = None,
+        lang: str = "it",
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
         self.devices = devices
         self.preferred_port = preferred_port
+        self.lang = lang
+        self.sub_title = t("DEVICE_SELECTOR_SUBTITLE", self.lang)
 
     def compose(self) -> ComposeResult:
         with Vertical(id="device-dialog"):
-            yield Label("Periferiche Meshtastic rilevate", id="device-heading")
-            yield Static("Usa freccia Su/Giu e Invio per selezionare", id="device-help")
+            yield Label(t("DEVICE_SELECTOR_HEADING", self.lang), id="device-heading")
+            yield Static(t("DEVICE_SELECTOR_HELP", self.lang), id="device-help")
             yield OptionList(id="devices")
         yield Footer()
 
@@ -88,15 +92,17 @@ class DeviceSelectorApp(App[str | None]):
         self,
         devices: list[DeviceConnectionInfo],
         preferred_port: str | None = None,
+        lang: str = "it",
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
         self.devices = devices
         self.preferred_port = preferred_port
+        self.lang = lang
 
     def on_mount(self) -> None:
         self.push_screen(
-            DeviceSelectorScreen(self.devices, preferred_port=self.preferred_port),
+            DeviceSelectorScreen(self.devices, preferred_port=self.preferred_port, lang=self.lang),
             callback=self.exit,
         )
 
@@ -104,6 +110,7 @@ class DeviceSelectorApp(App[str | None]):
 def select_device(
     devices: list[DeviceConnectionInfo],
     preferred_port: str | None = None,
+    lang: str = "it",
 ) -> str | None:
     """Run the startup selector and return a chosen port, if any."""
-    return DeviceSelectorApp(devices, preferred_port=preferred_port).run()
+    return DeviceSelectorApp(devices, preferred_port=preferred_port, lang=lang).run()

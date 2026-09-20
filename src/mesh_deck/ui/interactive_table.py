@@ -15,6 +15,8 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import Screen
 from textual.widgets import DataTable, Footer, Header, Input, Label, Static
 
+from mesh_deck.i18n import t
+
 if TYPE_CHECKING:
     from mesh_deck.core.events import NodeData
     from mesh_deck.core.node_store import NodeStore
@@ -99,21 +101,25 @@ class InteractiveNodesScreen(Screen):
         self,
         node_store: NodeStore,
         local_node: NodeData | None = None,
+        lang: str = "it",
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
         self.store = node_store
         self.local_node = local_node
+        self.lang = lang
         self.sort_column_idx = 0
         self.sort_reverse = False
         self.column_keys: list[str] = []
         self._raw_rows: list[list[Any]] = []
+        self.title = t("VIEW_TITLE", self.lang)
+        self.sub_title = t("VIEW_SUBTITLE", self.lang)
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
         with Horizontal(id="filter-bar"):
-            yield Label("🔍 Filtra:", id="filter-label")
-            yield Input(placeholder="Cerca per nome, AKA, hardware o ID...", id="filter-input")
+            yield Label(t("FILTER_LABEL", self.lang), id="filter-label")
+            yield Input(placeholder=t("FILTER_PLACEHOLDER", self.lang), id="filter-input")
         with Vertical(id="table-container"):
             yield DataTable(id="nodes-table", cursor_type="row")
         yield Footer()
@@ -123,16 +129,16 @@ class InteractiveNodesScreen(Screen):
         table = self.query_one(DataTable)
         columns = [
             ("#", "idx"),
-            ("Nome Nodo", "name"),
-            ("AKA", "aka"),
-            ("ID", "id"),
-            ("Hardware", "hardware"),
-            ("Ruolo", "role"),
-            ("SNR", "snr"),
-            ("Hops", "hops"),
-            ("Batteria", "battery"),
-            ("Distanza", "distance"),
-            ("Ultimo Contatto", "last_heard"),
+            (t("COL_NODE_NAME", self.lang), "name"),
+            (t("COL_AKA", self.lang), "aka"),
+            (t("COL_ID", self.lang), "id"),
+            (t("COL_HARDWARE", self.lang), "hardware"),
+            (t("COL_ROLE", self.lang), "role"),
+            (t("COL_SNR", self.lang), "snr"),
+            (t("COL_HOPS", self.lang), "hops"),
+            (t("COL_BATTERY", self.lang), "battery"),
+            (t("COL_DISTANCE", self.lang), "distance"),
+            (t("COL_LAST_HEARD", self.lang), "last_heard"),
         ]
 
         self.column_keys = []
@@ -155,7 +161,7 @@ class InteractiveNodesScreen(Screen):
             name_display = node.display_name
             is_local = self.local_node and node.id == self.local_node.id
             if is_local:
-                name_display = f"★ {name_display} (LOCALE)"
+                name_display = f"★ {name_display} ({t('LOCAL_SUFFIX', self.lang)})"
 
             aka = node.aka
             node_id = node.id
@@ -169,7 +175,7 @@ class InteractiveNodesScreen(Screen):
             # Hops
             hops_val = node.hops_away
             if hops_val is not None:
-                hops_str = "Diretto (0)" if hops_val == 0 else f"{hops_val} hops"
+                hops_str = f"{t('HOPS_DIRECT', self.lang)} (0)" if hops_val == 0 else f"{hops_val} hops"
             else:
                 hops_str = "--"
 
@@ -196,7 +202,7 @@ class InteractiveNodesScreen(Screen):
 
             # Last heard
             from mesh_deck.ui.theme import format_time_ago
-            last_heard_str = _clean_text(format_time_ago(node.last_heard))
+            last_heard_str = _clean_text(format_time_ago(node.last_heard, self.lang))
 
             # Filter check
             if filter_lower:
@@ -251,7 +257,7 @@ class InteractiveNodesScreen(Screen):
                     return float("-inf")
 
             # Attempt numeric conversion for Hops
-            if "Diretto" in val_str:
+            if val_str.endswith("(0)"):
                 return 0
             if "hops" in val_str:
                 clean = val_str.replace("hops", "").strip()
@@ -289,7 +295,7 @@ class InteractiveNodesScreen(Screen):
         arrow = "▼" if reverse else "▲"
         col_name = table.columns[event_col_key_or_idx(table, col_idx)].label
         clean_name = re.sub(r"[▲▼]", "", str(col_name)).strip()
-        self.sub_title = f"Ordinato per: {clean_name} {arrow} • Click su un header per cambiare ordinamento"
+        self.sub_title = t("VIEW_SORTED_BY", self.lang, column=clean_name, arrow=arrow)
 
     def on_input_changed(self, event: Input.Changed) -> None:
         """Live search filter as user types."""
@@ -322,19 +328,21 @@ class InteractiveNodesApp(App):
         self,
         node_store: NodeStore,
         local_node: NodeData | None = None,
+        lang: str = "it",
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
         self.store = node_store
         self.local_node = local_node
+        self.lang = lang
 
     def on_mount(self) -> None:
         self.push_screen(
-            InteractiveNodesScreen(self.store, local_node=self.local_node),
+            InteractiveNodesScreen(self.store, local_node=self.local_node, lang=self.lang),
             callback=lambda _: self.exit(),
         )
 
 
-def launch_interactive_nodes(node_store: NodeStore, local_node: NodeData | None = None) -> None:
+def launch_interactive_nodes(node_store: NodeStore, local_node: NodeData | None = None, lang: str = "it") -> None:
     """Run the interactive table viewer as a standalone application."""
-    InteractiveNodesApp(node_store=node_store, local_node=local_node).run()
+    InteractiveNodesApp(node_store=node_store, local_node=local_node, lang=lang).run()

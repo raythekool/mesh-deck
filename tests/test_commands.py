@@ -14,6 +14,7 @@ from mesh_deck.__main__ import parse_args
 from mesh_deck.cli import run_agent_command
 from mesh_deck.commands.dispatcher import CommandDispatcher
 from mesh_deck.core.events import DeviceConnectionInfo, NodeData
+from mesh_deck.core.settings import Settings
 
 
 class TestCommandDispatcher(unittest.TestCase):
@@ -62,7 +63,8 @@ class TestCommandDispatcher(unittest.TestCase):
 
         # Null console to avoid stdout clutter
         self.console = Console(quiet=True)
-        self.dispatcher = CommandDispatcher(self.mock_client, console=self.console)
+        self.settings = Settings()
+        self.dispatcher = CommandDispatcher(self.mock_client, console=self.console, settings=self.settings)
 
     def test_dispatch_help(self) -> None:
         res = self.dispatcher.dispatch("/help")
@@ -239,7 +241,7 @@ class TestCommandDispatcher(unittest.TestCase):
     def test_dispatch_chat(self, mock_launch) -> None:
         res = self.dispatcher.dispatch("/chat")
         self.assertTrue(res)
-        mock_launch.assert_called_once_with(self.mock_client)
+        mock_launch.assert_called_once_with(self.mock_client, lang="it")
 
     def test_dispatch_settings_view(self) -> None:
         res = self.dispatcher.dispatch("/settings")

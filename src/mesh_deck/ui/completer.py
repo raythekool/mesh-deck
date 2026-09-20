@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from mesh_deck.i18n import command_descriptions
+from mesh_deck.i18n import command_descriptions, t
 from mesh_deck.models import NodeData
 
 # Standard supported slash commands and their descriptions
@@ -39,6 +39,7 @@ class MeshDeckCompleter:
         commands: dict[str, str] | None = None,
         node_getter: Callable[[], list[NodeData]] | list[NodeData] | None = None,
         port_getter: Callable[[], list[str]] | list[str] | None = None,
+        lang: str = "it",
         **kwargs: Any,
     ) -> None:
         """Initialize completer.
@@ -49,10 +50,12 @@ class MeshDeckCompleter:
             commands: Optional dictionary mapping slash commands to description strings.
             node_getter: Alias for get_nodes.
             port_getter: Alias for get_ports.
+            lang: Language code ("it" or "en") for sub-argument completion descriptions.
         """
         self._get_nodes_provider = get_nodes if get_nodes is not None else node_getter
         self._get_ports_provider = get_ports if get_ports is not None else port_getter
         self.commands = commands or SLASH_COMMANDS
+        self.lang = lang
 
     def _resolve_nodes(self) -> list[NodeData]:
         """Fetch current list of nodes from provider."""
@@ -121,7 +124,7 @@ class MeshDeckCompleter:
                         completions.append(Completion(
                             value=port,
                             start_position=-len(remainder),
-                            description="Porta seriale USB",
+                            description=t("COMPLETE_PORT_DESC", self.lang),
                         ))
             return completions
 
@@ -131,10 +134,10 @@ class MeshDeckCompleter:
             parts = remainder.split()
             if len(parts) <= 1 and not remainder.endswith(" "):
                 opts = [
-                    ("lang", "Imposta lingua (it, en)"),
-                    ("theme", "Imposta tema (cyberpunk, high_contrast, amber, matrix)"),
-                    ("sort", "Imposta ordinamento predefinito"),
-                    ("port", "Imposta porta seriale predefinita"),
+                    ("lang", t("COMPLETE_LANG_DESC", self.lang)),
+                    ("theme", t("COMPLETE_THEME_DESC", self.lang)),
+                    ("sort", t("COMPLETE_SORT_DESC", self.lang)),
+                    ("port", t("COMPLETE_PORT_SUB_DESC", self.lang)),
                 ]
                 q = remainder.lower().strip()
                 for opt, desc in opts:
