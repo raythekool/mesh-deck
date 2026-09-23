@@ -147,20 +147,59 @@ cd mesh-deck
 uv run mesh-deck
 ```
 
+### Install as a system-wide command
+
+`uv run` has to be executed from inside the repository. To get a plain
+`mesh-deck` command available from any directory, install it as a uv tool:
+
+```bash
+# From the repository root. --editable keeps the command tracking your
+# checkout, so a git pull or a local edit takes effect with no reinstall.
+uv tool install --editable .
+
+# Or install straight from GitHub, without cloning:
+uv tool install git+https://github.com/raythekool/mesh-deck
+```
+
+Then, from anywhere:
+
+```bash
+mesh-deck                 # interactive console
+mesh-deck nodes --output json
+```
+
+If the shell cannot find the command, uv's tool directory is not on your
+`PATH`; `uv tool update-shell` adds it (open a new shell afterwards). Use
+`uv tool list` to check what is installed, `uv tool upgrade mesh-deck` to
+update a non-editable install, and `uv tool uninstall mesh-deck` to remove it.
+
+> An `--editable` install points at the directory you installed from: moving
+> or deleting the clone breaks the command. Re-run `uv tool install --editable .`
+> from the new location if you relocate the repository.
+
+To run it once without installing anything:
+
+```bash
+uvx --from git+https://github.com/raythekool/mesh-deck mesh-deck
+```
+
 ### Command-line flags
+
+These work the same whether you prefix them with `uv run` inside the repo or
+use the installed `mesh-deck` command from anywhere:
 
 ```bash
 # List all Meshtastic radios connected via USB and exit
-uv run mesh-deck --list
+mesh-deck --list
 
 # Connect to a specific serial port
-uv run mesh-deck --port /dev/ttyACM0
+mesh-deck --port /dev/ttyACM0
 
 # Print the node table in non-interactive mode for scripts or cron jobs
-uv run mesh-deck --nodes
+mesh-deck --nodes
 
 # Launch directly into the Textual node explorer
-uv run mesh-deck --tui
+mesh-deck --tui
 ```
 
 ### Agent-friendly CLI

@@ -58,6 +58,50 @@ cd mesh-deck
 uv run mesh-deck
 ```
 
+### Installazione come Comando di Sistema
+
+`uv run` va eseguito dall'interno del repository. Per avere un comando
+`mesh-deck` richiamabile da qualsiasi directory, installalo come *tool* di uv:
+
+```bash
+# Dalla radice del repository. --editable mantiene il comando agganciato al
+# checkout: un git pull o una modifica locale hanno effetto senza reinstallare.
+uv tool install --editable .
+
+# In alternativa, direttamente da GitHub senza clonare:
+uv tool install git+https://github.com/raythekool/mesh-deck
+```
+
+Da quel momento, da qualunque percorso:
+
+```bash
+mesh-deck                       # console interattiva
+mesh-deck nodes --output json   # sottocomandi per script e agenti
+```
+
+Comandi utili di gestione:
+
+| Comando                        | Effetto                                              |
+| :----------------------------- | :--------------------------------------------------- |
+| `uv tool list`                 | Elenca i tool installati e gli eseguibili esposti.    |
+| `uv tool update-shell`         | Aggiunge la directory dei tool al `PATH`.             |
+| `uv tool upgrade mesh-deck`    | Aggiorna un'installazione non editable.               |
+| `uv tool uninstall mesh-deck`  | Rimuove il comando.                                   |
+
+> **Se la shell non trova il comando**, la directory dei binari di uv non è nel
+> `PATH`: esegui `uv tool update-shell` e apri una nuova shell. Il percorso
+> esatto è restituito da `uv tool dir --bin` (tipicamente `~/.local/bin`).
+
+> **Nota sull'installazione `--editable`**: il comando punta alla directory da
+> cui è stato installato. Se sposti o elimini il clone, il comando smette di
+> funzionare: ripeti `uv tool install --editable .` dalla nuova posizione.
+
+Per una singola esecuzione, senza installare nulla:
+
+```bash
+uvx --from git+https://github.com/raythekool/mesh-deck mesh-deck
+```
+
 ### Selezione Periferica All'Avvio
 
 Prima della connessione, l'avvio interattivo apre una schermata Textual con le
