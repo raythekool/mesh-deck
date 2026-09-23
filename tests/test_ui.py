@@ -1434,6 +1434,84 @@ class TestChannelChatScreen(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(screen.query_one("#channel-list", OptionList).option_count, 4)
 
 
+class TestLogViewerScreen(unittest.IsolatedAsyncioTestCase):
+    """The bounded diagnostic viewer filters, pauses, copies, and exports without stdout."""
+
+    def _app(self):
+        from unittest.mock import MagicMock
+
+        client = MagicMock()
+        client.is_connected = False
+        client.port = None
+        client.store.get_all_nodes.return_value = []
+        client.get_local_node.return_value = None
+        client.get_channels.return_value = []
+        repl = MeshDeckREPL(client)
+        repl.settings.language = "en"
+        return MeshDeckApp(repl)
+
+    async def test_viewer_filters_device_entries_and_pauses_live_refresh(self):
+        from mesh_deck.ui.log_viewer import LogViewerScreen
+        from textual.widgets import DataTable, Select
+
+        app = self._app()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.repl.log_buffer.record_device("radio ready", "COM6")
+            app.open_logs()
+            await pilot.pause()
+            self.assertIsInstance(app.screen, LogViewerScreen)
+            screen = app.screen
+            screen.query_one("#log-level", Select).value = "info"
+            screen.query_one("#log-query", Input).value = "radio ready"
+            screen.refresh_entries()
+            table = screen.query_one("#log-table", DataTable)
+            self.assertEqual(table.row_count, 1)
+
+            screen.action_toggle_pause()
+            app.repl.log_buffer.record_device("second line", "COM6")
+            screen.request_refresh()
+            await pilot.pause()
+            self.assertEqual(table.row_count, 1)
+            self.assertIn("paused", str(screen.query_one("#log-status", Static).content))
+            self.assertIn("new", str(screen.query_one("#log-status", Static).content))
+
+            screen.action_toggle_pause()
+            screen.query_one("#log-query", Input).value = ""
+            screen.refresh_entries()
+            await pilot.pause()
+            self.assertIn("second line", [entry.message for entry in screen._visible_entries.values()])
+
+    async def test_copy_and_export_use_the_filtered_log_view(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        from unittest.mock import patch
+
+        from mesh_deck.ui import log_viewer
+        from textual.widgets import DataTable, Select
+
+        app = self._app()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.repl.log_buffer.record_device("copy this", "COM6")
+            app.open_logs()
+            await pilot.pause()
+            screen = app.screen
+            screen.query_one("#log-level", Select).value = "info"
+            screen.query_one("#log-query", Input).value = "copy this"
+            screen.refresh_entries()
+            table = screen.query_one("#log-table", DataTable)
+            table.move_cursor(row=0, column=0)
+            screen.action_copy_selected()
+            self.assertIn("copy this", app.clipboard)
+
+            with TemporaryDirectory() as temp_dir, patch.object(log_viewer, "LOG_EXPORT_DIR", Path(temp_dir)):
+                screen.action_export_entries()
+                exports = list(Path(temp_dir).glob("*.log"))
+                self.assertEqual(len(exports), 1)
+                self.assertIn("copy this", exports[0].read_text(encoding="utf-8"))
+
+
 class TestNotifyMessageWiring(unittest.IsolatedAsyncioTestCase):
     """Test that MeshDeckApp.notify_message builds the expected toast for DMs/broadcasts."""
 

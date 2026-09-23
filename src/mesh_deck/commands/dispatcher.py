@@ -68,6 +68,7 @@ class CommandDispatcher:
             "/view": self.cmd_view,
             "/tui": self.cmd_view,
             "/chat": self.cmd_chat,
+            "/logs": self.cmd_logs,
             "/settings": self.cmd_settings,
             "/config": self.cmd_settings,
             "/switch": self.cmd_switch,
@@ -162,6 +163,7 @@ class CommandDispatcher:
             ("/nodes", "[active|snr|hops|name]", t("CMD_DESC_NODES", lang)),
             ("/view, /tui", "", t("CMD_DESC_VIEW", lang)),
             ("/chat", "", t("CMD_DESC_CHAT", lang)),
+            ("/logs", "", t("CMD_DESC_LOGS", lang)),
             ("/node", "<id|aka>", t("CMD_DESC_NODE", lang)),
             ("/send", "<testo>", t("CMD_DESC_SEND", lang)),
             ("/dm", "<id|aka> <testo>", t("CMD_DESC_DM", lang)),
@@ -604,6 +606,14 @@ class CommandDispatcher:
         from mesh_deck.ui.channel_chat import launch_channel_chat
         self.console.print(f"[{THEME_COLORS['primary']}]{t('CHAT_LAUNCH', lang)}[/]")
         launch_channel_chat(self.client, lang=lang)
+
+    def cmd_logs(self, args: list[str]) -> None:
+        """Open the bounded application and device diagnostic log viewer."""
+        opener = getattr(self.console, "open_logs", None)
+        if callable(opener):
+            opener()
+            return
+        self.console.print(f"[{THEME_COLORS['warning']}]{t('LOGS_TUI_ONLY', self.lang)}[/]")
 
     def cmd_settings(self, args: list[str]) -> None:
         """View or update user preferences (language, theme, port, sort)."""

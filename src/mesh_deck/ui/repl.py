@@ -20,6 +20,7 @@ from textual.widgets.option_list import Option
 from mesh_deck.core.settings import Settings
 from mesh_deck.i18n import command_descriptions, t
 from mesh_deck.core.events import DeviceConnectionInfo, MeshMessage, NodeData
+from mesh_deck.core.log_buffer import LogBuffer
 from mesh_deck.ui.device_selector import DeviceSelectorScreen
 from mesh_deck.ui.completer import Completion, MeshDeckCompleter
 from mesh_deck.ui.tables import render_message, render_node_detail
@@ -60,6 +61,9 @@ class TextualConsole:
 
     def open_settings(self) -> None:
         self._invoke(self.app.open_settings)
+
+    def open_logs(self) -> None:
+        self._invoke(self.app.open_logs)
 
     def update_language(self, language: str) -> None:
         self._invoke(self.app.update_language, language)
@@ -328,6 +332,7 @@ class MeshDeckApp(ThemedApp, App):
         # TextualConsole can tell "already on the UI thread" from
         # "must marshal via call_from_thread" without private Textual state.
         self.ui_thread_id = threading.get_ident()
+        self.repl.start_logging()
         console = TextualConsole(self)
         self.repl.console = console
         self.repl.dispatcher.console = console
@@ -507,6 +512,11 @@ class MeshDeckApp(ThemedApp, App):
 
     def open_settings(self) -> None:
         self.push_screen(SettingsScreen(self.repl.settings))
+
+    def open_logs(self) -> None:
+        from mesh_deck.ui.log_viewer import LogViewerScreen
+
+        self.push_screen(LogViewerScreen(self.repl.log_buffer, lang=self.repl.settings.language))
 
     def apply_theme(self, name: str | None = None) -> None:
         """Activate a palette and repaint every Rich and Textual surface."""
@@ -781,6 +791,9 @@ class MeshDeckApp(ThemedApp, App):
     def close_node_detail(self) -> None:
         self.query_one("#node-detail", Static).display = False
 
+    def on_unmount(self) -> None:
+        self.repl.stop_logging()
+
 
 class MeshDeckREPL:
     """Compatibility facade which launches the primary Textual application."""
@@ -801,6 +814,8 @@ class MeshDeckREPL:
         self._link_was_lost = False
         self.connection_state = "connected" if self.client.is_connected else "disconnected"
         self.reconnect_attempt = 0
+        self.log_buffer = LogBuffer()
+        self._logging_started = False
         if dispatcher is not None:
             self.dispatcher = dispatcher
         else:
@@ -816,6 +831,22 @@ class MeshDeckREPL:
         self.client.on_node_updated(self._handle_node_updated)
         self.client.on_connection_change(self._handle_connection_change)
         self.client.on_reconnect_attempt(self._handle_reconnect_attempt)
+        self.client.on_device_log(self._handle_device_log)
+
+    def start_logging(self) -> None:
+        """Start collecting application diagnostics while the Textual app is mounted."""
+        if not self._logging_started:
+            self.log_buffer.attach()
+            self._logging_started = True
+
+    def stop_logging(self) -> None:
+        """Detach the application log handler while retaining its bounded snapshot."""
+        self.log_buffer.detach()
+        self._logging_started = False
+
+    def _handle_device_log(self, line: str, port: str | None) -> None:
+        """Store a device diagnostic line received from the radio callback."""
+        self.log_buffer.record_device(line, port)
 
     def _handle_node_updated(self, _node: NodeData) -> None:
         """Ask the console to repaint the node sidebar (called from a radio thread)."""

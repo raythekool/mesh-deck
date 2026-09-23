@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import unittest
 import threading
+import logging
 from datetime import datetime, timedelta, UTC
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -12,6 +13,7 @@ from unittest.mock import MagicMock, patch
 from mesh_deck.agent import AgentService, AgentServiceError
 from mesh_deck.core.events import DeviceConnectionInfo, MeshMessage, NodeData
 from mesh_deck.core.history import HistoryStore
+from mesh_deck.core.log_buffer import LogBuffer
 from mesh_deck.core.node_store import NodeStore
 from mesh_deck.core.radio_client import RadioClient
 from mesh_deck.core.scanner import scan_meshtastic_ports
@@ -363,6 +365,54 @@ class TestSettings(unittest.TestCase):
                 self.assertEqual(len(loaded.command_history), 100)
                 self.assertEqual(loaded.command_history[0], "/nodes 1")
                 self.assertEqual(loaded.command_history[-1], "/nodes 100")
+
+
+class TestLogBuffer(unittest.TestCase):
+    """Bounded application and radio-device diagnostics remain independent of stdout."""
+
+    def test_application_and_device_entries_filter_by_source_level_and_text(self):
+        buffer = LogBuffer(max_entries=3)
+        logger = logging.getLogger("mesh_deck.tests.log_buffer")
+        logger.handlers.clear()
+        logger.propagate = False
+        buffer.attach(logger)
+        try:
+            logger.warning("serial warning")
+            logger.error("critical error")
+            buffer.record_device("radio ready", "COM6")
+
+            self.assertEqual(len(buffer.entries(minimum_level=logging.DEBUG)), 3)
+            self.assertEqual(len(buffer.entries(source="device", minimum_level=logging.INFO)), 1)
+            self.assertEqual(len(buffer.entries(query="critical", minimum_level=logging.DEBUG)), 1)
+            self.assertEqual(buffer.entries(source="device", minimum_level=logging.INFO)[0].port, "COM6")
+        finally:
+            buffer.detach()
+
+    def test_buffer_is_bounded_and_notifies_listeners(self):
+        buffer = LogBuffer(max_entries=2)
+        observed = []
+        buffer.add_listener(observed.append)
+        buffer.record_device("one", "COM6")
+        buffer.record_device("two", "COM6")
+        buffer.record_device("three", "COM6")
+
+        entries = buffer.entries(minimum_level=logging.DEBUG)
+        self.assertEqual([entry.message for entry in entries], ["two", "three"])
+        self.assertEqual([entry.message for entry in observed], ["one", "two", "three"])
+
+    def test_detach_stops_application_capture(self):
+        buffer = LogBuffer()
+        logger = logging.getLogger("mesh_deck.tests.detach")
+        logger.handlers.clear()
+        logger.propagate = False
+        buffer.attach(logger)
+        try:
+            logger.warning("before")
+            buffer.detach()
+            logger.error("after")
+            self.assertEqual([entry.message for entry in buffer.entries(minimum_level=logging.DEBUG)], ["before"])
+        finally:
+            buffer.detach()
 
 
 class TestScanner(unittest.TestCase):
@@ -775,6 +825,20 @@ class TestRadioClient(unittest.TestCase):
         self.assertEqual(messages[1].receiver_id, "!45a466e4")
         self.assertEqual(messages[1].recipient_name, "Heltec Milan")
         self.assertEqual(messages[1].text, "Direct secret ping")
+
+    def test_device_log_line_is_forwarded_only_from_active_interface(self):
+        client = RadioClient()
+        active_interface = object()
+        other_interface = object()
+        client._interface = active_interface
+        client._port = "COM6"
+        received = []
+        client.on_device_log(lambda line, port: received.append((line, port)))
+
+        client._on_pubsub_log_line("radio ready\n", interface=active_interface)
+        client._on_pubsub_log_line("foreign", interface=other_interface)
+
+        self.assertEqual(received, [("radio ready\n", "COM6")])
 
     def test_radio_client_telemetry_and_position_routing(self):
         store = NodeStore()

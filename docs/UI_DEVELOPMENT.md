@@ -1,6 +1,6 @@
 # UI Development Proposals
 
-> **Status:** sections 1–8 are implemented on `feat/ui-node-explorer-foundation`; sections 9–13 remain proposals. Each SVG is a wireframe that makes the intended interaction and information hierarchy reviewable before code is written.
+> **Status:** sections 1–8 and 12 are implemented on `feat/ui-node-explorer-foundation`; sections 9–11 and 13 remain proposals. Each SVG is a wireframe that makes the intended interaction and information hierarchy reviewable before code is written.
 
 ## Goals
 
@@ -116,18 +116,18 @@ Every palette should retain the same semantic roles, but operators must not depe
 - Contrast checks for foreground/background combinations in all four themes.
 - A screenshot test matrix for default, compact, and high-density surfaces.
 
-## 12. Application and Device Logs
+## 12. Application and Device Logs — Implemented
 
 ![Application and device logs proposal](ui-development/images/12-observability-logs.svg)
 
-Add an internal `/logs` screen for diagnostics without forcing operators to leave the TUI or find a terminal scrollback. It combines two explicitly labelled streams:
+`/logs` provides diagnostics without forcing operators to leave the TUI or find terminal scrollback. It combines two explicitly labelled streams:
 
 - **Application**: Mesh-Deck events such as connection attempts, command failures, history writes, and UI errors.
 - **Device**: log lines forwarded by the connected Meshtastic radio, tagged with the serial port and firmware timestamp when supplied.
 
-The operator can filter by source and severity, pause auto-scroll, search, copy a selected range, and export the currently filtered view to a local text file. The default should be `Warning` and above so normal radio traffic does not turn the console into a firehose; an operator deliberately enables `Debug` while investigating a problem.
+The operator filters by source and severity, pauses auto-scroll, searches, copies a selected row, and exports the currently filtered view to a local text file. The default is `Warning` and above so normal radio traffic does not turn the console into a firehose; an operator deliberately enables `Debug` while investigating a problem.
 
-This is a viewer, not a new persistent logging subsystem: it should subscribe to the existing Python logging and Meshtastic log-line events, retain a bounded in-memory buffer, and leave standard MCP stdout untouched.
+This is a viewer, not a new persistent logging subsystem: it subscribes to existing Python logging and Meshtastic `meshtastic.log.line` events, retains a bounded in-memory buffer, and leaves standard MCP stdout untouched.
 
 ## 13. Connected Device Settings
 

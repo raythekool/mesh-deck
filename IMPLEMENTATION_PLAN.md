@@ -200,8 +200,11 @@ mesh-deck/
   1. `NodePresentation` centralizza SNR, hop, batteria, distanza, ultimo contatto, ruolo e identità per sidebar, `/nodes` e `/view`.
   2. Ogni superficie sceglie solo la propria densità; unità, arrotondamenti e colori semantici sono condivisi.
   3. I nomi provenienti dai nodi sono escaped nella sidebar prima del rendering Rich.
+* **Incremento 6 — completato sul branch `feat/ui-node-explorer-foundation`**:
+  1. `/logs` visualizza stream separati applicazione e dispositivo in un buffer thread-safe limitato in memoria.
+  2. Il viewer offre filtri per sorgente, livello e testo, pausa del refresh, copia della riga selezionata ed export della vista filtrata.
+  3. Le righe device arrivano dal topic Meshtastic `meshtastic.log.line`; i log applicativi vengono catturati solo mentre l'app Textual è montata e non propagano su stdout MCP.
 * **Incrementi successivi — ordinati per valore operativo**:
-  1. Viewer `/logs` per stream applicazione e device, con buffer limitato, ricerca, filtri, pausa ed export, senza contaminare stdout MCP.
-  2. Screen `/device-settings` transazionale: snapshot, draft locale, validazione, diff semantico, conferma esplicita e rilettura dell'ack; PSK, regione, reset e firmware restano fuori ambito.
-  3. Topologia visuale e telemetria storica soltanto dopo che i dati NeighborInfo e JSONL reali dimostrano frequenza e qualità sufficienti.
+  1. Screen `/device-settings` transazionale: snapshot, draft locale, validazione, diff semantico, conferma esplicita e rilettura dell'ack; PSK, regione, reset e firmware restano fuori ambito.
+  2. Topologia visuale e telemetria storica soltanto dopo che i dati NeighborInfo e JSONL reali dimostrano frequenza e qualità sufficienti.
 * **Criterio di Accettazione Incremento 1**: la suite `unittest` copre dettaglio, densità automatica, persistenza, localizzazione e strip radio; il linter `ruff` è pulito; la nuova UI preserva tutte le funzionalità `/view` esistenti.

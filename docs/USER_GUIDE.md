@@ -271,6 +271,15 @@ The bottom input broadcasts to the selected channel or sends an explicit reply t
 
 Unread message counts appear on non-selected channel or direct-message conversations. Press `r` to refresh channels and `q` or `Esc` to return.
 
+### `/logs`
+
+- **Syntax:** `/logs`
+- **Purpose:** Open the bounded in-memory diagnostic viewer for Mesh-Deck application logs and forwarded connected-device log lines.
+
+The viewer filters by source, minimum severity, and free-text query. Press `p` to pause automatic refresh, `c` to copy the selected row, `e` to export the currently filtered view, `r` to refresh, and `q` or `Esc` to return.
+
+The default minimum severity is Warning. Enable Info or Debug only while investigating a problem. Exported files are written under `~/.config/mesh-deck/exports/`. The viewer does not write diagnostics to MCP stdout.
+
 ### `/node`
 
 - **Syntax:** `/node <id|aka|name>`

@@ -89,6 +89,7 @@ class RadioClient:
         self._node_updated_callbacks: list[Callable[[NodeData], Any]] = []
         self._telemetry_callbacks: list[Callable[..., Any]] = []
         self._connection_callbacks: list[Callable[[bool, str | None], Any]] = []
+        self._device_log_callbacks: list[Callable[[str, str | None], Any]] = []
 
         # Pubsub subscription flags
         self._subscribed = False
@@ -176,6 +177,12 @@ class RadioClient:
         with self._lock:
             if callback not in self._connection_callbacks:
                 self._connection_callbacks.append(callback)
+
+    def on_device_log(self, callback: Callable[[str, str | None], Any]) -> None:
+        """Register a callback for log lines forwarded by the active radio."""
+        with self._lock:
+            if callback not in self._device_log_callbacks:
+                self._device_log_callbacks.append(callback)
 
     def connect(self, port: str, blocking: bool = False, timeout: int = 30) -> bool:
         """Connect to a Meshtastic device on the specified serial port.
@@ -309,6 +316,7 @@ class RadioClient:
             pub.subscribe(self._on_pubsub_node_updated, "meshtastic.node.updated")
             pub.subscribe(self._on_pubsub_neighborinfo, "meshtastic.receive.neighborinfo")
             pub.subscribe(self._on_pubsub_traceroute, "meshtastic.receive.traceroute")
+            pub.subscribe(self._on_pubsub_log_line, "meshtastic.log.line")
             pub.subscribe(self._on_pubsub_connection_lost, "meshtastic.connection.lost")
             self._subscribed = True
 
@@ -328,6 +336,17 @@ class RadioClient:
             return f"!{int(text) & 0xFFFFFFFF:08x}"
         except ValueError:
             return text.lower()
+
+    def _on_pubsub_log_line(self, line: str, interface=None, **kwargs) -> None:
+        """Forward a line published by the connected Meshtastic device."""
+        if self._interface is not None and interface is not None and interface != self._interface:
+            return
+        port = self.port
+        for callback in list(self._device_log_callbacks):
+            try:
+                callback(line, port)
+            except Exception as callback_exc:
+                logger.exception("Error in device log callback: %s", callback_exc)
 
     def _on_pubsub_neighborinfo(self, packet: dict[str, Any], interface=None, **kwargs) -> None:
         """Handle a NeighborInfo broadcast, recording the reporter's neighbor table."""

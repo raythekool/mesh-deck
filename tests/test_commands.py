@@ -330,6 +330,17 @@ class TestCommandDispatcher(unittest.TestCase):
         self.assertTrue(res)
         mock_launch.assert_called_once_with(self.mock_client, lang="it")
 
+    def test_dispatch_logs_opens_internal_viewer_when_available(self) -> None:
+        console = MagicMock()
+        console.open_logs = MagicMock()
+        dispatcher = CommandDispatcher(self.mock_client, console=console, settings=self.settings)
+
+        self.assertTrue(dispatcher.dispatch("/logs"))
+        console.open_logs.assert_called_once_with()
+
+    def test_dispatch_logs_explains_text_only_fallback(self) -> None:
+        self.assertTrue(self.dispatcher.dispatch("/logs"))
+
     def test_dispatch_settings_view(self) -> None:
         res = self.dispatcher.dispatch("/settings")
         self.assertTrue(res)
