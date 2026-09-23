@@ -489,13 +489,15 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Click a channel to open it • Send from the field below • 'q'/'Esc' to exit",
     },
     "BINDING_UPDATE_CHANNELS": {"it": "Aggiorna canali", "en": "Refresh channels"},
-    "CHAT_DM_ENTRY": {"it": "Messaggi Diretti", "en": "Direct Messages"},
+    "CHAT_DM_SECTION": {"it": "MESSAGGI DIRETTI", "en": "DIRECT MESSAGES"},
     "CHAT_CHANNEL_FALLBACK": {"it": "Canale {index}", "en": "Channel {index}"},
     "CHAT_INPUT_PLACEHOLDER": {"it": "Scrivi un messaggio e premi invio...", "en": "Type a message and press enter..."},
     "CHAT_DM_HINT": {
-        "it": "I DM si inviano con /dm <id|aka> <testo> dal prompt principale.",
-        "en": "DMs are sent with /dm <id|aka> <text> from the main prompt.",
+        "it": "Risposta diretta a {name} ({peer_id}).",
+        "en": "Direct reply to {name} ({peer_id}).",
     },
+    "CHAT_DM_REPLY_PLACEHOLDER": {"it": "Rispondi a {name}...", "en": "Reply to {name}..."},
+    "CHAT_DM_SUBTITLE": {"it": "DM con {name}", "en": "DM with {name}"},
     "CHAT_SEND_FAILED_TITLE": {"it": "Invio fallito", "en": "Send failed"},
 
     # Device selector startup screen (ui/device_selector.py)

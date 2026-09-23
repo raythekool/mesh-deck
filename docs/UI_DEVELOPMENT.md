@@ -1,6 +1,6 @@
 # UI Development Proposals
 
-> **Status:** sections 1–5 are implemented on `feat/ui-node-explorer-foundation`; sections 6–13 remain proposals. Each SVG is a wireframe that makes the intended interaction and information hierarchy reviewable before code is written.
+> **Status:** sections 1–6 are implemented on `feat/ui-node-explorer-foundation`; sections 7–13 remain proposals. Each SVG is a wireframe that makes the intended interaction and information hierarchy reviewable before code is written.
 
 ## Goals
 
@@ -64,11 +64,13 @@ Potentially slow operations (`/trace`, `/switch`, initial connection) run outsid
 
 `Esc` cancels `/trace` cooperatively by stopping the response wait and removing its waiter. `/switch` and initial connection show progress but do not claim cancellation because the underlying serial handshake cannot be interrupted safely.
 
-## 6. Direct-message Conversations
+## 6. Direct-message Conversations — Implemented
 
 ![Direct-message conversation proposal](ui-development/images/06-dm-conversations.svg)
 
-The current chat aggregates every direct message into one disabled "Direct Messages" entry. Replace that entry with individual conversations keyed by node, unread badges, an explicit recipient in the compose area, and a visible send target. This removes the context switch back to `/dm` while making accidental replies to the wrong node harder.
+The chat now creates individual direct-message conversations keyed by peer, with per-conversation unread badges, an explicit recipient in the compose area, and a visible send target. This removes the context switch back to `/dm` for replies while making accidental replies to the wrong node harder.
+
+`/dm` remains the deliberate way to start a new conversation before any message has been exchanged.
 
 ## 7. Device Selection
 

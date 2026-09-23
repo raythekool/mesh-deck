@@ -40,7 +40,7 @@ The live command console with the mouse-clickable node sidebar docked on the lef
 
 ### 6. Mouse-usable channel and DM chat viewer (`/chat`)
 
-A full-screen chat view: click a channel to switch, see unread badges on the "Direct Messages" entry, and read live broadcast traffic.
+A full-screen chat view: click a channel or a per-peer direct-message conversation, see unread badges, and reply with an explicit recipient.
 
 ![Channel and DM chat viewer](docs/screenshots/chat.svg)
 
@@ -60,7 +60,7 @@ A full-screen chat view: click a channel to switch, see unread badges on the "Di
 - **Asynchronous streaming**: Incoming radio messages are appended to the scrollable log without interrupting the operator’s typing.
 - **Node explorer and Haversine geodesy**: Calculates an approximate distance from the local node and produces links to maps and OpenStreetMap views.
 - **Encryption and multi-channel support**: Works with primary and secondary channels, standard or custom PSK, and direct encrypted DM traffic.
-- **Mouse-usable channel chat viewer**: `/chat` opens a full-screen, click-driven view of every channel plus a "Direct Messages" entry, combining local history with the live message stream and unread badges.
+- **Mouse-usable channel chat viewer**: `/chat` opens a full-screen, click-driven view of every channel and every direct-message peer, combining local history with the live message stream, unread badges, and explicit replies.
 - **Node sidebar**: A dockable, mouse-clickable list of known nodes (with role, SNR, long name, and last-heard at a glance) stays visible next to the console. Two pill buttons above the list cycle the sort criterion (last heard, signal, hops, name) and the filter (all, active, favorites). Click a row, or select it and press `Enter`, to open its detail in a single dedicated card above the log; picking another node replaces that same card instead of stacking new panels. Drag the divider on the sidebar's right edge to resize it. Toggle the sidebar with `Ctrl+B`, close the open card with `Esc`; sidebar visibility, width, sort, and filter are remembered across restarts.
 - **Toast notifications**: Incoming broadcasts and DMs raise an in-app toast (severity-coded, DMs stand out) while you keep working in the console; toggle with `/settings notifications <on|off>`.
 - **Switchable themes**: Four palettes — `cyberpunk` (default neon), `midnight` (night indigo), `nord` (cool arctic), and `ember` (warm amber) — applied live to every Rich and Textual surface with `/settings theme <name>`, no restart needed.
@@ -110,7 +110,7 @@ Inside the interactive `mesh-deck` console, you can use the following slash comm
 | **`/help`** or **`/?`**                | *(none)*                                                  | Displays the help table with all supported slash commands.                                                                                 |
 | **`/nodes`**                           | `[active\|snr\|hops\|name\|last_heard]`                   | Lists visible mesh nodes with telemetry, ordering, and filters.                                                                            |
 | **`/view`** or **`/tui`**              | *(none)*                                                  | Opens the interactive Node Explorer with filter, sortable columns, adaptive full/compact density, and a node detail view.                  |
-| **`/chat`**                            | *(none)*                                                  | Opens the interactive full-screen channel/DM chat viewer: click a channel to view its history and live messages, type to send a broadcast. |
+| **`/chat`**                            | *(none)*                                                  | Opens the interactive full-screen channel/DM chat viewer: click a channel or DM peer, send broadcasts, or reply to the selected peer. |
 | **`/node`**                            | `<id\|aka\|name>`                                         | Shows the detailed analytics panel for a node.                                                                                             |
 | **`/send`**                            | `<text>`                                                  | Sends a broadcast message on the primary channel.                                                                                          |
 | **`/dm`**                              | `<id\|aka\|name> <text>`                                  | Sends a private direct message to a specific node.                                                                                         |
@@ -270,12 +270,11 @@ configuration are never returned.
 
 ### Chat viewer, notifications & local history
 
-`/chat` opens a full-screen, mouse-usable chat viewer: click a channel (or the
-synthetic "Direct Messages" entry) in the sidebar to see its history and live
-messages, and type in the input field to send a broadcast on the selected
-channel (DMs must still be sent with `/dm`, since they need an explicit
-target). Toggle it off entirely by never invoking it — it adds no background
-overhead when unused.
+`/chat` opens a full-screen, mouse-usable chat viewer: click a channel or one of the per-peer direct-message conversations in the sidebar to see history and live messages.
+
+The input sends a broadcast for channel entries and a direct reply for a selected peer, always keeping that recipient visible in the compose area.
+
+Use `/dm` to start a conversation with a node that has not yet appeared in the direct-message list.
 
 Incoming messages also raise an in-app toast notification (title/severity vary
 for DMs vs. broadcasts) so you notice new traffic even while focused

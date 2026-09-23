@@ -1214,7 +1214,7 @@ class TestChannelChatScreen(unittest.IsolatedAsyncioTestCase):
         client.off_message_received.side_effect = lambda cb: client._callbacks.remove(cb)
         return client
 
-    async def test_preloads_history_and_lists_channels_with_dm_entry(self):
+    async def test_preloads_history_and_lists_channels_without_empty_dm_entry(self):
         from mesh_deck.ui.channel_chat import ChannelChatApp
 
         client = self._make_client()
@@ -1237,14 +1237,14 @@ class TestChannelChatScreen(unittest.IsolatedAsyncioTestCase):
         async with app.run_test() as pilot:
             await pilot.pause()
             option_list = app.screen.query_one("#channel-list", OptionList)
-            # Primary channel + synthetic "Messaggi Diretti" entry.
-            self.assertEqual(option_list.option_count, 2)
+            # Direct-message conversations are listed only when a peer exists.
+            self.assertEqual(option_list.option_count, 1)
 
             # History preloaded into the in-memory per-channel buffer used to render the log.
             buffered = app.screen._buffers.get(0, [])
             self.assertTrue(any(m.text == "Historical hello" for m in buffered))
 
-    async def test_incoming_message_on_other_channel_shows_unread_badge(self):
+    async def test_incoming_dm_creates_a_peer_conversation_with_unread_badge(self):
         from mesh_deck.ui.channel_chat import ChannelChatApp, DM_KEY
 
         client = self._make_client()
@@ -1257,16 +1257,19 @@ class TestChannelChatScreen(unittest.IsolatedAsyncioTestCase):
             screen._handle_message(dm_msg)
             await pilot.pause()
 
-            self.assertEqual(screen._unread.get(DM_KEY), 1)
+            dm_key = f"{DM_KEY}!bbb"
+            self.assertEqual(screen._unread.get(dm_key), 1)
 
             option_list = screen.query_one("#channel-list", OptionList)
-            dm_index = next(i for i, (key, _n) in enumerate(screen._entries) if key == DM_KEY)
+            dm_index = next(i for i, (key, _n) in enumerate(screen._entries) if key == dm_key)
             option_list.highlighted = dm_index
             await pilot.press("enter")
             await pilot.pause()
 
-            self.assertEqual(screen._unread.get(DM_KEY), 0)
-            self.assertEqual(screen._selected_key, DM_KEY)
+            self.assertEqual(screen._unread.get(dm_key), 0)
+            self.assertEqual(screen._selected_key, dm_key)
+            self.assertIn("Trinity", str(screen.query_one("#chat-hint", Static).content))
+            self.assertFalse(screen.query_one("#chat-input", Input).disabled)
 
     async def test_submitting_input_sends_broadcast_on_selected_channel(self):
         from mesh_deck.ui.channel_chat import ChannelChatApp
@@ -1284,6 +1287,69 @@ class TestChannelChatScreen(unittest.IsolatedAsyncioTestCase):
             await pilot.pause()
 
             client.send_broadcast.assert_called_once_with("hello mesh", channel_index=0)
+
+    async def test_submitting_reply_sends_dm_to_selected_peer_and_updates_buffer(self):
+        from mesh_deck.ui.channel_chat import ChannelChatApp, DM_KEY
+
+        client = self._make_client()
+        client.get_local_node.return_value = NodeData(
+            id="!local", short_name="BASE", long_name="Base"
+        )
+        app = ChannelChatApp(client)
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            screen = app.screen
+            screen._handle_message(
+                MeshMessage(sender_id="!bbb", sender_name="Trinity", text="ping", is_dm=True)
+            )
+            dm_key = f"{DM_KEY}!bbb"
+            screen._selected_key = dm_key
+            screen._unread[dm_key] = 0
+            screen._render_selected()
+            chat_input = screen.query_one("#chat-input", Input)
+            chat_input.focus()
+            await pilot.press(*"pong")
+            await pilot.press("enter")
+            await pilot.pause()
+
+            client.send_dm.assert_called_once_with("!bbb", "pong")
+            self.assertEqual([msg.text for msg in screen._buffers[dm_key]], ["ping", "pong"])
+            self.assertEqual(screen._buffers[dm_key][-1].sender_id, "!local")
+
+    async def test_history_splits_direct_messages_by_peer(self):
+        from mesh_deck.ui.channel_chat import ChannelChatApp, DM_KEY
+
+        client = self._make_client()
+        client.history = unittest.mock.MagicMock()
+        client.history.iter_messages.return_value = [
+            {
+                "sender_id": "!bbb",
+                "sender_name": "Trinity",
+                "receiver_id": "^local",
+                "text": "one",
+                "channel": 0,
+                "is_dm": True,
+                "timestamp": "2024-01-01T10:00:00",
+            },
+            {
+                "sender_id": "!ccc",
+                "sender_name": "Zion",
+                "receiver_id": "^local",
+                "text": "two",
+                "channel": 0,
+                "is_dm": True,
+                "timestamp": "2024-01-01T10:01:00",
+            },
+        ]
+        app = ChannelChatApp(client)
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            screen = app.screen
+            self.assertIn(f"{DM_KEY}!bbb", screen._buffers)
+            self.assertIn(f"{DM_KEY}!ccc", screen._buffers)
+            self.assertEqual(screen.query_one("#channel-list", OptionList).option_count, 4)
 
 
 class TestNotifyMessageWiring(unittest.IsolatedAsyncioTestCase):

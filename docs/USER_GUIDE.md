@@ -262,9 +262,11 @@ Examples:
 - **Syntax:** `/chat`
 - **Purpose:** Open a mouse-capable channel and direct-message history screen.
 
-The channel list includes configured channels and a synthetic Direct Messages entry. Click a channel to view its persisted and live messages. The bottom input broadcasts to the selected channel. Direct messages remain explicit `/dm` operations because they require a target.
+The channel list includes configured channels and a Direct Messages section with one conversation per peer. Click a channel to view its persisted and live messages, or click a peer to view that direct conversation.
 
-Unread message counts appear on non-selected channel or DM entries. Press `r` to refresh channels and `q` or `Esc` to return.
+The bottom input broadcasts to the selected channel or sends an explicit reply to the selected direct-message peer. The recipient remains visible in the reply hint. Use `/dm` to start a conversation with a node that has not yet appeared in the list.
+
+Unread message counts appear on non-selected channel or direct-message conversations. Press `r` to refresh channels and `q` or `Esc` to return.
 
 ### `/node`
 
