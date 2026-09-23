@@ -989,6 +989,40 @@ class TestNodeSidebar(_IsolatedSettingsTestCase):
 class TestLanguageConsistency(_IsolatedSettingsTestCase):
     """Ensure UI-facing strings consistently follow the active language setting."""
 
+    async def test_radio_status_strip_tracks_connection_and_reconnect_states(self):
+        from unittest.mock import MagicMock
+        from textual.widgets import Static
+
+        client = MagicMock()
+        client.is_connected = False
+        client.port = None
+        client.store.get_all_nodes.return_value = []
+        client.get_local_node.return_value = None
+        client.get_channels.return_value = []
+        repl = MeshDeckREPL(client)
+        repl.settings.language = "en"
+        app = MeshDeckApp(repl)
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            status = app.query_one("#radio-status", Static)
+            self.assertIn("Radio disconnected", str(status.content))
+
+            client.port = "COM6"
+            client.get_local_node.return_value = NodeData(
+                id="!00000001", short_name="BASE", long_name="Base"
+            )
+            repl._handle_connection_change(True, "COM6")
+            await pilot.pause()
+            self.assertIn("Connected", str(status.content))
+            self.assertIn("BASE", str(status.content))
+            self.assertIn("COM6", str(status.content))
+
+            repl._handle_reconnect_attempt("COM6", 2)
+            await pilot.pause()
+            self.assertIn("Reconnecting", str(status.content))
+            self.assertIn("attempt 2", str(status.content))
+
     async def test_sidebar_toggle_footer_binding_follows_language(self):
         from unittest.mock import MagicMock
 
@@ -1010,6 +1044,26 @@ class TestLanguageConsistency(_IsolatedSettingsTestCase):
                 app._bindings.key_to_bindings["ctrl+b"][0].description,
                 "Mostra/nascondi barra laterale",
             )
+
+    async def test_mounted_sidebar_title_and_controls_follow_language(self):
+        from unittest.mock import MagicMock
+
+        node = NodeData(id="!11111111", short_name="ALFA", long_name="Alpha")
+        client = MagicMock()
+        client.store.get_all_nodes.return_value = [node]
+        client.get_local_node.return_value = None
+        client.get_channels.return_value = []
+        repl = MeshDeckREPL(client)
+        repl.settings.language = "en"
+        app = MeshDeckApp(repl)
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.update_language("it")
+            await pilot.pause()
+            self.assertIn("NODI", str(app.query_one("#sidebar-title").content))
+            self.assertIn("Recenti", str(app.query_one("#sidebar-sort").content))
+            self.assertIn("Tutti", str(app.query_one("#sidebar-filter").content))
 
     async def test_incoming_message_toast_titles_follow_language(self):
         from unittest.mock import MagicMock
@@ -1301,6 +1355,150 @@ class TestInteractiveNodesSorting(unittest.IsolatedAsyncioTestCase):
             # 820 m < 14.3 km, and the node without a fix sorts last.
             self.assertEqual(ordered[0], "820 m")
             self.assertEqual(ordered[-1], "--")
+
+
+class TestInteractiveNodesMasterDetail(unittest.IsolatedAsyncioTestCase):
+    """The node explorer keeps details and responsive density in one interaction model."""
+
+    def _store(self):
+        from mesh_deck.core.node_store import NodeStore
+
+        store = NodeStore()
+        local = NodeData(
+            id="!00000001",
+            num=1,
+            long_name="Base",
+            short_name="BASE",
+            latitude=45.0,
+            longitude=9.0,
+            is_local=True,
+        )
+        remote = NodeData(
+            id="!00000002",
+            num=2,
+            long_name="Remote",
+            short_name="RMT",
+            role="ROUTER",
+            snr=6.5,
+            hops_away=1,
+            battery_level=78,
+            voltage=3.98,
+            latitude=45.1,
+            longitude=9.2,
+        )
+        store.update_node(local)
+        store.update_node(remote)
+        store.set_local_node_id(local.id)
+        return store, local, remote
+
+    async def test_wide_mode_renders_selected_node_in_side_detail(self):
+        from mesh_deck.ui.interactive_table import InteractiveNodesApp
+
+        store, local, remote = self._store()
+        app = InteractiveNodesApp(store, local_node=local, lang="en", view_mode="full")
+        async with app.run_test(size=(150, 40)) as pilot:
+            await pilot.pause()
+            screen = app.screen
+            screen._open_node(remote.id)
+            await pilot.pause()
+            self.assertTrue(screen.query_one("#detail-container").display)
+            self.assertIn("Remote", str(screen.query_one("#detail-heading").content))
+            self.assertIsInstance(screen.query_one("#node-detail").content, Panel)
+
+    async def test_compact_mode_opens_internal_detail_screen(self):
+        from mesh_deck.ui.interactive_table import InteractiveNodesApp, NodeDetailScreen
+
+        store, local, remote = self._store()
+        app = InteractiveNodesApp(store, local_node=local, lang="en", view_mode="compact")
+        async with app.run_test(size=(100, 40)) as pilot:
+            await pilot.pause()
+            screen = app.screen
+            self.assertFalse(screen.query_one("#detail-container").display)
+            screen._open_node(remote.id)
+            await pilot.pause()
+            self.assertIsInstance(app.screen, NodeDetailScreen)
+            self.assertIsInstance(app.screen.query_one("#compact-node-detail").content, Panel)
+
+    async def test_enter_opens_exactly_one_detail_for_the_selected_row(self):
+        from mesh_deck.ui.interactive_table import InteractiveNodesApp, NodeDetailScreen
+        from textual.widgets import DataTable
+
+        store, local, _remote = self._store()
+        app = InteractiveNodesApp(store, local_node=local, lang="en", view_mode="compact")
+        async with app.run_test(size=(100, 40)) as pilot:
+            await pilot.pause()
+            table = app.screen.query_one(DataTable)
+            table.focus()
+            table.move_cursor(row=1, column=0)
+            initial_screen_count = len(app.screen_stack)
+            await pilot.press("enter")
+            await pilot.pause()
+            self.assertIsInstance(app.screen, NodeDetailScreen)
+            self.assertEqual(len(app.screen_stack), initial_screen_count + 1)
+
+    async def test_compact_mode_uses_only_operator_critical_columns(self):
+        from mesh_deck.ui.interactive_table import InteractiveNodesApp
+
+        store, local, _remote = self._store()
+        app = InteractiveNodesApp(store, local_node=local, lang="en", view_mode="compact")
+        async with app.run_test(size=(100, 40)) as pilot:
+            await pilot.pause()
+            screen = app.screen
+            self.assertEqual(
+                screen.column_keys,
+                ["name", "role", "snr", "hops", "battery", "last_heard"],
+            )
+            self.assertNotIn("id", screen.column_keys)
+            self.assertNotIn("distance", screen.column_keys)
+
+    async def test_auto_mode_selects_density_from_terminal_width(self):
+        from mesh_deck.ui.interactive_table import InteractiveNodesApp
+
+        store, local, _remote = self._store()
+        app = InteractiveNodesApp(store, local_node=local, lang="en", view_mode="auto")
+        async with app.run_test(size=(100, 40)) as pilot:
+            await pilot.pause()
+            self.assertTrue(app.screen.is_compact)
+            self.assertNotIn("distance", app.screen.column_keys)
+
+        app = InteractiveNodesApp(store, local_node=local, lang="en", view_mode="auto")
+        async with app.run_test(size=(150, 40)) as pilot:
+            await pilot.pause()
+            self.assertFalse(app.screen.is_compact)
+            self.assertIn("distance", app.screen.column_keys)
+
+    async def test_view_mode_cycle_persists_through_callback(self):
+        from mesh_deck.ui.interactive_table import InteractiveNodesApp
+
+        store, local, _remote = self._store()
+        changed = []
+        app = InteractiveNodesApp(store, local_node=local, lang="en", view_mode="full")
+        async with app.run_test(size=(150, 40)) as pilot:
+            await pilot.pause()
+            screen = app.screen
+            screen._on_view_mode_change = changed.append
+            screen.action_cycle_view_mode()
+            await pilot.pause()
+            self.assertEqual(screen.view_mode, "compact")
+            self.assertEqual(changed, ["compact"])
+            self.assertEqual(
+                screen.column_keys,
+                ["name", "role", "snr", "hops", "battery", "last_heard"],
+            )
+
+    async def test_language_update_refreshes_explorer_labels(self):
+        from mesh_deck.ui.interactive_table import InteractiveNodesApp
+
+        store, local, _remote = self._store()
+        app = InteractiveNodesApp(store, local_node=local, lang="it", view_mode="full")
+        async with app.run_test(size=(150, 40)) as pilot:
+            await pilot.pause()
+            screen = app.screen
+            screen.update_language("en")
+            await pilot.pause()
+            self.assertIn("INTERACTIVE NODE EXPLORER", screen.title)
+            self.assertEqual(str(screen.query_one("#filter-label").content), "🔍 Filter:")
+            self.assertEqual(screen.column_keys[0], "idx")
 
 
 class TestNodeSidebarLiveUpdates(unittest.IsolatedAsyncioTestCase):

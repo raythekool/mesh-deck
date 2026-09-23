@@ -567,12 +567,17 @@ class CommandDispatcher:
         local_node = self.client.get_local_node()
         opener = getattr(self.console, "open_node_explorer", None)
         if callable(opener):
-            opener(self.client.store, local_node, lang)
+            opener(self.client.store, local_node, lang, self.settings.explorer_view_mode)
             return
 
         from mesh_deck.ui.interactive_table import launch_interactive_nodes
         self.console.print(f"[{THEME_COLORS['primary']}]{t('VIEW_LAUNCH', lang)}[/]")
-        launch_interactive_nodes(self.client.store, local_node=local_node, lang=lang)
+        launch_interactive_nodes(
+            self.client.store,
+            local_node=local_node,
+            lang=lang,
+            view_mode=self.settings.explorer_view_mode,
+        )
 
     def cmd_chat(self, args: list[str]) -> None:
         """Launch interactive mouse-usable chat viewer for channels and DMs."""

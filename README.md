@@ -82,6 +82,8 @@ A full-screen chat view: click a channel to switch, see unread badges on the "Di
 | Toggle the node sidebar         | `Ctrl+B`                                    |
 | Open a node from the sidebar    | Click a row, or select it and press `Enter` |
 | Open the Node Explorer          | `/view` or `/tui`                           |
+| Open details in Node Explorer   | Click a row, or select it and press `Enter` |
+| Cycle Node Explorer density     | `v` (`Auto` → `Full` → `Compact`)           |
 | Open the channel/DM chat viewer | `/chat`                                     |
 
 The command history keeps the last 100 entries in `~/.config/mesh-deck/settings.json`. Incoming messages and command output stay in the scrollable log while the input field keeps focus.
@@ -106,7 +108,7 @@ Inside the interactive `mesh-deck` console, you can use the following slash comm
 | :------------------------------------- | :-------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------- |
 | **`/help`** or **`/?`**                | *(none)*                                                  | Displays the help table with all supported slash commands.                                                                                 |
 | **`/nodes`**                           | `[active\|snr\|hops\|name\|last_heard]`                   | Lists visible mesh nodes with telemetry, ordering, and filters.                                                                            |
-| **`/view`** or **`/tui`**              | *(none)*                                                  | Opens the interactive full-screen node table with mouse-click sorting on table headers.                                                    |
+| **`/view`** or **`/tui`**              | *(none)*                                                  | Opens the interactive Node Explorer with filter, sortable columns, adaptive full/compact density, and a node detail view.                  |
 | **`/chat`**                            | *(none)*                                                  | Opens the interactive full-screen channel/DM chat viewer: click a channel to view its history and live messages, type to send a broadcast. |
 | **`/node`**                            | `<id\|aka\|name>`                                         | Shows the detailed analytics panel for a node.                                                                                             |
 | **`/send`**                            | `<text>`                                                  | Sends a broadcast message on the primary channel.                                                                                          |

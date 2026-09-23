@@ -329,6 +329,23 @@ class TestAgentService(unittest.TestCase):
 class TestSettings(unittest.TestCase):
     """Test persistent user settings and bounded command history."""
 
+    def test_explorer_view_mode_is_persistent_and_backward_compatible(self):
+        with TemporaryDirectory() as temp_dir:
+            config_dir = Path(temp_dir) / "mesh-deck"
+            config_file = config_dir / "settings.json"
+            with patch("mesh_deck.core.settings.CONFIG_DIR", config_dir), patch(
+                "mesh_deck.core.settings.CONFIG_FILE", config_file
+            ):
+                settings = Settings(explorer_view_mode="compact")
+                self.assertTrue(settings.save())
+                self.assertEqual(Settings.load().explorer_view_mode, "compact")
+
+                config_file.write_text('{"language": "en"}', encoding="utf-8")
+                self.assertEqual(Settings.load().explorer_view_mode, "auto")
+
+                config_file.write_text('{"explorer_view_mode": "invalid"}', encoding="utf-8")
+                self.assertEqual(Settings.load().explorer_view_mode, "auto")
+
     def test_command_history_is_bounded_and_persistent(self):
         with TemporaryDirectory() as temp_dir:
             config_dir = Path(temp_dir) / "mesh-deck"

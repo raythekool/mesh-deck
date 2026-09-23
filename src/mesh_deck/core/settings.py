@@ -17,7 +17,7 @@ class Settings:
     """User preferences and settings configuration."""
 
     language: str = "it"  # "it" | "en"
-    theme: str = "cyberpunk"  # "cyberpunk" | "high_contrast" | "amber" | "matrix"
+    theme: str = "cyberpunk"  # "cyberpunk" | "midnight" | "nord" | "ember"
     default_port: str | None = None
     default_sort: str = "last_heard"  # "last_heard" | "snr" | "hops" | "name"
     ui_mode: str = "repl"  # "repl" | "tui"
@@ -27,6 +27,7 @@ class Settings:
     sidebar_enabled: bool = True
     sidebar_width: int = 32
     sidebar_filter: str = "all"  # "all" | "active" | "favorites"
+    explorer_view_mode: str = "auto"  # "auto" | "full" | "compact"
 
     @classmethod
     def load(cls) -> Settings:
@@ -50,6 +51,7 @@ class Settings:
                     sidebar_enabled=bool(data.get("sidebar_enabled", True)),
                     sidebar_width=int(data.get("sidebar_width", 32)),
                     sidebar_filter=str(data.get("sidebar_filter", "all")),
+                    explorer_view_mode=cls._valid_explorer_view_mode(data.get("explorer_view_mode")),
                 )
         except Exception:
             pass
@@ -78,6 +80,11 @@ class Settings:
         if not isinstance(value, list):
             return []
         return [item for item in value if isinstance(item, str) and item.strip()][-MAX_COMMAND_HISTORY:]
+
+    @staticmethod
+    def _valid_explorer_view_mode(value: Any) -> str:
+        """Accept only persisted explorer density modes supported by the UI."""
+        return value if value in ("auto", "full", "compact") else "auto"
 
     def add_command(self, command: str) -> bool:
         """Record a command, avoiding adjacent duplicates."""
