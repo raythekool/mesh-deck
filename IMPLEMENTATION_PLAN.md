@@ -212,6 +212,10 @@ mesh-deck/
   1. `/history <id|aka|nome>` legge on-demand gli snapshot `nodes.jsonl` già presenti.
   2. Range 6 ore, 24 ore, 7 giorni e completo mostrano sparkline per batteria, SNR, temperatura e utilizzo canale.
   3. Il dettaglio nodo compatto espone la stessa screen con binding `h`; assenza di snapshot o storico disattivato viene mostrata esplicitamente.
+* **Semplificazione avvio CLI — completata sul branch `feat/ui-node-explorer-foundation`**:
+  1. `scan` e `nodes` sono i comandi canonici non interattivi; offrono JSON, timeout, ordinamento e filtri che i flag legacy non supportano.
+  2. `--list` e `--nodes` restano compatibili con warning su stderr fino alla rimozione pianificata in v0.4.0.
+  3. L'impostazione persistita `ui_mode` e `/settings mode` sono rimossi; `--tui` resta la scelta one-shot esplicita per aprire direttamente l'esploratore.
 * **Incrementi successivi — ordinati per valore operativo**:
   1. Screen `/device-settings` transazionale: snapshot, draft locale, validazione, diff semantico, conferma esplicita e rilettura dell'ack; PSK, regione, reset e firmware restano fuori ambito.
   2. Topologia visuale soltanto dopo che i dati NeighborInfo reali dimostrano frequenza e qualità sufficienti.

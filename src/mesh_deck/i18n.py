@@ -392,7 +392,6 @@ STRINGS: dict[str, dict[str, str]] = {
     "SETTINGS_ROW_PORT": {"it": "Porta predefinita (port)", "en": "Default port (port)"},
     "SETTINGS_AUTODETECT": {"it": "(Auto-detect)", "en": "(Auto-detect)"},
     "SETTINGS_ROW_SORT": {"it": "Ordinamento (sort)", "en": "Sorting (sort)"},
-    "SETTINGS_ROW_MODE": {"it": "Modalità UI (mode)", "en": "UI mode (mode)"},
     "STATE_ON": {"it": "Attivo", "en": "On"},
     "STATE_OFF": {"it": "Disattivato", "en": "Off"},
     "SETTINGS_LANG_SET": {"it": "✓ Lingua impostata su: {value}", "en": "✓ Language set to: {value}"},
@@ -411,8 +410,6 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Invalid sort. Use 'last_heard', 'snr', 'hops', or 'name'.",
     },
     "SETTINGS_PORT_SET": {"it": "✓ Porta predefinita impostata su: {port}", "en": "✓ Default port set to: {port}"},
-    "SETTINGS_MODE_SET": {"it": "✓ Modalità UI impostata su: {mode}", "en": "✓ UI mode set to: {mode}"},
-    "SETTINGS_MODE_INVALID": {"it": "Modalità non valida. Usa 'repl' o 'tui'.", "en": "Invalid mode. Use 'repl' or 'tui'."},
     "STATE_ENABLED_F": {"it": "attivate", "en": "enabled"},
     "STATE_DISABLED_F": {"it": "disattivate", "en": "disabled"},
     "STATE_ENABLED_M": {"it": "attivato", "en": "enabled"},
@@ -424,8 +421,8 @@ STRINGS: dict[str, dict[str, str]] = {
     },
     "SETTINGS_INVALID_VALUE": {"it": "Valore non valido. Usa 'on' o 'off'.", "en": "Invalid value. Use 'on' or 'off'."},
     "SETTINGS_USAGE": {
-        "it": "Uso: /settings [lang <it|en> | theme <nome> | sort <criterio> | port <porta> | mode <repl|tui> | notifications <on|off> | history <on|off>]",
-        "en": "Usage: /settings [lang <it|en> | theme <name> | sort <criteria> | port <port> | mode <repl|tui> | notifications <on|off> | history <on|off>]",
+        "it": "Uso: /settings [lang <it|en> | theme <nome> | sort <criterio> | port <porta> | notifications <on|off> | history <on|off>]",
+        "en": "Usage: /settings [lang <it|en> | theme <name> | sort <criteria> | port <port> | notifications <on|off> | history <on|off>]",
     },
     "QUIT_MESSAGE": {
         "it": "Chiusura connessione radio e uscita da Mesh-Deck. 73!",
@@ -656,6 +653,10 @@ STRINGS: dict[str, dict[str, str]] = {
     "CLI_NO_DEVICES_HINT": {
         "it": "Verifica il cavo USB o specifica manualmente la porta con --port /dev/...",
         "en": "Check the USB cable or specify the port manually with --port /dev/...",
+    },
+    "CLI_DEPRECATED_OPTION": {
+        "it": "⚠ {option} è deprecata e sarà rimossa in v0.4.0; usa `mesh-deck {replacement}`.",
+        "en": "⚠ {option} is deprecated and will be removed in v0.4.0; use `mesh-deck {replacement}`.",
     },
 }
 

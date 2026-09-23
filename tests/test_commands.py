@@ -584,6 +584,16 @@ class TestAgentCLI(unittest.TestCase):
         self.assertTrue(args.nodes)
         self.assertEqual(args.port, "/dev/ttyACM1")
 
+    def test_legacy_option_warning_uses_stderr_and_canonical_command(self):
+        from mesh_deck.__main__ import _warn_deprecated_option
+
+        buffer = io.StringIO()
+        warning_console = Console(file=buffer, force_terminal=False, color_system=None)
+        with patch("mesh_deck.__main__.warning_console", warning_console):
+            _warn_deprecated_option("--list", "scan", "en")
+        self.assertIn("--list is deprecated", buffer.getvalue())
+        self.assertIn("mesh-deck scan", buffer.getvalue())
+
     def test_port_before_subcommand_is_not_silently_dropped(self):
         """Regression test: argparse subparsers overwrite a shared `dest` with
         their own default unless subcommand connection args use distinct

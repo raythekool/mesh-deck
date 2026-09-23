@@ -199,17 +199,19 @@ use the installed `mesh-deck` command from anywhere:
 
 ```bash
 # List all Meshtastic radios connected via USB and exit
-mesh-deck --list
-
-# Connect to a specific serial port
-mesh-deck --port /dev/ttyACM0
+mesh-deck scan
 
 # Print the node table in non-interactive mode for scripts or cron jobs
-mesh-deck --nodes
+mesh-deck nodes
+
+# Connect the interactive console to a specific serial port
+mesh-deck --port /dev/ttyACM0
 
 # Launch directly into the Textual node explorer
 mesh-deck --tui
 ```
+
+> `--list` and `--nodes` remain temporarily compatible but are deprecated and will be removed in v0.4.0. Use `scan` and `nodes` instead; they also support `--output json`, connection timeouts, sorting, and active-node filtering.
 
 ### Agent-friendly CLI
 

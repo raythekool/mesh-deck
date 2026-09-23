@@ -106,23 +106,23 @@ The selector marks the preferred port, currently active port when relevant, and 
 | Flag | Argument | Description |
 | :-- | :-- | :-- |
 | `-p`, `--port` | `<DEVICE_PORT>` | Connect directly to one serial port. |
-| `-l`, `--list` | none | Scan serial USB ports, print detected Meshtastic candidates, and exit. |
-| `-n`, `--nodes` | none | Connect, print the current node table, and exit. |
 | `--tui` | none | Open the Node Explorer after connecting. |
 | `-h`, `--help` | none | Show CLI help. |
 
 Examples:
 
 ```bash
-# List connected radios.
-mesh-deck --list
+# List connected radios. Supports --output json.
+mesh-deck scan
 
 # Connect to a known port.
 mesh-deck --port COM6
 
-# Save a non-interactive node snapshot.
-mesh-deck --nodes > mesh_snapshot.txt
+# Save a non-interactive node snapshot with sorting and filter controls.
+mesh-deck nodes --sort snr --active > mesh_snapshot.txt
 ```
+
+`--list` and `--nodes` remain temporarily compatible but are deprecated and will be removed in v0.4.0. Use `scan` and `nodes` instead.
 
 ### Agent-friendly CLI
 
@@ -396,7 +396,7 @@ With no argument, Mesh-Deck selects the first different detected port. With an i
 
 ### `/settings` or `/config`
 
-- **Syntax:** `/settings` or `/settings <lang|theme|sort|port|mode|notifications|history> <value>`
+- **Syntax:** `/settings` or `/settings <lang|theme|sort|port|notifications|history> <value>`
 - **Purpose:** View or update local Mesh-Deck preferences.
 
 Open `/settings` without arguments for the native dialog. Use arguments for direct changes, for example `/settings lang en`, `/settings theme nord`, `/settings sort snr`, `/settings notifications off`, or `/settings history off`.

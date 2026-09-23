@@ -18,6 +18,7 @@ from mesh_deck.ui.tables import render_nodes_table
 from mesh_deck.ui.theme import THEME_COLORS, set_theme
 
 console = Console()
+warning_console = Console(stderr=True)
 
 
 def _force_utf8_stdio() -> None:
@@ -53,13 +54,13 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "-l",
         "--list",
         action="store_true",
-        help="List detected Meshtastic serial ports and exit",
+        help="Deprecated: use `mesh-deck scan`",
     )
     parser.add_argument(
         "-n",
         "--nodes",
         action="store_true",
-        help="Print the nodes table and exit (non-interactive)",
+        help="Deprecated: use `mesh-deck nodes`",
     )
     parser.add_argument(
         "--tui",
@@ -77,6 +78,14 @@ def _build_history(settings: Any) -> Any:
     from mesh_deck.core.history import HistoryStore
 
     return HistoryStore()
+
+
+def _warn_deprecated_option(option: str, replacement: str, language: str) -> None:
+    """Emit a human warning on stderr without corrupting machine-readable stdout."""
+    warning_console.print(
+        f"[{THEME_COLORS['warning']}]"
+        f"{t('CLI_DEPRECATED_OPTION', language, option=option, replacement=replacement)}[/]"
+    )
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -99,6 +108,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     # If --list requested, scan and print
     if args.list:
+        _warn_deprecated_option("--list", "scan", settings.language)
         ports = scan_meshtastic_ports()
         if not ports:
             console.print(f"[{THEME_COLORS['warning']}]{t('CLI_NO_DEVICES_USB', settings.language)}[/]")
@@ -110,6 +120,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     # If --nodes requested, print table and exit
     if args.nodes:
+        _warn_deprecated_option("--nodes", "nodes", settings.language)
         port = args.port or settings.default_port
         if not port:
             ports = scan_meshtastic_ports()
@@ -147,7 +158,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             devices=devices,
             preferred_port=settings.default_port,
             initial_port=args.port,
-            open_explorer_on_connect=args.tui or settings.ui_mode == "tui",
+            open_explorer_on_connect=args.tui,
         ).run()
     finally:
         client.disconnect()

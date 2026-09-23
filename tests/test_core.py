@@ -349,6 +349,12 @@ class TestSettings(unittest.TestCase):
                 config_file.write_text('{"explorer_view_mode": "invalid"}', encoding="utf-8")
                 self.assertEqual(Settings.load().explorer_view_mode, "auto")
 
+                config_file.write_text('{"ui_mode": "tui"}', encoding="utf-8")
+                migrated = Settings.load()
+                self.assertFalse(hasattr(migrated, "ui_mode"))
+                self.assertTrue(migrated.save())
+                self.assertNotIn("ui_mode", config_file.read_text(encoding="utf-8"))
+
     def test_command_history_is_bounded_and_persistent(self):
         with TemporaryDirectory() as temp_dir:
             config_dir = Path(temp_dir) / "mesh-deck"

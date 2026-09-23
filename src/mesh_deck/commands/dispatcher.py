@@ -687,7 +687,6 @@ class CommandDispatcher:
                 "/settings port </dev/tty...>",
             )
             table.add_row(t("SETTINGS_ROW_SORT", lang), settings.default_sort, "/settings sort <last_heard|snr|hops|name>")
-            table.add_row(t("SETTINGS_ROW_MODE", lang), settings.ui_mode, "/settings mode <repl|tui>")
             table.add_row(
                 t("SETTINGS_NOTIFICATIONS", lang),
                 t("SETTINGS_ON", lang) if settings.notifications_enabled else t("SETTINGS_OFF", lang),
@@ -735,13 +734,6 @@ class CommandDispatcher:
             port_val = args[1]
             settings.update(default_port=port_val)
             self.console.print(f"[{THEME_COLORS['secondary']}]{t('SETTINGS_PORT_SET', lang, port=port_val)}[/]")
-        elif sub in ("mode", "modalita") and len(args) > 1:
-            mode_val = args[1].lower()
-            if mode_val in ("repl", "tui"):
-                settings.update(ui_mode=mode_val)
-                self.console.print(f"[{THEME_COLORS['secondary']}]{t('SETTINGS_MODE_SET', lang, mode=mode_val)}[/]")
-            else:
-                self.console.print(f"[{THEME_COLORS['alert']}]{t('SETTINGS_MODE_INVALID', lang)}[/]")
         elif sub in ("notifications", "notifiche") and len(args) > 1:
             val = args[1].lower()
             if val in ("on", "off"):
