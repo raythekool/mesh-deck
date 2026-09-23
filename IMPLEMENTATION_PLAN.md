@@ -149,9 +149,9 @@ mesh-deck/
 * **Obiettivo**: Rendere ogni operazione di lettura e messaggistica utilizzabile da script e agenti.
 * **Attività**:
   1. Implementare `agent.py` (`AgentService`): service layer unico con errori tipizzati (`AgentServiceError`) e codici di uscita deterministici.
-  2. Implementare `cli.py`: sottocomandi `scan`, `info`, `nodes`, `node`, `channels`, `send`, `dm` con envelope JSON stabile (`--output json`).
+  2. Implementare `cli.py`: sottocomandi `scan`, `info`, `nodes`, `node`, `channels`, `neighbors`, `trace`, `send`, `dm` con envelope JSON stabile (`--output json`).
   3. Implementare `mcp_server.py`: server MCP su stdio che espone gli stessi tool; broadcast e DM restano anteprime finché non si passa `confirm=true`.
-* **Criterio di Accettazione**: `mesh-deck nodes --output json` restituisce un envelope `{"ok": true, ...}` e il server MCP registra i sette tool previsti (RF-5.1 → RF-5.5).
+* **Criterio di Accettazione**: `mesh-deck nodes --output json` restituisce un envelope `{"ok": true, ...}` e il server MCP registra i tool di lettura, topologia, traceroute e messaggistica previsti (RF-5.1 → RF-5.5).
 
 ---
 
@@ -172,3 +172,23 @@ mesh-deck/
   2. Temi commutabili a runtime applicati sia alle renderable Rich sia ai fogli di stile Textual.
   3. Localizzazione IT/EN centralizzata in `i18n.py`.
 * **Criterio di Accettazione**: `/settings theme <nome>` ridisegna immediatamente banner, tabelle, sidebar e schermate `/view` e `/chat` senza riavviare l'applicazione (RUI-6).
+
+---
+
+### Fase 11: Evoluzione Operativa dell'Interfaccia
+* **Obiettivo**: Trasformare le schermate esistenti in strumenti operativi adattivi, senza aggiungere una dashboard o dipendenze UI esterne.
+* **Incremento 1 — completato sul branch `feat/ui-node-explorer-foundation`**:
+  1. `/view` adotta il modello master/detail: click o `Invio` su una riga rende il dossier nodo nel pannello laterale sui terminali larghi oppure apre una screen interna sui terminali compatti.
+  2. La densità dell'esploratore è persistita in `settings.json` con le modalità `auto`, `full` e `compact`; in auto, sotto 120 colonne restano nome, ruolo, SNR, hop, batteria e ultimo contatto.
+  3. Il cambio lingua aggiorna sidebar, filtro, colonne, binding e Node Explorer già montato senza `/restart`.
+  4. Una strip persistente sotto l'header espone stato radio, nodo locale, porta e tentativo di riconnessione, senza dipendere dallo scroll del log.
+  5. La guida operativa viene mantenuta in inglese in `docs/USER_GUIDE.md`.
+* **Incrementi successivi — ordinati per valore operativo**:
+  1. Stato e annullamento dei comandi lunghi (`/trace`, `/switch`, connessione) vicino al campo input.
+  2. Conversazioni DM per destinatario, con badge non letti e composizione che mantiene visibile il destinatario.
+  3. Selettore device con radio preferita, errore di connessione più recente, retry esplicito e empty state diagnostico.
+  4. Renderer nodo condiviso tra sidebar, `/nodes` e `/view`, in modo che etichette, unità, arrotondamenti e colori semantici non divergano.
+  5. Viewer `/logs` per stream applicazione e device, con buffer limitato, ricerca, filtri, pausa ed export, senza contaminare stdout MCP.
+  6. Screen `/device-settings` transazionale: snapshot, draft locale, validazione, diff semantico, conferma esplicita e rilettura dell'ack; PSK, regione, reset e firmware restano fuori ambito.
+  7. Topologia visuale e telemetria storica soltanto dopo che i dati NeighborInfo e JSONL reali dimostrano frequenza e qualità sufficienti.
+* **Criterio di Accettazione Incremento 1**: la suite `unittest` copre dettaglio, densità automatica, persistenza, localizzazione e strip radio; il linter `ruff` è pulito; la nuova UI preserva tutte le funzionalità `/view` esistenti.
