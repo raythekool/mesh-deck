@@ -17,8 +17,9 @@ from textual.screen import Screen
 from textual.widgets import DataTable, Footer, Header, Input, Label, Static
 
 from mesh_deck.i18n import t
+from mesh_deck.ui.node_presentation import present_node
 from mesh_deck.ui.tables import render_node_detail
-from mesh_deck.ui.theme import ThemedApp, format_time_ago
+from mesh_deck.ui.theme import ThemedApp
 
 if TYPE_CHECKING:
     from mesh_deck.core.events import NodeData
@@ -329,64 +330,29 @@ class InteractiveNodesScreen(Screen):
             if is_local:
                 name_display = f"★ {name_display} ({t('LOCAL_SUFFIX', self.lang)})"
 
-            aka = node.aka
-            node_id = node.id
-            hw = node.hardware
-            role = node.role
-
-            # SNR value
-            snr_val = node.snr
-            snr_str = f"{snr_val:+.1f} dB" if snr_val is not None else "-- dB"
-
-            # Hops
-            hops_val = node.hops_away
-            if hops_val is not None:
-                hops_str = f"{t('HOPS_DIRECT', self.lang)} (0)" if hops_val == 0 else f"{hops_val} hops"
-            else:
-                hops_str = "--"
-
-            # Battery
-            if node.battery_level is not None:
-                if node.battery_level > 100:
-                    batt_str = "⚡ USB"
-                else:
-                    volt = f" ({node.voltage:.2f}V)" if node.voltage else ""
-                    batt_str = f"{node.battery_level}%{volt}"
-            elif node.voltage is not None:
-                batt_str = f"{node.voltage:.2f}V"
-            else:
-                batt_str = "--"
-
-            # Distance
             dist_km = None
             if self.local_node and node.id != self.local_node.id:
                 dist_km = self.store.calculate_distance(self.local_node.id, node.id)
-            if dist_km is not None:
-                dist_str = f"{int(dist_km * 1000)} m" if dist_km < 1.0 else f"{dist_km:.1f} km"
-            else:
-                dist_str = "--"
-
-            # Last heard
-            last_heard_str = _clean_text(format_time_ago(node.last_heard, self.lang))
+            display = present_node(node, lang=self.lang, distance_km=dist_km)
 
             # Filter check
             if filter_lower:
-                search_haystack = f"{name_display} {aka} {node_id} {hw} {role}".lower()
+                search_haystack = f"{name_display} {display.aka} {display.node_id} {display.hardware} {display.role}".lower()
                 if filter_lower not in search_haystack:
                     continue
 
             full_values = {
                 "idx": i,
                 "name": name_display,
-                "aka": aka,
-                "id": node_id,
-                "hardware": hw,
-                "role": role,
-                "snr": snr_str,
-                "hops": hops_str,
-                "battery": batt_str,
-                "distance": dist_str,
-                "last_heard": last_heard_str,
+                "aka": display.aka,
+                "id": display.node_id,
+                "hardware": display.hardware,
+                "role": display.role,
+                "snr": display.snr_text,
+                "hops": display.hops_text,
+                "battery": display.battery_text,
+                "distance": display.distance_text,
+                "last_heard": display.last_heard_text,
             }
             row_data = [full_values[key] for key in self.column_keys]
             self._raw_rows.append(row_data)

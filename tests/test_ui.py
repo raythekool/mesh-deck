@@ -1518,6 +1518,32 @@ class TestThemeEngine(unittest.TestCase):
         self.assertTrue(all(key.startswith("mesh-") for key in variables))
 
 
+class TestNodePresentation(unittest.TestCase):
+    """Node values must agree across every UI surface."""
+
+    def test_presentation_reuses_semantic_formatters(self):
+        from mesh_deck.ui.node_presentation import plain_markup, present_node
+
+        node = NodeData(
+            id="!00000001",
+            long_name="Relay",
+            short_name="RLY",
+            hw_model="RAK4631",
+            role="ROUTER",
+            snr=4.25,
+            hops_away=1,
+            battery_level=55,
+            voltage=3.8,
+        )
+        display = present_node(node, lang="en", distance_km=1.25)
+
+        self.assertEqual(display.snr_text, plain_markup(format_snr(node.snr)))
+        self.assertEqual(display.hops_text, plain_markup(format_hops(node.hops_away, "en")))
+        self.assertEqual(display.battery_text, plain_markup(format_battery(node.battery_level, node.voltage)))
+        self.assertEqual(display.distance_text, plain_markup(format_distance(1.25)))
+        self.assertIn("ROUTER", display.role_markup)
+
+
 class TestInteractiveNodesSorting(unittest.IsolatedAsyncioTestCase):
     """Sorting must never crash on columns that mix values with '--' placeholders."""
 

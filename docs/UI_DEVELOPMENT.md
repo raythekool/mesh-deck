@@ -1,6 +1,6 @@
 # UI Development Proposals
 
-> **Status:** sections 1–7 are implemented on `feat/ui-node-explorer-foundation`; sections 8–13 remain proposals. Each SVG is a wireframe that makes the intended interaction and information hierarchy reviewable before code is written.
+> **Status:** sections 1–8 are implemented on `feat/ui-node-explorer-foundation`; sections 9–13 remain proposals. Each SVG is a wireframe that makes the intended interaction and information hierarchy reviewable before code is written.
 
 ## Goals
 
@@ -87,11 +87,11 @@ The retry binding is only exposed after a failure. The empty state offers cable,
 
 This is especially useful where several USB serial adapters look similar.
 
-## 8. One Node Presentation Model
+## 8. One Node Presentation Model — Implemented
 
 ![Unified node presentation proposal](ui-development/images/08-unified-node-rendering.svg)
 
-Sidebar, `/nodes`, and `/view` currently render the same SNR, hops, battery, distance, and last-heard values independently. They should share the existing semantic formatters and one compact row representation, then selectively hide columns by surface. The goal is visual agreement, not a large new UI abstraction.
+Sidebar, `/nodes`, and `/view` now share a `NodePresentation` model for SNR, hops, battery, distance, and last-heard values. Each surface chooses its density while preserving semantic formatter output, units, rounding, and colour roles. The goal is visual agreement, not a large new UI abstraction.
 
 ## 9. Mesh Topology: Data First
 

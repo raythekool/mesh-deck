@@ -6,6 +6,7 @@ import threading
 from typing import TYPE_CHECKING, Any
 
 from rich.console import Console
+from rich.markup import escape
 from rich.text import Text
 from textual import events, work
 from textual.app import App, ComposeResult
@@ -22,13 +23,11 @@ from mesh_deck.core.events import DeviceConnectionInfo, MeshMessage, NodeData
 from mesh_deck.ui.device_selector import DeviceSelectorScreen
 from mesh_deck.ui.completer import Completion, MeshDeckCompleter
 from mesh_deck.ui.tables import render_message, render_node_detail
+from mesh_deck.ui.node_presentation import present_node
 from mesh_deck.ui.theme import (
     DEFAULT_THEME,
     THEME_COLORS,
     ThemedApp,
-    format_role,
-    format_snr,
-    format_time_ago,
     set_theme,
     theme_names,
 )
@@ -423,12 +422,13 @@ class MeshDeckApp(ThemedApp, App):
             sidebar.add_option(Option(f"[dim]{t('SIDEBAR_EMPTY', lang)}[/]", disabled=True))
             return
         for node in nodes:
-            label = node.short_name or node.display_name or node.id
-            long_name = node.long_name or node.display_name or node.id
+            display = present_node(node, lang=lang)
+            label = escape(node.short_name or display.name)
+            long_name = escape(display.long_name)
             marker = "★ " if node.id == local_id else ""
             sidebar.add_option(Option(
-                f"{marker}[bold {THEME_COLORS['primary']}]{label}[/] {format_role(node.role)}\n"
-                f"[italic {THEME_COLORS['muted']}]{long_name}[/] · {format_snr(node.snr)} · {format_time_ago(node.last_heard, lang)}"
+                f"{marker}[bold {THEME_COLORS['primary']}]{label}[/] {display.role_markup}\n"
+                f"[italic {THEME_COLORS['muted']}]{long_name}[/] · {display.snr_markup} · {display.last_heard_markup}"
             ))
         sidebar.highlighted = 0
 
