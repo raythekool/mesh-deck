@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import unittest
+import threading
 from datetime import datetime, timedelta, UTC
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -1081,6 +1082,19 @@ class TestMeshTopologyAndTraceroute(unittest.TestCase):
 
         self.assertIsNone(client.trace_route("!b8f862d9", timeout=0.05))
         # The waiter must not leak once it gave up.
+        self.assertEqual(client._traceroute_waiters, {})
+
+    def test_traceroute_cancellation_stops_waiting_and_cleans_up(self):
+        from mesh_deck.core.radio_client import RadioOperationCancelled
+
+        client = self._client()
+        client._interface = MagicMock()
+        client._is_connected = True
+        cancel_event = threading.Event()
+        cancel_event.set()
+
+        with self.assertRaises(RadioOperationCancelled):
+            client.trace_route("!b8f862d9", timeout=30, cancel_event=cancel_event)
         self.assertEqual(client._traceroute_waiters, {})
 
     def test_traceroute_requires_a_connection(self):

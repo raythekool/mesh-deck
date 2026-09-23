@@ -11,6 +11,7 @@ from __future__ import annotations
 import inspect
 import logging
 import threading
+import time
 from datetime import datetime
 from typing import Any
 from collections.abc import Callable
@@ -40,6 +41,10 @@ RECONNECT_BACKOFF_SECONDS: tuple[float, ...] = (2.0, 5.0, 10.0, 20.0, 30.0)
 
 class RadioOperationError(RuntimeError):
     """A radio operation failed inside meshtastic-python."""
+
+
+class RadioOperationCancelled(RuntimeError):
+    """A caller cancelled a radio operation while waiting for a response."""
 
 
 def _guard_library_exit(operation: str, func: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
@@ -440,6 +445,7 @@ class RadioClient:
         hop_limit: int = 7,
         timeout: float = 30.0,
         channel_index: int = 0,
+        cancel_event: threading.Event | None = None,
     ) -> TraceRouteResult | None:
         """Send a traceroute request and wait for the hop path.
 
@@ -476,8 +482,17 @@ class RadioClient:
                 self._traceroute_waiters.pop(target, None)
             raise
 
-        if waiter[1].wait(timeout):
-            return waiter[0]
+        deadline = time.monotonic() + timeout
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            if waiter[1].wait(min(remaining, 0.1)):
+                return waiter[0]
+            if cancel_event is not None and cancel_event.is_set():
+                with self._lock:
+                    self._traceroute_waiters.pop(target, None)
+                raise RadioOperationCancelled(f"Traceroute to {target} was cancelled.")
 
         with self._lock:
             self._traceroute_waiters.pop(target, None)

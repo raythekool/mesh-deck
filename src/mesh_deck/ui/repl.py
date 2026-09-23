@@ -277,6 +277,7 @@ class MeshDeckApp(ThemedApp, App):
     #node-detail { height: auto; max-height: 20; margin: 0 1; border: round $mesh-purple; background: $mesh-bg-panel; display: none; }
     #output { height: 1fr; margin: 0 1; border: round $mesh-border-soft; background: $mesh-bg-panel; }
     #suggestions { height: auto; max-height: 5; margin: 0 1; color: $mesh-secondary; background: $mesh-bg-elevated; }
+    #command-progress { height: 1; margin: 0 1; color: $mesh-warning; display: none; }
     #command { margin: 0 1 1 1; border: round $mesh-primary; background: $mesh-bg-panel; color: $mesh-text; }
     Footer { background: $mesh-bg-elevated; color: $mesh-muted; }
     """
@@ -300,6 +301,8 @@ class MeshDeckApp(ThemedApp, App):
         self.history_position = len(self.repl.settings.command_history)
         self._sidebar_refresh_pending = False
         self._sidebar_node_ids: list[str] = []
+        self._active_command: str | None = None
+        self._active_cancel_event: threading.Event | None = None
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -316,6 +319,7 @@ class MeshDeckApp(ThemedApp, App):
                 yield Static(id="node-detail")
                 yield RichLog(id="output", markup=True, wrap=True, highlight=True)
                 yield OptionList(id="suggestions", compact=True)
+                yield Static(id="command-progress")
                 yield Input(placeholder=self.repl._get_prompt(), id="command")
         yield Footer()
 
@@ -595,18 +599,51 @@ class MeshDeckApp(ThemedApp, App):
 
     def _submit_command(self, command: str) -> None:
         """Clear the command input and schedule command execution."""
+        if self._active_command is not None:
+            self.notify(t("COMMAND_BUSY", self.repl.settings.language), severity="warning")
+            return
         input_widget = self.query_one(Input)
         input_widget.value = ""
         self.clear_suggestions()
         self.history_position = len(self.repl.settings.command_history)
         self.repl.settings.add_command(command)
-        self._dispatch_command(command)
+        self._start_command_progress(command)
+        self._dispatch_command(command, self._active_cancel_event)
 
 
     @work(thread=True, exclusive=True)
-    def _dispatch_command(self, command: str) -> None:
-        if not self.repl.dispatcher.dispatch(command):
-            self.call_from_thread(self.exit)
+    def _dispatch_command(self, command: str, cancel_event: threading.Event | None) -> None:
+        try:
+            if cancel_event is None:
+                should_continue = self.repl.dispatcher.dispatch(command)
+            else:
+                should_continue = self.repl.dispatcher.dispatch(command, cancel_event=cancel_event)
+            if not should_continue:
+                self.call_from_thread(self.exit)
+        finally:
+            self.call_from_thread(self._finish_command_progress)
+
+    def _start_command_progress(self, command: str) -> None:
+        """Show durable progress while potentially slow command work runs off-thread."""
+        normalized = command.strip()
+        if not normalized:
+            return
+        self._active_command = normalized
+        self._active_cancel_event = (
+            threading.Event() if normalized.split(maxsplit=1)[0].lower() in ("/trace", "/traceroute") else None
+        )
+        key = "COMMAND_PROGRESS_CANCELLABLE" if self._active_cancel_event else "COMMAND_PROGRESS_RUNNING"
+        self.query_one("#command-progress", Static).update(
+            t(key, self.repl.settings.language, command=normalized)
+        )
+        self.query_one("#command-progress", Static).display = True
+
+    def _finish_command_progress(self) -> None:
+        self._active_command = None
+        self._active_cancel_event = None
+        progress = self.query_one("#command-progress", Static)
+        progress.update("")
+        progress.display = False
 
     def on_key(self, event: Any) -> None:
         if event.key == "enter" and isinstance(self.focused, OptionList):
@@ -685,6 +722,12 @@ class MeshDeckApp(ThemedApp, App):
         self.clear_suggestions()
 
     def action_clear_suggestions(self) -> None:
+        if self._active_cancel_event is not None:
+            self._active_cancel_event.set()
+            self.query_one("#command-progress", Static).update(
+                t("COMMAND_CANCELLING", self.repl.settings.language, command=self._active_command or "")
+            )
+            return
         self.clear_suggestions()
         self.close_node_detail()
 

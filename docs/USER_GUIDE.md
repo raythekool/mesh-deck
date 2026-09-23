@@ -194,6 +194,8 @@ The main console contains a tactical banner, persistent radio status strip, scro
 
 The radio status strip remains visible while output scrolls. It identifies the local node and port when connected, changes to a reconnecting state with the current retry attempt after an unexpected loss, and clearly shows when no radio is connected.
 
+Potentially slow commands show a durable progress line above the input. Mesh-Deck accepts no second command while the active worker is running. During `/trace`, press `Esc` to cancel the response wait; serial connection and `/switch` remain non-cancellable because their underlying handshake cannot be safely interrupted.
+
 ```text
 mesh-deck [AKA] - message or /help
 ```

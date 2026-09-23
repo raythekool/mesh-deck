@@ -1,6 +1,6 @@
 # UI Development Proposals
 
-> **Status:** proposal-only documentation. None of the screens below changes the current application behavior. Each SVG is a wireframe that makes the intended interaction and information hierarchy reviewable before code is written.
+> **Status:** sections 1–5 are implemented on `feat/ui-node-explorer-foundation`; sections 6–13 remain proposals. Each SVG is a wireframe that makes the intended interaction and information hierarchy reviewable before code is written.
 
 ## Goals
 
@@ -56,11 +56,13 @@ Connection events currently enter the scrolling log. Add a small persistent stri
 
 This is a status surface, not a second banner: it should consume one line and remain visible while the log scrolls.
 
-## 5. Command Progress
+## 5. Command Progress — Implemented
 
 ![Command progress proposal](ui-development/images/05-command-progress.svg)
 
-Potentially slow operations (`/trace`, `/switch`, initial connection) already run outside the Textual event loop. Surface that fact near the input with a small cancellable progress state. The user can keep reading messages and can see precisely what is pending rather than hunting for a line in the log.
+Potentially slow operations (`/trace`, `/switch`, initial connection) run outside the Textual event loop and now surface a durable progress line near the input. The user can keep reading messages and can see precisely what is pending rather than hunting for a line in the log.
+
+`Esc` cancels `/trace` cooperatively by stopping the response wait and removing its waiter. `/switch` and initial connection show progress but do not claim cancellation because the underlying serial handshake cannot be interrupted safely.
 
 ## 6. Direct-message Conversations
 

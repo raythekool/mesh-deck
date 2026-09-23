@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import re
 import shlex
+import threading
 from typing import TYPE_CHECKING
 from collections.abc import Callable
 
@@ -12,6 +13,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from mesh_deck.core.radio_client import RadioOperationCancelled
 from mesh_deck.core.scanner import scan_meshtastic_ports
 from mesh_deck.core.settings import Settings
 from mesh_deck.i18n import t
@@ -47,6 +49,7 @@ class CommandDispatcher:
         self.console = console or Console()
         self.settings = settings if settings is not None else Settings.load()
         self.running = True
+        self._cancel_event: threading.Event | None = None
 
         self._commands: dict[str, Callable[[list[str]], None]] = {
             "/help": self.cmd_help,
@@ -82,16 +85,23 @@ class CommandDispatcher:
         """Current UI language, read live from the shared Settings instance."""
         return self.settings.language
 
-    def dispatch(self, raw_input: str) -> bool:
+    def dispatch(self, raw_input: str, cancel_event: threading.Event | None = None) -> bool:
         """Parse and execute a command string.
 
         Returns:
             True to continue REPL, False to quit.
         """
+        self._cancel_event = cancel_event
+        try:
+            return self._dispatch(raw_input)
+        finally:
+            self._cancel_event = None
+
+    def _dispatch(self, raw_input: str) -> bool:
+        """Execute one command while dispatch() owns the cancellation context."""
         line = raw_input.strip()
         if not line:
             return True
-
         # Check if line is a slash command
         if line.startswith("/"):
             parts = line.split(maxsplit=1)
@@ -416,7 +426,11 @@ class CommandDispatcher:
         self.console.print(
             f"[{THEME_COLORS['accent']}]{t('TRACE_IN_PROGRESS', lang, name=target_name)}[/]"
         )
-        result = self.client.trace_route(target_id)
+        try:
+            result = self.client.trace_route(target_id, cancel_event=self._cancel_event)
+        except RadioOperationCancelled:
+            self.console.print(f"[{THEME_COLORS['muted']}]{t('TRACE_CANCELLED', lang, name=target_name)}[/]")
+            return
         if result is None:
             self.console.print(f"[{THEME_COLORS['warning']}]{t('TRACE_TIMEOUT', lang, name=target_name)}[/]")
             return

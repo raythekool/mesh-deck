@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import json
+import threading
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -235,7 +236,13 @@ class TestCommandDispatcher(unittest.TestCase):
             route_back=["!45a466e4"],
         )
         self.assertTrue(self.dispatcher.dispatch("/trace TRIN"))
-        self.mock_client.trace_route.assert_called_with("!62d927b8")
+        self.mock_client.trace_route.assert_called_with("!62d927b8", cancel_event=None)
+
+    def test_dispatch_trace_forwards_a_cancellation_event(self) -> None:
+        cancel_event = threading.Event()
+        self.mock_client.trace_route.return_value = None
+        self.assertTrue(self.dispatcher.dispatch("/trace TRIN", cancel_event=cancel_event))
+        self.mock_client.trace_route.assert_called_with("!62d927b8", cancel_event=cancel_event)
 
     def test_dispatch_trace_reports_a_timeout(self) -> None:
         self.mock_client.trace_route.return_value = None

@@ -12,7 +12,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
-from textual.widgets import Input, OptionList
+from textual.widgets import Input, OptionList, Static
 
 from mesh_deck.i18n import command_descriptions
 from mesh_deck.models import DeviceConnectionInfo, MeshMessage, NodeData
@@ -1082,6 +1082,64 @@ class TestLanguageConsistency(_IsolatedSettingsTestCase):
             app.notify_message(msg)
             await pilot.pause()
             self.assertTrue(any("DM from Alpha" in n.title for n in app._notifications))
+
+
+class TestCommandProgress(unittest.IsolatedAsyncioTestCase):
+    """Long command feedback must be visible and traceroute cancellation must be explicit."""
+
+    def _app(self):
+        from unittest.mock import MagicMock
+
+        client = MagicMock()
+        client.is_connected = False
+        client.port = None
+        client.store.get_all_nodes.return_value = []
+        client.get_local_node.return_value = None
+        client.get_channels.return_value = []
+        repl = MeshDeckREPL(client)
+        repl.settings.language = "en"
+        return MeshDeckApp(repl)
+
+    async def test_trace_progress_is_cancellable_and_clears(self):
+        app = self._app()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app._start_command_progress("/trace TRIN")
+            progress = app.query_one("#command-progress", Static)
+            self.assertTrue(progress.display)
+            self.assertIn("Esc to cancel", str(progress.content))
+            cancel_event = app._active_cancel_event
+            self.assertIsNotNone(cancel_event)
+
+            app.action_clear_suggestions()
+            self.assertTrue(cancel_event.is_set())
+            self.assertIn("Cancellation requested", str(progress.content))
+
+            app._finish_command_progress()
+            self.assertFalse(progress.display)
+            self.assertIsNone(app._active_command)
+
+    async def test_non_cancellable_progress_does_not_capture_escape(self):
+        app = self._app()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app._start_command_progress("/switch COM7")
+            self.assertIsNone(app._active_cancel_event)
+            progress = app.query_one("#command-progress", Static)
+            self.assertIn("Running: /switch COM7", str(progress.content))
+            app.action_clear_suggestions()
+            self.assertEqual(app.completions, [])
+            app._finish_command_progress()
+
+    async def test_second_command_is_rejected_while_worker_is_active(self):
+        app = self._app()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app._start_command_progress("/trace TRIN")
+            with unittest.mock.patch.object(app, "notify") as notify:
+                app._submit_command("/nodes")
+                notify.assert_called_once()
+            app._finish_command_progress()
 
 
 class TestCommandAutocomplete(unittest.IsolatedAsyncioTestCase):

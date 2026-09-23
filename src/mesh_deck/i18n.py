@@ -452,6 +452,26 @@ STRINGS: dict[str, dict[str, str]] = {
     },
     "RADIO_STATUS_DISCONNECTED": {"it": "Radio disconnessa", "en": "Radio disconnected"},
     "RADIO_STATUS_NO_PORT": {"it": "nessuna porta", "en": "no port"},
+    "COMMAND_BUSY": {
+        "it": "Un comando è già in esecuzione.",
+        "en": "A command is already running.",
+    },
+    "COMMAND_PROGRESS_RUNNING": {
+        "it": "⏳ In esecuzione: {command}",
+        "en": "⏳ Running: {command}",
+    },
+    "COMMAND_PROGRESS_CANCELLABLE": {
+        "it": "⏳ In esecuzione: {command} · Esc per annullare",
+        "en": "⏳ Running: {command} · Esc to cancel",
+    },
+    "COMMAND_CANCELLING": {
+        "it": "↻ Annullamento richiesto: {command}",
+        "en": "↻ Cancellation requested: {command}",
+    },
+    "TRACE_CANCELLED": {
+        "it": "Traceroute verso {name} annullato.",
+        "en": "Traceroute to {name} cancelled.",
+    },
     "BINDING_CLOSE": {"it": "Chiudi / Esci", "en": "Close / Exit"},
     "BINDING_BACK": {"it": "Torna al prompt", "en": "Back to prompt"},
     "BINDING_REFRESH": {"it": "Aggiorna", "en": "Refresh"},
