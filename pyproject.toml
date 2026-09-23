@@ -1,6 +1,6 @@
 [project]
 name = "mesh-deck"
-version = "0.1.0"
+version = "0.2.0"
 description = "Hermes-style interactive TUI/CLI for exploring and communicating with Meshtastic devices"
 readme = "README.md"
 requires-python = ">=3.11"
