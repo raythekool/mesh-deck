@@ -24,6 +24,7 @@ class Settings:
     command_history: list[str] = field(default_factory=list)
     notifications_enabled: bool = True
     history_enabled: bool = True
+    sidebar_enabled: bool = True
 
     @classmethod
     def load(cls) -> Settings:
@@ -44,6 +45,7 @@ class Settings:
                     command_history=cls._valid_history(data.get("command_history")),
                     notifications_enabled=bool(data.get("notifications_enabled", True)),
                     history_enabled=bool(data.get("history_enabled", True)),
+                    sidebar_enabled=bool(data.get("sidebar_enabled", True)),
                 )
         except Exception:
             pass

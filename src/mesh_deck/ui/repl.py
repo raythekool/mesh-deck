@@ -165,10 +165,16 @@ class MeshDeckApp(App):
         Binding("ctrl+c", "clear_input", "Clear input", show=False),
         Binding("tab", "complete", "Complete", show=False, priority=True),
         Binding("escape", "clear_suggestions", "Dismiss", show=False),
+        Binding("ctrl+b", "toggle_sidebar", "Toggle sidebar", show=True),
     ]
     CSS = """
     Screen { background: #081018; color: #e8f1f5; }
     Header { background: #10212b; color: #00f3ff; }
+    #body { height: 1fr; }
+    #sidebar { width: 28; border: round #1f8794; background: #0b1720; }
+    #sidebar-title { width: 100%; height: 1; background: #063b46; color: #00f3ff; content-align: center middle; text-style: bold; }
+    #sidebar-nodes { height: 1fr; background: #0b1720; color: #e8f1f5; }
+    #main { height: 1fr; }
     #output { height: 1fr; margin: 0 1; border: round #1f8794; background: #0b1720; }
     #suggestions { height: auto; max-height: 5; margin: 0 1; color: #9fffd0; background: #10212b; }
     #command { margin: 0 1 1 1; border: round #00f3ff; background: #0b1720; color: #f8fafc; }
@@ -195,17 +201,22 @@ class MeshDeckApp(App):
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
-        with Vertical():
-            yield RichLog(id="output", markup=True, wrap=True, highlight=True)
-            yield OptionList(id="suggestions", compact=True)
-            yield Input(placeholder=self.repl._get_prompt(), id="command")
+        with Horizontal(id="body"):
+            with Vertical(id="sidebar"):
+                yield Label(t("SIDEBAR_TITLE", self.repl.settings.language), id="sidebar-title")
+                yield OptionList(id="sidebar-nodes", compact=True)
+            with Vertical(id="main"):
+                yield RichLog(id="output", markup=True, wrap=True, highlight=True)
+                yield OptionList(id="suggestions", compact=True)
+                yield Input(placeholder=self.repl._get_prompt(), id="command")
         yield Footer()
 
     def on_mount(self) -> None:
         console = TextualConsole(self)
         self.repl.console = console
         self.repl.dispatcher.console = console
-        self.query_one(OptionList).display = False
+        self.query_one("#suggestions", OptionList).display = False
+        self.query_one("#sidebar").display = self.repl.settings.sidebar_enabled
         if self.initial_port:
             self.begin_connection(self.initial_port)
         elif self.devices is not None:
@@ -250,8 +261,30 @@ class MeshDeckApp(App):
     def activate_console(self) -> None:
         self.repl.dispatcher.cmd_banner([])
         self.query_one(Input).focus()
+        self.refresh_sidebar()
         if self.open_explorer_on_connect:
             self.open_node_explorer(self.repl.client.store, self.repl.client.get_local_node(), self.repl.settings.language)
+
+    def refresh_sidebar(self) -> None:
+        """Populate the node sidebar from the current NodeStore snapshot."""
+        nodes = self.repl.client.store.get_all_nodes(sort_by=self.repl.settings.default_sort)
+        sidebar = self.query_one("#sidebar-nodes", OptionList)
+        sidebar.clear_options()
+        self._sidebar_node_ids = [node.id for node in nodes]
+        if not nodes:
+            sidebar.add_option(Option(f"[dim]{t('SIDEBAR_EMPTY', self.repl.settings.language)}[/]", disabled=True))
+            return
+        for node in nodes:
+            label = node.short_name or node.display_name or node.id
+            sidebar.add_option(Option(f"[bold cyan]{label}[/] [dim]{node.id}[/]"))
+        sidebar.highlighted = 0
+
+    def action_toggle_sidebar(self) -> None:
+        enabled = not self.repl.settings.sidebar_enabled
+        self.repl.settings.update(sidebar_enabled=enabled)
+        self.query_one("#sidebar").display = enabled
+        if enabled:
+            self.refresh_sidebar()
 
     def write_output(self, renderable: Any) -> None:
         if isinstance(renderable, str):
@@ -286,6 +319,7 @@ class MeshDeckApp(App):
         """Apply saved settings and redraw the connected command console."""
         self.repl.settings = Settings.load()
         self.update_language(self.repl.settings.language)
+        self.query_one("#sidebar").display = self.repl.settings.sidebar_enabled
         self.clear_output()
         self.activate_console()
 
@@ -304,7 +338,7 @@ class MeshDeckApp(App):
 
     def on_input_changed(self, event: Input.Changed) -> None:
         self.completions = self.repl.completer.suggestions(event.value)
-        suggestions = self.query_one(OptionList)
+        suggestions = self.query_one("#suggestions", OptionList)
         suggestions.set_options([
             Option(f"[bold cyan]{item.value}[/] [dim]{item.description}[/]", id=str(index))
             for index, item in enumerate(self.completions[:8])
@@ -321,6 +355,9 @@ class MeshDeckApp(App):
         if event.option_list.id == "devices" and event.option_index < len(self.devices or []):
             if isinstance(self.screen, DeviceSelectorScreen):
                 self.screen.dismiss(self.devices[event.option_index].port)
+            return
+        if event.option_list.id == "sidebar-nodes":
+            self._open_sidebar_node(event.option_index)
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         command = event.value
@@ -355,13 +392,15 @@ class MeshDeckApp(App):
             elif self.focused.id == "devices" and highlighted is not None:
                 if isinstance(self.screen, DeviceSelectorScreen):
                     self.screen.dismiss(self.devices[highlighted].port)
+            elif self.focused.id == "sidebar-nodes" and highlighted is not None:
+                self._open_sidebar_node(highlighted)
             else:
                 return
             event.stop()
             event.prevent_default()
             return
         if event.key == "down" and self.completions and isinstance(self.focused, Input):
-            self.query_one(OptionList).focus()
+            self.query_one("#suggestions", OptionList).focus()
             event.stop()
             event.prevent_default()
             return
@@ -422,9 +461,16 @@ class MeshDeckApp(App):
 
     def clear_suggestions(self) -> None:
         self.completions = []
-        suggestions = self.query_one(OptionList)
+        suggestions = self.query_one("#suggestions", OptionList)
         suggestions.clear_options()
         suggestions.display = False
+
+    def _open_sidebar_node(self, index: int) -> None:
+        node_ids = getattr(self, "_sidebar_node_ids", [])
+        if index >= len(node_ids):
+            return
+        self._submit_command(f"/node {node_ids[index]}")
+        self.query_one(Input).focus()
 
 
 class MeshDeckREPL:

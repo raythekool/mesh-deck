@@ -738,6 +738,55 @@ class TestDeviceSelectorKeyboard(unittest.IsolatedAsyncioTestCase):
             self.assertIsInstance(app.focused, Input)
 
 
+class TestNodeSidebar(unittest.IsolatedAsyncioTestCase):
+    """Test the mouse-clickable node sidebar in the main console."""
+
+    async def test_sidebar_lists_nodes_and_enter_opens_node_detail(self):
+        from unittest.mock import MagicMock
+
+        node = NodeData(id="!45a466e4", short_name="ALPHA", long_name="Alpha Node")
+        client = MagicMock()
+        client.store.get_all_nodes.return_value = [node]
+        client.store.get_node.return_value = None
+        client.get_local_node.return_value = None
+        client.get_channels.return_value = []
+        repl = MeshDeckREPL(client)
+        dispatch = repl.dispatcher.dispatch
+        repl.dispatcher.dispatch = MagicMock(wraps=dispatch)
+        app = MeshDeckApp(repl)
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            sidebar = app.query_one("#sidebar-nodes", OptionList)
+            self.assertEqual(sidebar.option_count, 1)
+            sidebar.focus()
+            await pilot.pause()
+            await pilot.press("enter")
+            await pilot.pause()
+            repl.dispatcher.dispatch.assert_called_once_with("/node !45a466e4")
+
+    async def test_ctrl_b_toggles_sidebar_visibility(self):
+        from unittest.mock import MagicMock
+
+        client = MagicMock()
+        client.store.get_all_nodes.return_value = []
+        client.get_local_node.return_value = None
+        client.get_channels.return_value = []
+        repl = MeshDeckREPL(client)
+        app = MeshDeckApp(repl)
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            sidebar = app.query_one("#sidebar")
+            initial = sidebar.display
+            await pilot.press("ctrl+b")
+            await pilot.pause()
+            self.assertEqual(sidebar.display, not initial)
+            await pilot.press("ctrl+b")
+            await pilot.pause()
+            self.assertEqual(sidebar.display, initial)
+
+
 class TestCommandAutocomplete(unittest.IsolatedAsyncioTestCase):
     """Test Enter behavior for command suggestions in the Textual input."""
 

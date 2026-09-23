@@ -1,4 +1,4 @@
-<svg class="rich-terminal" viewBox="0 0 994 342.79999999999995" xmlns="http://www.w3.org/2000/svg">
+<svg class="rich-terminal" viewBox="0 0 1238 294.0" xmlns="http://www.w3.org/2000/svg">
     <!-- Generated with Rich https://www.textualize.io -->
     <style>
 
@@ -19,90 +19,82 @@
         font-weight: 700;
     }
 
-    .terminal-4247913880-matrix {
+    .terminal-479566463-matrix {
         font-family: Fira Code, monospace;
         font-size: 20px;
         line-height: 24.4px;
         font-variant-east-asian: full-width;
     }
 
-    .terminal-4247913880-title {
+    .terminal-479566463-title {
         font-size: 18px;
         font-weight: bold;
         font-family: arial;
     }
 
-    .terminal-4247913880-r1 { fill: #00f3ff }
-.terminal-4247913880-r2 { fill: #00f3ff;font-weight: bold }
-.terminal-4247913880-r3 { fill: #c5c8c6 }
-.terminal-4247913880-r4 { fill: #4c5663 }
-.terminal-4247913880-r5 { fill: #00ff66;font-weight: bold }
-.terminal-4247913880-r6 { fill: #868887 }
-.terminal-4247913880-r7 { fill: #4b4e55;font-weight: bold }
-.terminal-4247913880-r8 { fill: #334155 }
+    .terminal-479566463-r1 { fill: #00f3ff }
+.terminal-479566463-r2 { fill: #00f3ff;font-weight: bold }
+.terminal-479566463-r3 { fill: #c5c8c6 }
+.terminal-479566463-r4 { fill: #4c5663 }
+.terminal-479566463-r5 { fill: #00ff66;font-weight: bold }
+.terminal-479566463-r6 { fill: #868887 }
+.terminal-479566463-r7 { fill: #4b4e55;font-weight: bold }
+.terminal-479566463-r8 { fill: #334155 }
     </style>
 
     <defs>
-    <clipPath id="terminal-4247913880-clip-terminal">
-      <rect x="0" y="0" width="975.0" height="291.79999999999995" />
+    <clipPath id="terminal-479566463-clip-terminal">
+      <rect x="0" y="0" width="1219.0" height="243.0" />
     </clipPath>
-    <clipPath id="terminal-4247913880-line-0">
-    <rect x="0" y="1.5" width="976" height="24.65"/>
+    <clipPath id="terminal-479566463-line-0">
+    <rect x="0" y="1.5" width="1220" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-4247913880-line-1">
-    <rect x="0" y="25.9" width="976" height="24.65"/>
+<clipPath id="terminal-479566463-line-1">
+    <rect x="0" y="25.9" width="1220" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-4247913880-line-2">
-    <rect x="0" y="50.3" width="976" height="24.65"/>
+<clipPath id="terminal-479566463-line-2">
+    <rect x="0" y="50.3" width="1220" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-4247913880-line-3">
-    <rect x="0" y="74.7" width="976" height="24.65"/>
+<clipPath id="terminal-479566463-line-3">
+    <rect x="0" y="74.7" width="1220" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-4247913880-line-4">
-    <rect x="0" y="99.1" width="976" height="24.65"/>
+<clipPath id="terminal-479566463-line-4">
+    <rect x="0" y="99.1" width="1220" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-4247913880-line-5">
-    <rect x="0" y="123.5" width="976" height="24.65"/>
+<clipPath id="terminal-479566463-line-5">
+    <rect x="0" y="123.5" width="1220" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-4247913880-line-6">
-    <rect x="0" y="147.9" width="976" height="24.65"/>
+<clipPath id="terminal-479566463-line-6">
+    <rect x="0" y="147.9" width="1220" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-4247913880-line-7">
-    <rect x="0" y="172.3" width="976" height="24.65"/>
+<clipPath id="terminal-479566463-line-7">
+    <rect x="0" y="172.3" width="1220" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-4247913880-line-8">
-    <rect x="0" y="196.7" width="976" height="24.65"/>
-            </clipPath>
-<clipPath id="terminal-4247913880-line-9">
-    <rect x="0" y="221.1" width="976" height="24.65"/>
-            </clipPath>
-<clipPath id="terminal-4247913880-line-10">
-    <rect x="0" y="245.5" width="976" height="24.65"/>
+<clipPath id="terminal-479566463-line-8">
+    <rect x="0" y="196.7" width="1220" height="24.65"/>
             </clipPath>
     </defs>
 
-    <rect fill="#292929" stroke="rgba(255,255,255,0.35)" stroke-width="1" x="1" y="1" width="992" height="340.8" rx="8"/><text class="terminal-4247913880-title" fill="#c5c8c6" text-anchor="middle" x="496" y="27">Mesh-Deck&#160;//&#160;Tactical&#160;Hermes&#160;Banner</text>
+    <rect fill="#292929" stroke="rgba(255,255,255,0.35)" stroke-width="1" x="1" y="1" width="1236" height="292" rx="8"/><text class="terminal-479566463-title" fill="#c5c8c6" text-anchor="middle" x="618" y="27">Mesh-Deck&#160;//&#160;Tactical&#160;Hermes&#160;Banner</text>
             <g transform="translate(26,22)">
             <circle cx="0" cy="0" r="7" fill="#ff5f57"/>
             <circle cx="22" cy="0" r="7" fill="#febc2e"/>
             <circle cx="44" cy="0" r="7" fill="#28c840"/>
             </g>
         
-    <g transform="translate(9, 41)" clip-path="url(#terminal-4247913880-clip-terminal)">
-    <rect fill="#00ff66" x="341.6" y="99.1" width="97.6" height="24.65" shape-rendering="crispEdges"/>
-    <g class="terminal-4247913880-matrix">
-    <text class="terminal-4247913880-r1" x="0" y="20" textLength="24.4" clip-path="url(#terminal-4247913880-line-0)">╭─</text><text class="terminal-4247913880-r2" x="36.6" y="20" textLength="378.2" clip-path="url(#terminal-4247913880-line-0)">📡&#160;MESH-DECK&#160;//&#160;TACTICAL&#160;CONSOLE</text><text class="terminal-4247913880-r1" x="439.2" y="20" textLength="512.4" clip-path="url(#terminal-4247913880-line-0)">──────────────────────────────────────────</text><text class="terminal-4247913880-r1" x="951.6" y="20" textLength="24.4" clip-path="url(#terminal-4247913880-line-0)">─╮</text><text class="terminal-4247913880-r3" x="976" y="20" textLength="12.2" clip-path="url(#terminal-4247913880-line-0)">
-</text><text class="terminal-4247913880-r1" x="0" y="44.4" textLength="12.2" clip-path="url(#terminal-4247913880-line-1)">│</text><text class="terminal-4247913880-r4" x="24.4" y="44.4" textLength="170.8" clip-path="url(#terminal-4247913880-line-1)">◈&#160;NODO&#160;LOCALE:</text><text class="terminal-4247913880-r5" x="207.4" y="44.4" textLength="305" clip-path="url(#terminal-4247913880-line-1)">Heltec-Vision-Master-E290</text><text class="terminal-4247913880-r4" x="536.8" y="44.4" textLength="158.6" clip-path="url(#terminal-4247913880-line-1)">⚡&#160;RADIO&#160;PORT:</text><text class="terminal-4247913880-r2" x="719.8" y="44.4" textLength="146.4" clip-path="url(#terminal-4247913880-line-1)">/dev/ttyACM0</text><text class="terminal-4247913880-r1" x="963.8" y="44.4" textLength="12.2" clip-path="url(#terminal-4247913880-line-1)">│</text><text class="terminal-4247913880-r3" x="976" y="44.4" textLength="12.2" clip-path="url(#terminal-4247913880-line-1)">
-</text><text class="terminal-4247913880-r1" x="0" y="68.8" textLength="12.2" clip-path="url(#terminal-4247913880-line-2)">│</text><text class="terminal-4247913880-r6" x="24.4" y="68.8" textLength="134.2" clip-path="url(#terminal-4247913880-line-2)">(!3e7a91c0)</text><text class="terminal-4247913880-r4" x="561.2" y="68.8" textLength="97.6" clip-path="url(#terminal-4247913880-line-2)">Regione:</text><text class="terminal-4247913880-r3" x="707.6" y="68.8" textLength="73.2" clip-path="url(#terminal-4247913880-line-2)">EU_868</text><text class="terminal-4247913880-r4" x="793" y="68.8" textLength="109.8" clip-path="url(#terminal-4247913880-line-2)">•&#160;Preset:</text><text class="terminal-4247913880-r1" x="963.8" y="68.8" textLength="12.2" clip-path="url(#terminal-4247913880-line-2)">│</text><text class="terminal-4247913880-r3" x="976" y="68.8" textLength="12.2" clip-path="url(#terminal-4247913880-line-2)">
-</text><text class="terminal-4247913880-r1" x="0" y="93.2" textLength="12.2" clip-path="url(#terminal-4247913880-line-3)">│</text><text class="terminal-4247913880-r4" x="48.8" y="93.2" textLength="146.4" clip-path="url(#terminal-4247913880-line-3)">Alias&#160;/&#160;AKA:</text><text class="terminal-4247913880-r2" x="207.4" y="93.2" textLength="61" clip-path="url(#terminal-4247913880-line-3)">VM290</text><text class="terminal-4247913880-r4" x="280.6" y="93.2" textLength="61" clip-path="url(#terminal-4247913880-line-3)">|&#160;HW:</text><text class="terminal-4247913880-r3" x="536.8" y="93.2" textLength="109.8" clip-path="url(#terminal-4247913880-line-3)">LONG_FAST</text><text class="terminal-4247913880-r1" x="963.8" y="93.2" textLength="12.2" clip-path="url(#terminal-4247913880-line-3)">│</text><text class="terminal-4247913880-r3" x="976" y="93.2" textLength="12.2" clip-path="url(#terminal-4247913880-line-3)">
-</text><text class="terminal-4247913880-r1" x="0" y="117.6" textLength="12.2" clip-path="url(#terminal-4247913880-line-4)">│</text><text class="terminal-4247913880-r3" x="24.4" y="117.6" textLength="305" clip-path="url(#terminal-4247913880-line-4)">HELTEC_VISION_MASTER_E290</text><text class="terminal-4247913880-r7" x="341.6" y="117.6" textLength="97.6" clip-path="url(#terminal-4247913880-line-4)">&#160;CLIENT&#160;</text><text class="terminal-4247913880-r4" x="561.2" y="117.6" textLength="109.8" clip-path="url(#terminal-4247913880-line-4)">Ch.&#160;Util:</text><text class="terminal-4247913880-r5" x="707.6" y="117.6" textLength="61" clip-path="url(#terminal-4247913880-line-4)">12.4%</text><text class="terminal-4247913880-r1" x="963.8" y="117.6" textLength="12.2" clip-path="url(#terminal-4247913880-line-4)">│</text><text class="terminal-4247913880-r3" x="976" y="117.6" textLength="12.2" clip-path="url(#terminal-4247913880-line-4)">
-</text><text class="terminal-4247913880-r1" x="0" y="142" textLength="12.2" clip-path="url(#terminal-4247913880-line-5)">│</text><text class="terminal-4247913880-r4" x="48.8" y="142" textLength="109.8" clip-path="url(#terminal-4247913880-line-5)">Batteria:</text><text class="terminal-4247913880-r5" x="207.4" y="142" textLength="158.6" clip-path="url(#terminal-4247913880-line-5)">⚡&#160;USB&#160;(4.22V)</text><text class="terminal-4247913880-r1" x="963.8" y="142" textLength="12.2" clip-path="url(#terminal-4247913880-line-5)">│</text><text class="terminal-4247913880-r3" x="976" y="142" textLength="12.2" clip-path="url(#terminal-4247913880-line-5)">
-</text><text class="terminal-4247913880-r1" x="0" y="166.4" textLength="12.2" clip-path="url(#terminal-4247913880-line-6)">│</text><text class="terminal-4247913880-r8" x="24.4" y="166.4" textLength="927.2" clip-path="url(#terminal-4247913880-line-6)">────────────────────────────────────────────────────────────────────────────</text><text class="terminal-4247913880-r1" x="963.8" y="166.4" textLength="12.2" clip-path="url(#terminal-4247913880-line-6)">│</text><text class="terminal-4247913880-r3" x="976" y="166.4" textLength="12.2" clip-path="url(#terminal-4247913880-line-6)">
-</text><text class="terminal-4247913880-r1" x="0" y="190.8" textLength="12.2" clip-path="url(#terminal-4247913880-line-7)">│</text><text class="terminal-4247913880-r4" x="24.4" y="190.8" textLength="195.2" clip-path="url(#terminal-4247913880-line-7)">◈&#160;CANALI&#160;ATTIVI:</text><text class="terminal-4247913880-r2" x="231.8" y="190.8" textLength="109.8" clip-path="url(#terminal-4247913880-line-7)">#LongFast</text><text class="terminal-4247913880-r6" x="341.6" y="190.8" textLength="36.6" clip-path="url(#terminal-4247913880-line-7)">[0]</text><text class="terminal-4247913880-r6" x="390.4" y="190.8" textLength="134.2" clip-path="url(#terminal-4247913880-line-7)">(LONG_FAST)</text><text class="terminal-4247913880-r6" x="549" y="190.8" textLength="12.2" clip-path="url(#terminal-4247913880-line-7)">•</text><text class="terminal-4247913880-r2" x="585.6" y="190.8" textLength="170.8" clip-path="url(#terminal-4247913880-line-7)">#Ops-Emergency</text><text class="terminal-4247913880-r6" x="756.4" y="190.8" textLength="36.6" clip-path="url(#terminal-4247913880-line-7)">[1]</text><text class="terminal-4247913880-r1" x="963.8" y="190.8" textLength="12.2" clip-path="url(#terminal-4247913880-line-7)">│</text><text class="terminal-4247913880-r3" x="976" y="190.8" textLength="12.2" clip-path="url(#terminal-4247913880-line-7)">
-</text><text class="terminal-4247913880-r1" x="0" y="215.2" textLength="12.2" clip-path="url(#terminal-4247913880-line-8)">│</text><text class="terminal-4247913880-r6" x="24.4" y="215.2" textLength="158.6" clip-path="url(#terminal-4247913880-line-8)">(MEDIUM_SLOW)</text><text class="terminal-4247913880-r1" x="963.8" y="215.2" textLength="12.2" clip-path="url(#terminal-4247913880-line-8)">│</text><text class="terminal-4247913880-r3" x="976" y="215.2" textLength="12.2" clip-path="url(#terminal-4247913880-line-8)">
-</text><text class="terminal-4247913880-r1" x="0" y="239.6" textLength="12.2" clip-path="url(#terminal-4247913880-line-9)">│</text><text class="terminal-4247913880-r8" x="24.4" y="239.6" textLength="927.2" clip-path="url(#terminal-4247913880-line-9)">────────────────────────────────────────────────────────────────────────────</text><text class="terminal-4247913880-r1" x="963.8" y="239.6" textLength="12.2" clip-path="url(#terminal-4247913880-line-9)">│</text><text class="terminal-4247913880-r3" x="976" y="239.6" textLength="12.2" clip-path="url(#terminal-4247913880-line-9)">
-</text><text class="terminal-4247913880-r1" x="0" y="264" textLength="12.2" clip-path="url(#terminal-4247913880-line-10)">│</text><text class="terminal-4247913880-r4" x="24.4" y="264" textLength="122" clip-path="url(#terminal-4247913880-line-10)">❯&#160;COMANDI:</text><text class="terminal-4247913880-r2" x="158.6" y="264" textLength="61" clip-path="url(#terminal-4247913880-line-10)">/help</text><text class="terminal-4247913880-r4" x="231.8" y="264" textLength="12.2" clip-path="url(#terminal-4247913880-line-10)">•</text><text class="terminal-4247913880-r2" x="256.2" y="264" textLength="73.2" clip-path="url(#terminal-4247913880-line-10)">/nodes</text><text class="terminal-4247913880-r4" x="341.6" y="264" textLength="12.2" clip-path="url(#terminal-4247913880-line-10)">•</text><text class="terminal-4247913880-r2" x="366" y="264" textLength="36.6" clip-path="url(#terminal-4247913880-line-10)">/dm</text><text class="terminal-4247913880-r4" x="414.8" y="264" textLength="12.2" clip-path="url(#terminal-4247913880-line-10)">•</text><text class="terminal-4247913880-r2" x="439.2" y="264" textLength="85.4" clip-path="url(#terminal-4247913880-line-10)">/switch</text><text class="terminal-4247913880-r4" x="536.8" y="264" textLength="12.2" clip-path="url(#terminal-4247913880-line-10)">•</text><text class="terminal-4247913880-r2" x="561.2" y="264" textLength="61" clip-path="url(#terminal-4247913880-line-10)">/quit</text><text class="terminal-4247913880-r1" x="963.8" y="264" textLength="12.2" clip-path="url(#terminal-4247913880-line-10)">│</text><text class="terminal-4247913880-r3" x="976" y="264" textLength="12.2" clip-path="url(#terminal-4247913880-line-10)">
-</text><text class="terminal-4247913880-r1" x="0" y="288.4" textLength="24.4" clip-path="url(#terminal-4247913880-line-11)">╰─</text><text class="terminal-4247913880-r1" x="24.4" y="288.4" textLength="573.4" clip-path="url(#terminal-4247913880-line-11)">───────────────────────────────────────────────</text><text class="terminal-4247913880-r4" x="610" y="288.4" textLength="329.4" clip-path="url(#terminal-4247913880-line-11)">Hermes&#160;Meshtastic&#160;Interface</text><text class="terminal-4247913880-r1" x="951.6" y="288.4" textLength="24.4" clip-path="url(#terminal-4247913880-line-11)">─╯</text><text class="terminal-4247913880-r3" x="976" y="288.4" textLength="12.2" clip-path="url(#terminal-4247913880-line-11)">
+    <g transform="translate(9, 41)" clip-path="url(#terminal-479566463-clip-terminal)">
+    <rect fill="#00ff66" x="24.4" y="74.7" width="85.4" height="24.65" shape-rendering="crispEdges"/>
+    <g class="terminal-479566463-matrix">
+    <text class="terminal-479566463-r1" x="0" y="20" textLength="24.4" clip-path="url(#terminal-479566463-line-0)">╭─</text><text class="terminal-479566463-r2" x="36.6" y="20" textLength="378.2" clip-path="url(#terminal-479566463-line-0)">📡&#160;MESH-DECK&#160;//&#160;TACTICAL&#160;CONSOLE</text><text class="terminal-479566463-r1" x="439.2" y="20" textLength="756.4" clip-path="url(#terminal-479566463-line-0)">──────────────────────────────────────────────────────────────</text><text class="terminal-479566463-r1" x="1195.6" y="20" textLength="24.4" clip-path="url(#terminal-479566463-line-0)">─╮</text><text class="terminal-479566463-r3" x="1220" y="20" textLength="12.2" clip-path="url(#terminal-479566463-line-0)">
+</text><text class="terminal-479566463-r1" x="0" y="44.4" textLength="12.2" clip-path="url(#terminal-479566463-line-1)">│</text><text class="terminal-479566463-r4" x="24.4" y="44.4" textLength="170.8" clip-path="url(#terminal-479566463-line-1)">◈&#160;NODO&#160;LOCALE:</text><text class="terminal-479566463-r5" x="207.4" y="44.4" textLength="305" clip-path="url(#terminal-479566463-line-1)">Heltec-Vision-Master-E290</text><text class="terminal-479566463-r6" x="524.6" y="44.4" textLength="134.2" clip-path="url(#terminal-479566463-line-1)">(!3e7a91c0)</text><text class="terminal-479566463-r4" x="671" y="44.4" textLength="170.8" clip-path="url(#terminal-479566463-line-1)">⚡&#160;PORTA&#160;RADIO:</text><text class="terminal-479566463-r2" x="866.2" y="44.4" textLength="146.4" clip-path="url(#terminal-479566463-line-1)">/dev/ttyACM0</text><text class="terminal-479566463-r1" x="1207.8" y="44.4" textLength="12.2" clip-path="url(#terminal-479566463-line-1)">│</text><text class="terminal-479566463-r3" x="1220" y="44.4" textLength="12.2" clip-path="url(#terminal-479566463-line-1)">
+</text><text class="terminal-479566463-r1" x="0" y="68.8" textLength="12.2" clip-path="url(#terminal-479566463-line-2)">│</text><text class="terminal-479566463-r4" x="48.8" y="68.8" textLength="146.4" clip-path="url(#terminal-479566463-line-2)">Alias&#160;/&#160;AKA:</text><text class="terminal-479566463-r2" x="207.4" y="68.8" textLength="61" clip-path="url(#terminal-479566463-line-2)">VM290</text><text class="terminal-479566463-r4" x="280.6" y="68.8" textLength="61" clip-path="url(#terminal-479566463-line-2)">|&#160;HW:</text><text class="terminal-479566463-r3" x="353.8" y="68.8" textLength="305" clip-path="url(#terminal-479566463-line-2)">HELTEC_VISION_MASTER_E290</text><text class="terminal-479566463-r4" x="695.4" y="68.8" textLength="97.6" clip-path="url(#terminal-479566463-line-2)">Regione:</text><text class="terminal-479566463-r3" x="841.8" y="68.8" textLength="73.2" clip-path="url(#terminal-479566463-line-2)">EU_868</text><text class="terminal-479566463-r4" x="927.2" y="68.8" textLength="109.8" clip-path="url(#terminal-479566463-line-2)">•&#160;Preset:</text><text class="terminal-479566463-r3" x="1049.2" y="68.8" textLength="109.8" clip-path="url(#terminal-479566463-line-2)">LONG_FAST</text><text class="terminal-479566463-r1" x="1207.8" y="68.8" textLength="12.2" clip-path="url(#terminal-479566463-line-2)">│</text><text class="terminal-479566463-r3" x="1220" y="68.8" textLength="12.2" clip-path="url(#terminal-479566463-line-2)">
+</text><text class="terminal-479566463-r1" x="0" y="93.2" textLength="12.2" clip-path="url(#terminal-479566463-line-3)">│</text><text class="terminal-479566463-r7" x="24.4" y="93.2" textLength="85.4" clip-path="url(#terminal-479566463-line-3)">CLIENT&#160;</text><text class="terminal-479566463-r4" x="695.4" y="93.2" textLength="109.8" clip-path="url(#terminal-479566463-line-3)">Ch.&#160;Util:</text><text class="terminal-479566463-r5" x="841.8" y="93.2" textLength="61" clip-path="url(#terminal-479566463-line-3)">12.4%</text><text class="terminal-479566463-r1" x="1207.8" y="93.2" textLength="12.2" clip-path="url(#terminal-479566463-line-3)">│</text><text class="terminal-479566463-r3" x="1220" y="93.2" textLength="12.2" clip-path="url(#terminal-479566463-line-3)">
+</text><text class="terminal-479566463-r1" x="0" y="117.6" textLength="12.2" clip-path="url(#terminal-479566463-line-4)">│</text><text class="terminal-479566463-r4" x="48.8" y="117.6" textLength="109.8" clip-path="url(#terminal-479566463-line-4)">Batteria:</text><text class="terminal-479566463-r5" x="207.4" y="117.6" textLength="158.6" clip-path="url(#terminal-479566463-line-4)">⚡&#160;USB&#160;(4.22V)</text><text class="terminal-479566463-r1" x="1207.8" y="117.6" textLength="12.2" clip-path="url(#terminal-479566463-line-4)">│</text><text class="terminal-479566463-r3" x="1220" y="117.6" textLength="12.2" clip-path="url(#terminal-479566463-line-4)">
+</text><text class="terminal-479566463-r1" x="0" y="142" textLength="12.2" clip-path="url(#terminal-479566463-line-5)">│</text><text class="terminal-479566463-r8" x="24.4" y="142" textLength="1171.2" clip-path="url(#terminal-479566463-line-5)">────────────────────────────────────────────────────────────────────────────────────────────────</text><text class="terminal-479566463-r1" x="1207.8" y="142" textLength="12.2" clip-path="url(#terminal-479566463-line-5)">│</text><text class="terminal-479566463-r3" x="1220" y="142" textLength="12.2" clip-path="url(#terminal-479566463-line-5)">
+</text><text class="terminal-479566463-r1" x="0" y="166.4" textLength="12.2" clip-path="url(#terminal-479566463-line-6)">│</text><text class="terminal-479566463-r4" x="24.4" y="166.4" textLength="195.2" clip-path="url(#terminal-479566463-line-6)">◈&#160;CANALI&#160;ATTIVI:</text><text class="terminal-479566463-r2" x="231.8" y="166.4" textLength="109.8" clip-path="url(#terminal-479566463-line-6)">#LongFast</text><text class="terminal-479566463-r6" x="341.6" y="166.4" textLength="36.6" clip-path="url(#terminal-479566463-line-6)">[0]</text><text class="terminal-479566463-r6" x="390.4" y="166.4" textLength="134.2" clip-path="url(#terminal-479566463-line-6)">(LONG_FAST)</text><text class="terminal-479566463-r6" x="549" y="166.4" textLength="12.2" clip-path="url(#terminal-479566463-line-6)">•</text><text class="terminal-479566463-r2" x="585.6" y="166.4" textLength="170.8" clip-path="url(#terminal-479566463-line-6)">#Ops-Emergency</text><text class="terminal-479566463-r6" x="756.4" y="166.4" textLength="36.6" clip-path="url(#terminal-479566463-line-6)">[1]</text><text class="terminal-479566463-r6" x="805.2" y="166.4" textLength="158.6" clip-path="url(#terminal-479566463-line-6)">(MEDIUM_SLOW)</text><text class="terminal-479566463-r1" x="1207.8" y="166.4" textLength="12.2" clip-path="url(#terminal-479566463-line-6)">│</text><text class="terminal-479566463-r3" x="1220" y="166.4" textLength="12.2" clip-path="url(#terminal-479566463-line-6)">
+</text><text class="terminal-479566463-r1" x="0" y="190.8" textLength="12.2" clip-path="url(#terminal-479566463-line-7)">│</text><text class="terminal-479566463-r8" x="24.4" y="190.8" textLength="1171.2" clip-path="url(#terminal-479566463-line-7)">────────────────────────────────────────────────────────────────────────────────────────────────</text><text class="terminal-479566463-r1" x="1207.8" y="190.8" textLength="12.2" clip-path="url(#terminal-479566463-line-7)">│</text><text class="terminal-479566463-r3" x="1220" y="190.8" textLength="12.2" clip-path="url(#terminal-479566463-line-7)">
+</text><text class="terminal-479566463-r1" x="0" y="215.2" textLength="12.2" clip-path="url(#terminal-479566463-line-8)">│</text><text class="terminal-479566463-r4" x="24.4" y="215.2" textLength="122" clip-path="url(#terminal-479566463-line-8)">❯&#160;COMANDI:</text><text class="terminal-479566463-r2" x="158.6" y="215.2" textLength="61" clip-path="url(#terminal-479566463-line-8)">/help</text><text class="terminal-479566463-r4" x="231.8" y="215.2" textLength="12.2" clip-path="url(#terminal-479566463-line-8)">•</text><text class="terminal-479566463-r2" x="256.2" y="215.2" textLength="73.2" clip-path="url(#terminal-479566463-line-8)">/nodes</text><text class="terminal-479566463-r4" x="341.6" y="215.2" textLength="12.2" clip-path="url(#terminal-479566463-line-8)">•</text><text class="terminal-479566463-r2" x="366" y="215.2" textLength="61" clip-path="url(#terminal-479566463-line-8)">/view</text><text class="terminal-479566463-r4" x="439.2" y="215.2" textLength="12.2" clip-path="url(#terminal-479566463-line-8)">•</text><text class="terminal-479566463-r2" x="463.6" y="215.2" textLength="36.6" clip-path="url(#terminal-479566463-line-8)">/dm</text><text class="terminal-479566463-r4" x="512.4" y="215.2" textLength="12.2" clip-path="url(#terminal-479566463-line-8)">•</text><text class="terminal-479566463-r2" x="536.8" y="215.2" textLength="85.4" clip-path="url(#terminal-479566463-line-8)">/switch</text><text class="terminal-479566463-r4" x="634.4" y="215.2" textLength="12.2" clip-path="url(#terminal-479566463-line-8)">•</text><text class="terminal-479566463-r2" x="658.8" y="215.2" textLength="109.8" clip-path="url(#terminal-479566463-line-8)">/settings</text><text class="terminal-479566463-r4" x="780.8" y="215.2" textLength="12.2" clip-path="url(#terminal-479566463-line-8)">•</text><text class="terminal-479566463-r2" x="805.2" y="215.2" textLength="61" clip-path="url(#terminal-479566463-line-8)">/quit</text><text class="terminal-479566463-r1" x="1207.8" y="215.2" textLength="12.2" clip-path="url(#terminal-479566463-line-8)">│</text><text class="terminal-479566463-r3" x="1220" y="215.2" textLength="12.2" clip-path="url(#terminal-479566463-line-8)">
+</text><text class="terminal-479566463-r1" x="0" y="239.6" textLength="24.4" clip-path="url(#terminal-479566463-line-9)">╰─</text><text class="terminal-479566463-r1" x="24.4" y="239.6" textLength="793" clip-path="url(#terminal-479566463-line-9)">─────────────────────────────────────────────────────────────────</text><text class="terminal-479566463-r4" x="829.6" y="239.6" textLength="353.8" clip-path="url(#terminal-479566463-line-9)">Interfaccia&#160;Hermes&#160;Meshtastic</text><text class="terminal-479566463-r1" x="1195.6" y="239.6" textLength="24.4" clip-path="url(#terminal-479566463-line-9)">─╯</text><text class="terminal-479566463-r3" x="1220" y="239.6" textLength="12.2" clip-path="url(#terminal-479566463-line-9)">
 </text>
     </g>
     </g>

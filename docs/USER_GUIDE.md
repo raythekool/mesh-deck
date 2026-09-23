@@ -110,16 +110,16 @@ uv run mesh-deck --nodes > mesh_snapshot.txt
 I sottocomandi non interattivi espongono le stesse operazioni con output umano
 predefinito oppure JSON stabile tramite `--output json`:
 
-| Sottocomando | Funzione |
-| :------------ | :------- |
-| `scan` | Elenca i dispositivi seriali Meshtastic rilevati. |
-| `info` | Restituisce connessione, nodo locale e metadati radio. |
-| `nodes` | Elenca i nodi; supporta `--sort` e `--active`. |
-| `node <query>` | Cerca un nodo per ID, numero, AKA o nome. |
-| `channels` | Elenca i metadati dei canali senza esporre le PSK. |
-| `send <testo>` | Prepara o invia un broadcast. |
-| `dm <target> <testo>` | Prepara o invia un messaggio diretto. |
-| `mcp` | Avvia il server MCP locale su stdio. |
+| Sottocomando          | Funzione                                               |
+| :-------------------- | :----------------------------------------------------- |
+| `scan`                | Elenca i dispositivi seriali Meshtastic rilevati.      |
+| `info`                | Restituisce connessione, nodo locale e metadati radio. |
+| `nodes`               | Elenca i nodi; supporta `--sort` e `--active`.         |
+| `node <query>`        | Cerca un nodo per ID, numero, AKA o nome.              |
+| `channels`            | Elenca i metadati dei canali senza esporre le PSK.     |
+| `send <testo>`        | Prepara o invia un broadcast.                          |
+| `dm <target> <testo>` | Prepara o invia un messaggio diretto.                  |
+| `mcp`                 | Avvia il server MCP locale su stdio.                   |
 
 Le operazioni che richiedono la radio accettano `--port` e `--timeout`. In
 assenza di `--port`, Mesh-Deck usa la porta predefinita nelle impostazioni e
@@ -134,15 +134,15 @@ uv run mesh-deck channels --output json
 L'envelope JSON di successo contiene `ok`, `command` e `data`. Un errore
 contiene `ok: false` e `error.code`, `error.message`, `error.details`.
 
-| Exit code | Significato |
-| :-------- | :---------- |
-| `0` | Operazione completata, inclusa un'anteprima non trasmessa. |
-| `1` | Errore interno inatteso. |
-| `2` | Input o opzione non valida. |
-| `3` | Nodo non trovato. |
-| `4` | Nessun dispositivo disponibile. |
-| `5` | Connessione seriale fallita. |
-| `6` | Trasmissione fallita. |
+| Exit code | Significato                                                |
+| :-------- | :--------------------------------------------------------- |
+| `0`       | Operazione completata, inclusa un'anteprima non trasmessa. |
+| `1`       | Errore interno inatteso.                                   |
+| `2`       | Input o opzione non valida.                                |
+| `3`       | Nodo non trovato.                                          |
+| `4`       | Nessun dispositivo disponibile.                            |
+| `5`       | Connessione seriale fallita.                               |
+| `6`       | Trasmissione fallita.                                      |
 
 #### Sicurezza degli invii
 
@@ -214,10 +214,18 @@ Dove `[AKA]` rappresenta l'identificativo breve (4 caratteri) del tuo nodo local
 | Richiamare un comando precedente           | frecce Su/Giù nel campo comando                   |
 | Cancellare il testo corrente               | `Ctrl+C`                                          |
 | Nascondere i suggerimenti                  | `Esc`                                             |
+| Mostrare/nascondere la barra laterale nodi | `Ctrl+B`                                          |
 
 La cronologia conserva gli ultimi 100 comandi in
 `~/.config/mesh-deck/settings.json`. I messaggi ricevuti vengono aggiunti al log
 senza interrompere il testo in digitazione.
+
+La barra laterale a sinistra elenca i nodi rilevati: fai click su una riga (o
+selezionala con le frecce e premi `Invio`) per aprire la scheda dettaglio del
+nodo con `/node <id>`. La visibilità della barra è persistita in
+`~/.config/mesh-deck/settings.json` e si applica automaticamente ai riavvii.
+
+![Console con barra laterale nodi](screenshots/console.svg)
 
 ---
 
@@ -293,6 +301,8 @@ senza interrompere il testo in digitazione.
   ```text
   mesh-deck [VM290] ❯ /chat
   ```
+
+  ![Chat canali e messaggi diretti](screenshots/chat.svg)
 
 ---
 

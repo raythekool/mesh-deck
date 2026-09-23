@@ -156,6 +156,9 @@ STRINGS: dict[str, dict[str, str]] = {
     "SETTINGS_HISTORY": {"it": "Storico locale su file", "en": "Local file history"},
     "SETTINGS_ON": {"it": "Attive", "en": "On"},
     "SETTINGS_OFF": {"it": "Disattivate", "en": "Off"},
+    "SIDEBAR_TITLE": {"it": "📡 NODI", "en": "📡 NODES"},
+    "SIDEBAR_EMPTY": {"it": "Nessun nodo rilevato", "en": "No nodes detected"},
+    "SIDEBAR_TOGGLE": {"it": "Mostra/nascondi barra laterale", "en": "Toggle sidebar"},
     "CMD_DESC_CHAT": {
         "it": "Apre la chat interattiva dei canali e dei messaggi diretti (click del mouse)",
         "en": "Open the interactive channel and direct-message chat viewer (mouse click)",
