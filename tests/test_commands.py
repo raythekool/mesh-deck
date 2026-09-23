@@ -182,6 +182,57 @@ class TestCommandDispatcher(unittest.TestCase):
         self.assertTrue(res)
         self.mock_client.get_channels.assert_called()
 
+    def test_dispatch_neighbors_empty_and_populated(self) -> None:
+        from mesh_deck.core.events import NeighborLink, NeighborReport
+
+        self.mock_client.get_neighbor_reports.return_value = []
+        self.assertTrue(self.dispatcher.dispatch("/neighbors"))
+
+        self.mock_client.get_neighbor_reports.return_value = [
+            NeighborReport(
+                node_id="!45a466e4",
+                neighbors=[NeighborLink(node_id="!62d927b8", snr=6.5)],
+                broadcast_interval_secs=900,
+            )
+        ]
+        self.assertTrue(self.dispatcher.dispatch("/neighbors"))
+        self.mock_client.get_neighbor_reports.assert_called()
+
+    def test_dispatch_neighbors_for_one_node_resolves_the_alias(self) -> None:
+        self.mock_client.get_neighbors_of.return_value = None
+        self.assertTrue(self.dispatcher.dispatch("/neighbors TRIN"))
+        self.mock_client.get_neighbors_of.assert_called_with("!62d927b8")
+
+    def test_dispatch_mesh_summary(self) -> None:
+        self.mock_client.get_neighbor_reports.return_value = []
+        self.assertTrue(self.dispatcher.dispatch("/mesh"))
+        self.mock_store.get_all_nodes.assert_called()
+
+    def test_dispatch_trace_requires_a_target(self) -> None:
+        self.assertTrue(self.dispatcher.dispatch("/trace"))
+        self.mock_client.trace_route.assert_not_called()
+
+    def test_dispatch_trace_renders_the_hop_path(self) -> None:
+        from mesh_deck.core.events import TraceRouteResult
+
+        self.mock_client.trace_route.return_value = TraceRouteResult(
+            target_id="!62d927b8",
+            route_to=["!45a466e4"],
+            snr_to=[6.25],
+            route_back=["!45a466e4"],
+        )
+        self.assertTrue(self.dispatcher.dispatch("/trace TRIN"))
+        self.mock_client.trace_route.assert_called_with("!62d927b8")
+
+    def test_dispatch_trace_reports_a_timeout(self) -> None:
+        self.mock_client.trace_route.return_value = None
+        self.assertTrue(self.dispatcher.dispatch("/trace TRIN"))
+
+    def test_dispatch_trace_survives_a_disconnected_radio(self) -> None:
+        self.mock_client.trace_route.side_effect = ConnectionError("no radio")
+        self.assertTrue(self.dispatcher.dispatch("/trace TRIN"))
+        self.assertTrue(self.dispatcher.running)
+
     def test_dispatch_channels_empty(self) -> None:
         self.mock_client.get_channels.return_value = []
         res = self.dispatcher.dispatch("/channels")
@@ -488,6 +539,8 @@ class TestMCPServer(unittest.IsolatedAsyncioTestCase):
                 "list_nodes",
                 "get_node",
                 "list_channels",
+                "list_neighbors",
+                "trace_route",
                 "send_broadcast",
                 "send_direct_message",
             },

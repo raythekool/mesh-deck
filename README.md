@@ -50,6 +50,8 @@ A full-screen chat view: click a channel to switch, see unread badges on the "Di
 
 - **Multi-device auto-discovery**: Automatically detects Meshtastic radios on USB serial ports such as `/dev/ttyACM*` and `/dev/ttyUSB*`.
 - **Hot switching**: Switch between multiple connected LoRa radios with `/switch` without restarting the app.
+- **Automatic reconnection**: An unexpected link loss (unplugged cable, node reboot) is reported in the log and retried in the background with exponential backoff until the radio answers again.
+- **Mesh topology and traceroute**: `/neighbors` shows the NeighborInfo tables broadcast by nodes, `/mesh` summarises the resulting topology, and `/trace` walks the hop path towards a node with per-hop SNR.
 - **Full-screen Textual console**: Context-aware input, persistent command history, dynamic suggestions for commands, ports, and node aliases. `Tab` completes without executing; `Enter` accepts the highlighted suggestion.
 - **Asynchronous streaming**: Incoming radio messages are appended to the scrollable log without interrupting the operator’s typing.
 - **Node explorer and Haversine geodesy**: Calculates an approximate distance from the local node and produces links to maps and OpenStreetMap views.
@@ -106,6 +108,9 @@ Inside the interactive `mesh-deck` console, you can use the following slash comm
 | **`/send`**                            | `<text>`                                                  | Sends a broadcast message on the primary channel.                                                                                          |
 | **`/dm`**                              | `<id\|aka\|name> <text>`                                  | Sends a private direct message to a specific node.                                                                                         |
 | **`/channels`**                        | *(none)*                                                  | Shows radio channel configuration, roles, and PSK security state.                                                                          |
+| **`/neighbors`**                       | `[id\|aka]`                                               | Shows the NeighborInfo tables broadcast by mesh nodes, with per-neighbor SNR and last contact.                                            |
+| **`/mesh`**                            | *(none)*                                                  | Summarises mesh topology: role, hops, SNR, distance, and how many nodes report each node as a direct neighbour.                           |
+| **`/trace`**                           | `<id\|aka\|name>`                                         | Traces the hop path towards a node and shows the forward and return routes with SNR.                                                      |
 | **`/info`**                            | *(none)*                                                  | Displays hardware status, firmware, RF region, and modem preset.                                                                           |
 | **`/settings`**                        | `[lang\|theme\|port\|sort\|mode\|notifications\|history]` | Shows or updates user settings, including the colour theme, notification toasts, and local history persistence.                              |
 | **`/switch`**                          | `[port\|index]`                                           | Hot-switches to another connected LoRa USB device.                                                                                         |
@@ -165,6 +170,8 @@ uv run mesh-deck nodes --sort snr --active --output json
 uv run mesh-deck node TRIN --port /dev/ttyACM0 --output json
 uv run mesh-deck info --output json
 uv run mesh-deck channels --output json
+uv run mesh-deck neighbors --output json
+uv run mesh-deck trace TRIN --output json
 ```
 
 Successful responses use:
@@ -210,9 +217,10 @@ Generic MCP client configuration:
 ```
 
 The server exposes `scan_devices`, `get_radio_info`, `list_nodes`, `get_node`,
-`list_channels`, `send_broadcast`, and `send_direct_message`. The two send
-tools return a preview by default and transmit only when called with
-`confirm=true`. Channel keys and raw channel configuration are never returned.
+`list_channels`, `list_neighbors`, `trace_route`, `send_broadcast`, and
+`send_direct_message`. The two send tools return a preview by default and
+transmit only when called with `confirm=true`. Channel keys and raw channel
+configuration are never returned.
 
 ### Chat viewer, notifications & local history
 

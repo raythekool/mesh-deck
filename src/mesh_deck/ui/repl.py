@@ -17,7 +17,7 @@ from textual.widgets.option_list import Option
 
 from mesh_deck.core.settings import Settings
 from mesh_deck.i18n import command_descriptions, t
-from mesh_deck.core.events import DeviceConnectionInfo, MeshMessage
+from mesh_deck.core.events import DeviceConnectionInfo, MeshMessage, NodeData
 from mesh_deck.ui.device_selector import DeviceSelectorScreen
 from mesh_deck.ui.completer import Completion, MeshDeckCompleter
 from mesh_deck.ui.tables import render_message, render_node_detail
@@ -70,6 +70,9 @@ class TextualConsole:
 
     def notify_message(self, msg: MeshMessage) -> None:
         self._invoke(self.app.notify_message, msg)
+
+    def request_sidebar_refresh(self) -> None:
+        self._invoke(self.app.request_sidebar_refresh)
 
     def _invoke(self, callback: Any, *args: Any) -> None:
         if threading.get_ident() == getattr(self.app, "ui_thread_id", None):
@@ -176,6 +179,9 @@ class ConnectionScreen(ModalScreen[None]):
 
 SIDEBAR_MIN_WIDTH = 18
 SIDEBAR_MAX_WIDTH_RATIO = 0.6
+# A busy mesh can emit node updates several times a second; refreshes are
+# coalesced into at most one repaint per this interval.
+SIDEBAR_REFRESH_INTERVAL = 2.0
 SIDEBAR_SORT_CYCLE = ["last_heard", "snr", "hops", "name"]
 SIDEBAR_SORT_LABELS = {
     "last_heard": "SIDEBAR_SORT_LAST_HEARD",
@@ -272,6 +278,8 @@ class MeshDeckApp(ThemedApp, App):
         self.open_explorer_on_connect = open_explorer_on_connect
         self.completions: list[Completion] = []
         self.history_position = len(self.repl.settings.command_history)
+        self._sidebar_refresh_pending = False
+        self._sidebar_node_ids: list[str] = []
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -352,6 +360,7 @@ class MeshDeckApp(ThemedApp, App):
 
     def refresh_sidebar(self) -> None:
         """Populate the node sidebar from the current NodeStore snapshot."""
+        self._sidebar_refresh_pending = False
         lang = self.repl.settings.language
         sort_by = self.repl.settings.default_sort
         filter_state = self.repl.settings.sidebar_filter
@@ -381,6 +390,26 @@ class MeshDeckApp(ThemedApp, App):
                 f"[italic {THEME_COLORS['muted']}]{long_name}[/] · {format_snr(node.snr)} · {format_time_ago(node.last_heard, lang)}"
             ))
         sidebar.highlighted = 0
+
+    def request_sidebar_refresh(self) -> None:
+        """Schedule a coalesced sidebar repaint after a radio-side node update.
+
+        Node updates arrive from the PubSub thread and can burst; repainting
+        the whole OptionList per packet would thrash the UI, so bursts collapse
+        into a single repaint at most every SIDEBAR_REFRESH_INTERVAL seconds.
+        """
+        if not self.repl.settings.sidebar_enabled or self._sidebar_refresh_pending:
+            return
+        self._sidebar_refresh_pending = True
+        self.set_timer(SIDEBAR_REFRESH_INTERVAL, self._flush_sidebar_refresh)
+
+    def _flush_sidebar_refresh(self) -> None:
+        if not self._sidebar_refresh_pending:
+            return
+        if not self.repl.settings.sidebar_enabled or not self.is_mounted:
+            self._sidebar_refresh_pending = False
+            return
+        self.refresh_sidebar()
 
     def action_toggle_sidebar(self) -> None:
         enabled = not self.repl.settings.sidebar_enabled
@@ -598,7 +627,7 @@ class MeshDeckApp(ThemedApp, App):
         suggestions.display = False
 
     def _open_sidebar_node(self, index: int) -> None:
-        node_ids = getattr(self, "_sidebar_node_ids", [])
+        node_ids = self._sidebar_node_ids
         if index >= len(node_ids):
             return
         self.show_node_detail(node_ids[index])
@@ -610,9 +639,16 @@ class MeshDeckApp(ThemedApp, App):
             return
         local_node = self.repl.client.get_local_node()
         distance_km = None
+        bearing_deg = None
         if local_node and local_node.id != node.id:
             distance_km = self.repl.client.store.calculate_distance(local_node.id, node.id)
-        panel = render_node_detail(node, distance_km=distance_km, lang=self.repl.settings.language)
+            bearing_deg = self.repl.client.store.calculate_bearing(local_node.id, node.id)
+        panel = render_node_detail(
+            node,
+            distance_km=distance_km,
+            lang=self.repl.settings.language,
+            bearing_deg=bearing_deg,
+        )
         detail = self.query_one("#node-detail", Static)
         detail.update(panel)
         detail.display = True
@@ -637,6 +673,7 @@ class MeshDeckREPL:
         # independent Settings.load() calls would silently diverge on save.
         self.settings = settings if settings is not None else Settings.load()
         set_theme(self.settings.theme)
+        self._link_was_lost = False
         if dispatcher is not None:
             self.dispatcher = dispatcher
         else:
@@ -649,6 +686,43 @@ class MeshDeckREPL:
             lang=self.settings.language,
         )
         self.client.on_message_received(self._handle_incoming_message)
+        self.client.on_node_updated(self._handle_node_updated)
+        self.client.on_connection_change(self._handle_connection_change)
+        self.client.on_reconnect_attempt(self._handle_reconnect_attempt)
+
+    def _handle_node_updated(self, _node: NodeData) -> None:
+        """Ask the console to repaint the node sidebar (called from a radio thread)."""
+        requester = getattr(self.console, "request_sidebar_refresh", None)
+        if callable(requester):
+            requester()
+
+    def _handle_connection_change(self, connected: bool, port: str | None) -> None:
+        """Report link state changes in the log (called from a radio thread)."""
+        lang = self.settings.language
+        if connected:
+            # Only announce a restore if we actually reported a loss first,
+            # otherwise the initial handshake would print a bogus notice.
+            if not self._link_was_lost:
+                return
+            self._link_was_lost = False
+            self.console.print(
+                f"[{THEME_COLORS['secondary']}]{t('CONN_RESTORED', lang, port=port or '?')}[/]"
+            )
+        else:
+            self._link_was_lost = True
+            self.console.print(
+                f"[{THEME_COLORS['alert']}]{t('CONN_LOST', lang, port=port or '?')}[/]"
+            )
+        requester = getattr(self.console, "request_sidebar_refresh", None)
+        if callable(requester):
+            requester()
+
+    def _handle_reconnect_attempt(self, port: str, attempt: int) -> None:
+        """Report an automatic reconnection attempt (called from a radio thread)."""
+        self.console.print(
+            f"[{THEME_COLORS['warning']}]"
+            f"{t('CONN_RETRYING', self.settings.language, port=port, attempt=attempt)}[/]"
+        )
 
     def _get_all_nodes(self) -> list:
         return self.client.store.get_all_nodes()

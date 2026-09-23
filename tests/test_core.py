@@ -935,8 +935,182 @@ class TestRadioClient(unittest.TestCase):
         self.assertNotIn("myNodeNum", info)
 
 
+class TestMeshTopologyAndTraceroute(unittest.TestCase):
+    """NeighborInfo capture (RF-2.3), traceroute plumbing (RF-3.1), reconnection (RF-1.4)."""
+
+    def _client(self):
+        store = NodeStore()
+        store.update_from_node_dict({"num": 1168402148, "user": {"id": "!45a466e4", "longName": "Milan"}})
+        store.update_from_node_dict({"num": 3103285977, "user": {"id": "!b8f862d9", "longName": "Trinity"}})
+        return RadioClient(node_store=store, auto_reconnect=False)
+
+    def test_neighborinfo_packet_is_recorded_per_reporting_node(self):
+        client = self._client()
+        seen = []
+        client.on_neighbor_report(seen.append)
+
+        client._on_pubsub_neighborinfo({
+            "from": 1168402148,
+            "fromId": "!45a466e4",
+            "decoded": {"neighborinfo": {
+                "nodeId": 1168402148,
+                "nodeBroadcastIntervalSecs": 900,
+                "neighbors": [
+                    {"nodeId": 3103285977, "snr": 7.25, "lastRxTime": 1700000000},
+                    {"nodeId": 12345, "snr": -3.5},
+                ],
+            }},
+        })
+
+        (report,) = client.get_neighbor_reports()
+        self.assertEqual(report.node_id, "!45a466e4")
+        self.assertEqual(report.broadcast_interval_secs, 900)
+        self.assertEqual([n.node_id for n in report.neighbors], ["!b8f862d9", "!00003039"])
+        self.assertEqual(report.neighbors[0].snr, 7.25)
+        self.assertIsNotNone(report.neighbors[0].last_rx_time)
+        self.assertIsNone(report.neighbors[1].last_rx_time)
+        self.assertEqual(len(seen), 1)
+
+        # Lookup by ID and by alias spelling both resolve the same report.
+        self.assertIs(client.get_neighbors_of("!45a466e4"), report)
+        self.assertIs(client.get_neighbors_of(1168402148), report)
+        self.assertIsNone(client.get_neighbors_of("!deadbeef"))
+
+    def test_neighborinfo_report_replaces_previous_table(self):
+        client = self._client()
+        for snr in (1.0, 9.0):
+            client._on_pubsub_neighborinfo({
+                "fromId": "!45a466e4",
+                "decoded": {"neighborinfo": {
+                    "nodeId": 1168402148,
+                    "neighbors": [{"nodeId": 3103285977, "snr": snr}],
+                }},
+            })
+        reports = client.get_neighbor_reports()
+        self.assertEqual(len(reports), 1)
+        self.assertEqual(reports[0].neighbors[0].snr, 9.0)
+
+    def test_traceroute_reply_unblocks_the_waiter(self):
+        client = self._client()
+        mock_iface = MagicMock()
+        client._interface = mock_iface
+        client._is_connected = True
+
+        reply = {
+            "from": 3103285977,
+            "fromId": "!b8f862d9",
+            "decoded": {"traceroute": {
+                "route": [1168402148],
+                # Firmware scales SNR by 4; -128 means "unknown" and is dropped.
+                "snrTowards": [28, -128],
+                "routeBack": [1168402148],
+                "snrBack": [20],
+            }},
+        }
+        mock_iface.sendData.side_effect = lambda *a, **k: client._on_pubsub_traceroute(reply)
+
+        result = client.trace_route("!b8f862d9", timeout=5)
+        self.assertIsNotNone(result)
+        self.assertEqual(result.target_id, "!b8f862d9")
+        self.assertEqual(result.route_to, ["!45a466e4"])
+        self.assertEqual(result.snr_to, [7.0])
+        self.assertEqual(result.hop_count, 1)
+        self.assertEqual(result.route_back, ["!45a466e4"])
+
+        sent_kwargs = mock_iface.sendData.call_args.kwargs
+        self.assertEqual(sent_kwargs["destinationId"], "!b8f862d9")
+        self.assertTrue(sent_kwargs["wantResponse"])
+
+    def test_traceroute_times_out_without_a_reply(self):
+        client = self._client()
+        client._interface = MagicMock()
+        client._is_connected = True
+
+        self.assertIsNone(client.trace_route("!b8f862d9", timeout=0.05))
+        # The waiter must not leak once it gave up.
+        self.assertEqual(client._traceroute_waiters, {})
+
+    def test_traceroute_requires_a_connection(self):
+        client = self._client()
+        with self.assertRaises(ConnectionError):
+            client.trace_route("!b8f862d9")
+
+    def test_connection_loss_schedules_reconnection_when_enabled(self):
+        client = self._client()
+        client.auto_reconnect = True
+        client._interface = MagicMock()
+        client._is_connected = True
+        client._port = "/dev/ttyACM0"
+
+        attempts = []
+        client.on_reconnect_attempt(lambda port, attempt: attempts.append((port, attempt)))
+        with patch.object(client, "_do_connect") as do_connect:
+            client._on_pubsub_connection_lost()
+            self.assertTrue(client.is_reconnecting)
+            # An explicit disconnect must win over the automatic retry.
+            client.disconnect()
+            client._reconnect_thread.join(timeout=5)
+        self.assertFalse(client.is_reconnecting)
+        do_connect.assert_not_called()
+
+    def test_connection_loss_does_not_reconnect_when_disabled(self):
+        client = self._client()
+        client._interface = MagicMock()
+        client._is_connected = True
+        client._port = "/dev/ttyACM0"
+
+        client._on_pubsub_connection_lost()
+        self.assertFalse(client.is_reconnecting)
+
+
+class TestBearing(unittest.TestCase):
+    """Forward azimuth between nodes (RF-2.2)."""
+
+    def setUp(self):
+        self.store = NodeStore()
+        self.store.update_from_node_dict({
+            "num": 1,
+            "user": {"id": "!1", "longName": "Base"},
+            "position": {"latitude": 45.0, "longitude": 9.0},
+        }, is_local=True)
+        self.store.set_local_node_id("!1")
+
+    def _add(self, node_id, lat, lon):
+        return self.store.update_from_node_dict({
+            "num": int(node_id[1:]),
+            "user": {"id": node_id},
+            "position": {"latitude": lat, "longitude": lon},
+        })
+
+    def test_cardinal_directions(self):
+        self._add("!2", 46.0, 9.0)   # due north
+        self._add("!3", 45.0, 10.0)  # due east
+        self._add("!4", 44.0, 9.0)   # due south
+        self._add("!5", 45.0, 8.0)   # due west
+
+        self.assertAlmostEqual(self.store.calculate_bearing("!2"), 0.0, delta=0.5)
+        self.assertAlmostEqual(self.store.calculate_bearing("!3"), 90.0, delta=0.5)
+        self.assertAlmostEqual(self.store.calculate_bearing("!4"), 180.0, delta=0.5)
+        self.assertAlmostEqual(self.store.calculate_bearing("!5"), 270.0, delta=0.5)
+
+    def test_bearing_is_none_without_a_fix_or_for_self(self):
+        self.store.update_from_node_dict({"num": 9, "user": {"id": "!9"}})
+        self.assertIsNone(self.store.calculate_bearing("!9"))
+        self.assertIsNone(self.store.calculate_bearing("!1"))
+        self.assertIsNone(self.store.calculate_bearing("!does_not_exist"))
+
+    def test_bearing_between_two_explicit_nodes(self):
+        self._add("!2", 45.0, 10.0)
+        self._add("!3", 45.0, 11.0)
+        self.assertAlmostEqual(self.store.calculate_bearing("!2", "!3"), 90.0, delta=0.5)
+
+    def test_bearing_rejects_out_of_range_coordinates(self):
+        self.assertIsNone(NodeStore.initial_bearing(120.0, 9.0, 45.0, 9.0))
+        self.assertIsNone(NodeStore.initial_bearing("x", 9.0, 45.0, 9.0))
+        self.assertIsNone(NodeStore.initial_bearing(45.0, 9.0, 45.0, 9.0))
+
+
 class TestHistoryStore(unittest.TestCase):
-    """Test HistoryStore JSONL persistence, dedupe logic, and filtering."""
 
     def setUp(self):
         self._tmp = TemporaryDirectory()

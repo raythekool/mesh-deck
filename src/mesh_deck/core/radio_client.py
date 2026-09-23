@@ -16,21 +16,37 @@ from typing import Any
 from collections.abc import Callable
 
 from google.protobuf.json_format import MessageToDict
-from meshtastic import channel_pb2
+from meshtastic import channel_pb2, mesh_pb2, portnums_pb2
 from meshtastic.serial_interface import SerialInterface
 from pubsub import pub
 
-from mesh_deck.core.events import MeshMessage, NodeData
+from mesh_deck.core.events import (
+    MeshMessage,
+    NeighborLink,
+    NeighborReport,
+    NodeData,
+    TraceRouteResult,
+)
 from mesh_deck.core.history import HistoryStore
 from mesh_deck.core.node_store import NodeStore
 
 logger = logging.getLogger(__name__)
 
+# RF-1.4: exponential backoff (seconds) used when a connection drops
+# unexpectedly. The last value repeats until the radio comes back or the user
+# disconnects, so an unplugged cable settles into a quiet slow poll.
+RECONNECT_BACKOFF_SECONDS: tuple[float, ...] = (2.0, 5.0, 10.0, 20.0, 30.0)
+
 
 class RadioClient:
     """High-level client for Meshtastic serial connection, event dispatching, and state tracking."""
 
-    def __init__(self, node_store: NodeStore | None = None, history: HistoryStore | None = None) -> None:
+    def __init__(
+        self,
+        node_store: NodeStore | None = None,
+        history: HistoryStore | None = None,
+        auto_reconnect: bool = True,
+    ) -> None:
         self._node_store = node_store if node_store is not None else NodeStore()
         self._history = history
         self._interface: SerialInterface | None = None
@@ -47,6 +63,19 @@ class RadioClient:
 
         # Pubsub subscription flags
         self._subscribed = False
+
+        # Automatic reconnection state (RF-1.4)
+        self.auto_reconnect = auto_reconnect
+        self._reconnect_thread: threading.Thread | None = None
+        self._reconnect_stop = threading.Event()
+        self._reconnect_callbacks: list[Callable[[str, int], Any]] = []
+
+        # Mesh topology state (RF-2.3) and traceroute plumbing (RF-3.1)
+        self._neighbor_reports: dict[str, NeighborReport] = {}
+        self._neighbor_callbacks: list[Callable[[NeighborReport], Any]] = []
+        self._traceroute_callbacks: list[Callable[[TraceRouteResult], Any]] = []
+        self._traceroute_waiters: dict[str, list[Any]] = {}
+        self._last_traceroute: TraceRouteResult | None = None
 
     @property
     def node_store(self) -> NodeStore:
@@ -130,6 +159,8 @@ class RadioClient:
             True if connected (or connection initiated when non-blocking), False on error.
         """
         self._ensure_pubsub_subscribed()
+        # A user-driven connect supersedes any pending automatic retry.
+        self._stop_reconnect()
 
         if blocking:
             try:
@@ -209,6 +240,8 @@ class RadioClient:
 
     def disconnect(self) -> None:
         """Disconnect from the current serial port cleanly."""
+        # An explicit disconnect wins over an automatic retry.
+        self._stop_reconnect()
         old_port = None
         with self._lock:
             if not self._is_connected and self._interface is None:
@@ -241,8 +274,185 @@ class RadioClient:
             pub.subscribe(self._on_pubsub_telemetry, "meshtastic.receive.telemetry")
             pub.subscribe(self._on_pubsub_position, "meshtastic.receive.position")
             pub.subscribe(self._on_pubsub_node_updated, "meshtastic.node.updated")
+            pub.subscribe(self._on_pubsub_neighborinfo, "meshtastic.receive.neighborinfo")
+            pub.subscribe(self._on_pubsub_traceroute, "meshtastic.receive.traceroute")
             pub.subscribe(self._on_pubsub_connection_lost, "meshtastic.connection.lost")
             self._subscribed = True
+
+    @staticmethod
+    def _as_node_id(value: Any) -> str | None:
+        """Normalize a node reference (int or string) to '!hex' form."""
+        if value is None:
+            return None
+        if isinstance(value, int):
+            return f"!{value & 0xFFFFFFFF:08x}"
+        text = str(value).strip()
+        if not text:
+            return None
+        if text.startswith("!"):
+            return text.lower()
+        try:
+            return f"!{int(text) & 0xFFFFFFFF:08x}"
+        except ValueError:
+            return text.lower()
+
+    def _on_pubsub_neighborinfo(self, packet: dict[str, Any], interface=None, **kwargs) -> None:
+        """Handle a NeighborInfo broadcast, recording the reporter's neighbor table."""
+        if self._interface is not None and interface is not None and interface != self._interface:
+            return
+
+        try:
+            self._node_store.update_from_packet(packet)
+            info = (packet.get("decoded") or {}).get("neighborinfo") or {}
+            reporter = self._as_node_id(info.get("nodeId") or packet.get("fromId") or packet.get("from"))
+            if not reporter:
+                return
+
+            links: list[NeighborLink] = []
+            for raw in info.get("neighbors") or []:
+                neighbor_id = self._as_node_id(raw.get("nodeId"))
+                if not neighbor_id:
+                    continue
+                last_rx = raw.get("lastRxTime")
+                last_rx_dt: datetime | None = None
+                if isinstance(last_rx, (int, float)) and last_rx > 0:
+                    try:
+                        last_rx_dt = datetime.fromtimestamp(last_rx)
+                    except (OverflowError, OSError, ValueError):
+                        last_rx_dt = None
+                snr = raw.get("snr")
+                links.append(NeighborLink(
+                    node_id=neighbor_id,
+                    snr=float(snr) if snr is not None else None,
+                    last_rx_time=last_rx_dt,
+                ))
+
+            interval = info.get("nodeBroadcastIntervalSecs")
+            report = NeighborReport(
+                node_id=reporter,
+                neighbors=links,
+                broadcast_interval_secs=int(interval) if interval is not None else None,
+            )
+            with self._lock:
+                self._neighbor_reports[reporter] = report
+
+            for cb in list(self._neighbor_callbacks):
+                try:
+                    cb(report)
+                except Exception as cb_exc:
+                    logger.exception("Error in neighbor callback: %s", cb_exc)
+        except Exception as exc:
+            logger.exception("Error processing neighbor info: %s", exc)
+
+    def _on_pubsub_traceroute(self, packet: dict[str, Any], interface=None, **kwargs) -> None:
+        """Handle a traceroute reply and hand the hop path to any waiter."""
+        if self._interface is not None and interface is not None and interface != self._interface:
+            return
+
+        try:
+            self._node_store.update_from_packet(packet)
+            discovery = (packet.get("decoded") or {}).get("traceroute") or {}
+            target = self._as_node_id(packet.get("fromId") or packet.get("from")) or "!unknown"
+
+            def _ids(values: Any) -> list[str]:
+                return [nid for nid in (self._as_node_id(v) for v in (values or [])) if nid]
+
+            def _snrs(values: Any) -> list[float]:
+                # The firmware scales SNR by 4 and uses -128 for "unknown".
+                return [float(v) / 4.0 for v in (values or []) if v is not None and v != -128]
+
+            result = TraceRouteResult(
+                target_id=target,
+                route_to=_ids(discovery.get("route")),
+                snr_to=_snrs(discovery.get("snrTowards")),
+                route_back=_ids(discovery.get("routeBack")),
+                snr_back=_snrs(discovery.get("snrBack")),
+            )
+            with self._lock:
+                self._last_traceroute = result
+                waiter = self._traceroute_waiters.pop(target, None)
+            if waiter is not None:
+                waiter[0] = result
+                waiter[1].set()
+
+            for cb in list(self._traceroute_callbacks):
+                try:
+                    cb(result)
+                except Exception as cb_exc:
+                    logger.exception("Error in traceroute callback: %s", cb_exc)
+        except Exception as exc:
+            logger.exception("Error processing traceroute reply: %s", exc)
+
+    def on_neighbor_report(self, callback: Callable[[NeighborReport], Any]) -> None:
+        """Register a callback for incoming NeighborInfo broadcasts."""
+        with self._lock:
+            if callback not in self._neighbor_callbacks:
+                self._neighbor_callbacks.append(callback)
+
+    def on_traceroute_result(self, callback: Callable[[TraceRouteResult], Any]) -> None:
+        """Register a callback for traceroute replies."""
+        with self._lock:
+            if callback not in self._traceroute_callbacks:
+                self._traceroute_callbacks.append(callback)
+
+    def get_neighbor_reports(self) -> list[NeighborReport]:
+        """Return every neighbor table observed so far, newest report per node."""
+        with self._lock:
+            return list(self._neighbor_reports.values())
+
+    def get_neighbors_of(self, node_id: str) -> NeighborReport | None:
+        """Return the neighbor table broadcast by one node, if it was heard."""
+        key = self._as_node_id(node_id)
+        with self._lock:
+            return self._neighbor_reports.get(key) if key else None
+
+    def trace_route(
+        self,
+        target_id: str | int,
+        hop_limit: int = 7,
+        timeout: float = 30.0,
+        channel_index: int = 0,
+    ) -> TraceRouteResult | None:
+        """Send a traceroute request and wait for the hop path.
+
+        Uses ``sendData`` rather than ``SerialInterface.sendTraceRoute`` because
+        the latter blocks on its own acknowledgment and prints to stdout, which
+        would break the MCP stdio contract (RNF-6).
+
+        Returns:
+            The route, or None if no reply arrived before the timeout.
+        """
+        with self._lock:
+            if not self._is_connected or self._interface is None:
+                raise ConnectionError("RadioClient is not connected to any radio.")
+            iface = self._interface
+
+        target = self._as_node_id(target_id) or str(target_id)
+        waiter: list[Any] = [None, threading.Event()]
+        with self._lock:
+            self._traceroute_waiters[target] = waiter
+
+        try:
+            iface.sendData(
+                mesh_pb2.RouteDiscovery(),
+                destinationId=target,
+                portNum=portnums_pb2.PortNum.TRACEROUTE_APP,
+                wantResponse=True,
+                channelIndex=channel_index,
+                hopLimit=hop_limit,
+            )
+        except Exception:
+            with self._lock:
+                self._traceroute_waiters.pop(target, None)
+            raise
+
+        if waiter[1].wait(timeout):
+            return waiter[0]
+
+        with self._lock:
+            self._traceroute_waiters.pop(target, None)
+        logger.info("Traceroute to %s timed out after %.0fs", target, timeout)
+        return None
 
     def _on_pubsub_text(self, packet: dict[str, Any], interface=None, **kwargs) -> None:
         """Handle incoming text message packet from pubsub."""
@@ -401,6 +611,64 @@ class RadioClient:
                 self._interface = None
             self._port = None
         self._notify_connection_change(False, lost_port)
+        if lost_port:
+            self._start_reconnect(lost_port)
+
+    def on_reconnect_attempt(self, callback: Callable[[str, int], Any]) -> None:
+        """Register a callback invoked before each reconnection attempt (port, attempt)."""
+        with self._lock:
+            if callback not in self._reconnect_callbacks:
+                self._reconnect_callbacks.append(callback)
+
+    @property
+    def is_reconnecting(self) -> bool:
+        """Whether a background reconnection loop is currently running."""
+        thread = self._reconnect_thread
+        return thread is not None and thread.is_alive()
+
+    def _start_reconnect(self, port: str) -> None:
+        """Begin retrying the lost port in the background, unless already trying."""
+        if not self.auto_reconnect or self.is_reconnecting:
+            return
+        self._reconnect_stop.clear()
+        self._reconnect_thread = threading.Thread(
+            target=self._reconnect_loop,
+            args=(port,),
+            name=f"RadioClient-Reconnect-{port}",
+            daemon=True,
+        )
+        self._reconnect_thread.start()
+
+    def _stop_reconnect(self) -> None:
+        """Signal any running reconnection loop to give up."""
+        self._reconnect_stop.set()
+
+    def _reconnect_loop(self, port: str) -> None:
+        """Retry the dropped port with backoff until it answers or we're told to stop."""
+        attempt = 0
+        while not self._reconnect_stop.is_set():
+            delay = RECONNECT_BACKOFF_SECONDS[min(attempt, len(RECONNECT_BACKOFF_SECONDS) - 1)]
+            if self._reconnect_stop.wait(delay):
+                return
+            if self.is_connected:
+                return
+
+            attempt += 1
+            for cb in list(self._reconnect_callbacks):
+                try:
+                    cb(port, attempt)
+                except Exception as cb_exc:
+                    logger.exception("Error in reconnect callback: %s", cb_exc)
+
+            logger.info("Reconnection attempt %d on %s", attempt, port)
+            try:
+                self._do_connect(port, timeout=30)
+            except Exception as exc:
+                logger.debug("Reconnection attempt %d failed: %s", attempt, exc)
+                continue
+            if self.is_connected:
+                logger.info("Reconnected to %s after %d attempt(s)", port, attempt)
+                return
 
     def _notify_node_updated(self, node: NodeData) -> None:
         """Dispatch node updated event to all registered listeners."""

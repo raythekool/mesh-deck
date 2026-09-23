@@ -293,6 +293,26 @@ def format_hops(hops: int | None, lang: str = "it") -> str:
     return f"[{color}]{hops} hops[/{color}]"
 
 
+def format_bearing(bearing_deg: float | None) -> str:
+    """Format a forward azimuth as degrees plus a 16-point compass abbreviation."""
+    if bearing_deg is None:
+        return "[dim]--[/dim]"
+
+    try:
+        val = float(bearing_deg)
+    except (ValueError, TypeError):
+        return "[dim]--[/dim]"
+
+    if math.isnan(val) or math.isinf(val):
+        return "[dim]--[/dim]"
+
+    val %= 360.0
+    points = ("N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
+              "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW")
+    point = points[int((val + 11.25) % 360.0 // 22.5)]
+    return f"{val:.0f}° {point}"
+
+
 def format_distance(dist_km: float | None) -> str:
     """Format distance in meters or kilometers."""
     if dist_km is None:

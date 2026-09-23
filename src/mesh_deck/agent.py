@@ -189,6 +189,7 @@ class AgentService:
             local = self.client.get_local_node()
             if local and local.id != node.id:
                 data["distance_km"] = self.client.store.calculate_distance(local.id, node.id)
+                data["bearing_deg"] = self.client.store.calculate_bearing(local.id, node.id)
             return {"node": data}
 
     def list_channels(
@@ -286,6 +287,83 @@ class AgentService:
                     details={"target": node.id, "reason": str(exc)},
                 ) from exc
             return {"sent": True, "preview": False, **preview}
+
+    def list_neighbors(
+        self,
+        query: str | None = None,
+        *,
+        port: str | None = None,
+        timeout: int = 30,
+    ) -> dict[str, Any]:
+        """Return NeighborInfo tables heard from the mesh (RF-2.3)."""
+        with self._lock:
+            self.ensure_connected(port, timeout)
+            if query:
+                normalized = query.strip()
+                node = self.client.store.get_node(normalized)
+                report = self.client.get_neighbors_of(node.id if node else normalized)
+                reports = [report] if report else []
+            else:
+                reports = self.client.get_neighbor_reports()
+            return {
+                "reports": [report.to_dict() for report in reports],
+                "count": len(reports),
+            }
+
+    def trace_route(
+        self,
+        target: str,
+        *,
+        hop_limit: int = 7,
+        port: str | None = None,
+        timeout: int = 30,
+    ) -> dict[str, Any]:
+        """Send a traceroute and return the hop path, or a timeout result (RF-3.1)."""
+        normalized_target = target.strip()
+        if not normalized_target:
+            raise AgentServiceError(
+                "invalid_input",
+                "A traceroute target is required.",
+                exit_code=2,
+            )
+        if hop_limit < 1:
+            raise AgentServiceError(
+                "invalid_input",
+                "Hop limit must be at least one.",
+                exit_code=2,
+                details={"hop_limit": hop_limit},
+            )
+        with self._lock:
+            self.ensure_connected(port, timeout)
+            node = self.client.store.get_node(normalized_target)
+            if node is None:
+                raise AgentServiceError(
+                    "node_not_found",
+                    f"No node matched {normalized_target!r}.",
+                    exit_code=3,
+                    details={"query": normalized_target},
+                )
+            try:
+                result = self.client.trace_route(node.id, hop_limit=hop_limit)
+            except Exception as exc:
+                raise AgentServiceError(
+                    "send_failed",
+                    f"The traceroute request to {node.id} could not be sent.",
+                    exit_code=6,
+                    details={"target": node.id, "reason": str(exc)},
+                ) from exc
+
+            if result is None:
+                return {
+                    "target": self._node_identity(node),
+                    "completed": False,
+                    "route": None,
+                }
+            return {
+                "target": self._node_identity(node),
+                "completed": True,
+                "route": result.to_dict(),
+            }
 
     @staticmethod
     def _validate_message(text: str) -> str:

@@ -18,7 +18,7 @@ Questo documento definisce i requisiti funzionali, non funzionali, di architettu
 * **RF-1.1 Rilevamento Automatico (Auto-Discovery)**: All'avvio, l'applicazione deve scansionare le porte seriali disponibili (`/dev/ttyACM*`, `/dev/ttyUSB*`, `/dev/serial/by-id/*`) per identificare i dispositivi Meshtastic compatibili senza richiedere all'utente di specificare manualmente la porta.
 * **RF-1.2 Selezione Iniziale**: Se sono presenti più dispositivi connessi (es. Heltec e LilyGo simultaneamente), l'applicazione deve mostrare un menu di selezione o agganciarsi al dispositivo primario/preferito configurato.
 * **RF-1.3 Hot-Switching (`/switch`)**: Possibilità di commutare il dispositivo attivo trasmittente a runtime con un comando (es. `/switch 1` o `/switch /dev/ttyACM1`), mantenendo le informazioni di stato o riconnettendosi in modo trasparente.
-* **RF-1.4 Monitoraggio Stato Connessione** *(parziale — vedi § 6)*: La perdita di connessione viene rilevata e notificata; la riconnessione automatica dopo scollegamento USB o reboot del nodo è pianificata.
+* **RF-1.4 Monitoraggio Stato Connessione**: La perdita di connessione viene rilevata e notificata, e la riconnessione alla porta persa viene ritentata automaticamente in background con backoff esponenziale (2s → 30s) fino al ripristino; una disconnessione o una connessione esplicita dell'utente annulla i tentativi.
 
 ### 2.2 Esplorazione Nodi & Rete (Node Explorer)
 * **RF-2.1 Tabella Nodi Attivi (`/nodes`)**:
@@ -26,13 +26,14 @@ Questo documento definisce i requisiti funzionali, non funzionali, di architettu
   * Filtri e ordinamento rapido: per SNR decrescente, Hops crescente, attività recente o nome.
 * **RF-2.2 Scheda Dettaglio Nodo (`/node <id|aka>`)**:
   * Dettagli completi del nodo selezionato: chiavi pubbliche, metriche di canale (Tx Air Utilization, Channel Utilization), telemetria (tensione batteria, temperatura, umidità, pressione se disponibili).
-  * Calcolo distanza in km rispetto alla posizione del nodo locale (formula dell'emisenoverso). Il bearing è pianificato (§ 6).
-* **RF-2.3 Analisi della Rete & Vicini (`/neighbors`, `/mesh`)** *(pianificato — vedi § 6)*:
-  * Visualizzazione delle informazioni sui vicini (Neighbor Info) e propagazione dei pacchetti.
+  * Calcolo distanza in km e direzione (bearing, azimut iniziale con abbreviazione a 16 punti cardinali) rispetto alla posizione del nodo locale (formula dell'emisenoverso).
+* **RF-2.3 Analisi della Rete & Vicini (`/neighbors`, `/mesh`)**:
+  * `/neighbors [id|aka]` mostra le tabelle NeighborInfo trasmesse dai nodi, con SNR e ultimo contatto per ciascun vicino.
+  * `/mesh` riepiloga la topologia: ruolo, hop, SNR, distanza e numero di nodi che dichiarano ciascun nodo come vicino diretto.
 
 ### 2.3 Diagnostica & Strumenti Radio
-* **RF-3.1 Traceroute (`/trace <id|aka>`)** *(pianificato — vedi § 6)*:
-  * Invio di richieste traceroute verso un nodo specifico e visualizzazione del percorso a salti (hops) e dei tempi di risposta.
+* **RF-3.1 Traceroute (`/trace <id|aka>`)**:
+  * Invio di richieste traceroute verso un nodo specifico e visualizzazione del percorso a salti (hops) con SNR di andata e ritorno. La richiesta non blocca il loop della UI e non scrive su stdout, per preservare RNF-6.
 * **RF-3.2 Info & Configurazione Radio (`/info`, `/channels`)**:
   * Visualizzazione regione RF, preset modem (es. `MEDIUM_FAST`, `LONG_FAST`), versione firmware e stato di uplink/downlink e crittografia dei canali (Primary e canali secondari configurati). Le chiavi PSK non vengono mai mostrate: solo la presenza o assenza di una chiave.
 
@@ -106,11 +107,11 @@ Questo documento definisce i requisiti funzionali, non funzionali, di architettu
 
 ## 6. Roadmap (non ancora implementato)
 
-Requisiti già approvati ma rinviati a iterazioni successive:
+Tutti i requisiti funzionali elencati sopra sono implementati. Estensioni
+individuate ma non ancora pianificate:
 
-| Requisito | Descrizione | Stato |
-| :-------- | :---------- | :---- |
-| RF-1.4 | Riconnessione automatica dopo scollegamento USB o reboot del nodo | Rilevamento presente, riconnessione da implementare |
-| RF-2.2 | Bearing (azimut) verso il nodo remoto oltre alla distanza | Da implementare |
-| RF-2.3 | `/neighbors` e `/mesh`: Neighbor Info e propagazione pacchetti | Da implementare |
-| RF-3.1 | `/trace`: traceroute verso un nodo con percorso a salti | Da implementare |
+| Ambito | Descrizione |
+| :----- | :---------- |
+| Topologia | Grafo visuale della mesh a partire dalle tabelle NeighborInfo, oltre al riepilogo tabellare di `/mesh` |
+| Traceroute | Storico dei traceroute eseguiti e confronto fra percorsi nel tempo |
+| Telemetria | Grafici temporali delle metriche a partire dallo storico `nodes.jsonl` |

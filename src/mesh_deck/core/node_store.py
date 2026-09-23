@@ -521,6 +521,52 @@ class NodeStore:
 
             return self.haversine_distance(na.latitude, na.longitude, nb.latitude, nb.longitude)
 
+    @staticmethod
+    def initial_bearing(lat1: float, lon1: float, lat2: float, lon2: float) -> float | None:
+        """Forward azimuth in degrees (0-360, 0 = true north) from point 1 to point 2.
+
+        Returns None for missing, non-numeric, or out-of-range coordinates.
+        """
+        try:
+            lat1, lon1 = float(lat1), float(lon1)
+            lat2, lon2 = float(lat2), float(lon2)
+        except (ValueError, TypeError):
+            return None
+
+        if not (-90.0 <= lat1 <= 90.0 and -90.0 <= lat2 <= 90.0):
+            return None
+        if not (-180.0 <= lon1 <= 180.0 and -180.0 <= lon2 <= 180.0):
+            return None
+
+        phi1, phi2 = math.radians(lat1), math.radians(lat2)
+        delta_lambda = math.radians(lon2 - lon1)
+        y = math.sin(delta_lambda) * math.cos(phi2)
+        x = math.cos(phi1) * math.sin(phi2) - math.sin(phi1) * math.cos(phi2) * math.cos(delta_lambda)
+        if y == 0.0 and x == 0.0:
+            return None
+        return round((math.degrees(math.atan2(y, x)) + 360.0) % 360.0, 1)
+
+    def calculate_bearing(
+        self, target_or_a: str | NodeData, b: str | NodeData | None = None
+    ) -> float | None:
+        """Bearing in degrees from the local node to a target, or between two nodes."""
+        with self._lock:
+            if b is not None:
+                origin = self.get_node(target_or_a) if isinstance(target_or_a, str) else target_or_a
+                target = self.get_node(b) if isinstance(b, str) else b
+            else:
+                origin = self.get_local_node()
+                target = self.get_node(target_or_a) if isinstance(target_or_a, str) else target_or_a
+
+            if not origin or not origin.has_position or not target or not target.has_position:
+                return None
+            if origin.id == target.id:
+                return None
+
+            return self.initial_bearing(
+                origin.latitude, origin.longitude, target.latitude, target.longitude
+            )
+
     def recalculate_all_distances(self) -> None:
         """Recalculate distance_km for all stored nodes relative to local node."""
         with self._lock:

@@ -52,6 +52,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "it": "📡 NODI NELLA MESH ({count} rilevati)",
         "en": "📡 MESH NODES ({count} detected)",
     },
+    "LABEL_BEARING": {"it": "Direzione", "en": "Bearing"},
     "COL_NAME": {"it": "Nome Nodo", "en": "Node Name"},
     "COL_AKA": {"it": "AKA", "en": "AKA"},
     "COL_ID": {"it": "ID", "en": "ID"},
@@ -254,6 +255,63 @@ STRINGS: dict[str, dict[str, str]] = {
         "it": "Comando non riuscito: {error}",
         "en": "Command failed: {error}",
     },
+    "CONN_LOST": {
+        "it": "⚠ Connessione persa su {port}. Riconnessione automatica in corso...",
+        "en": "⚠ Connection lost on {port}. Reconnecting automatically...",
+    },
+    "CONN_RETRYING": {
+        "it": "↻ Tentativo di riconnessione #{attempt} su {port}...",
+        "en": "↻ Reconnection attempt #{attempt} on {port}...",
+    },
+    "CONN_RESTORED": {
+        "it": "✓ Connessione ristabilita su {port}.",
+        "en": "✓ Connection restored on {port}.",
+    },
+    "CMD_DESC_NEIGHBORS": {
+        "it": "Mostra le tabelle dei vicini (NeighborInfo) ricevute",
+        "en": "Show received neighbor tables (NeighborInfo)",
+    },
+    "CMD_DESC_MESH": {
+        "it": "Riepilogo topologia della mesh",
+        "en": "Mesh topology summary",
+    },
+    "CMD_DESC_TRACE": {
+        "it": "Traceroute verso un nodo: percorso a salti",
+        "en": "Traceroute to a node: hop path",
+    },
+    "NEIGHBORS_EMPTY": {
+        "it": "Nessuna informazione sui vicini ricevuta finora. I nodi la trasmettono periodicamente se NeighborInfo è abilitato.",
+        "en": "No neighbor information received yet. Nodes broadcast it periodically when NeighborInfo is enabled.",
+    },
+    "NEIGHBORS_TABLE_TITLE": {
+        "it": "🛰 VICINI DI {node}",
+        "en": "🛰 NEIGHBORS OF {node}",
+    },
+    "COL_NEIGHBOR": {"it": "Nodo vicino", "en": "Neighbor node"},
+    "COL_NEIGHBOR_OF": {"it": "Sentito da", "en": "Heard by"},
+    "MESH_TABLE_TITLE": {
+        "it": "🕸 TOPOLOGIA MESH ({nodes} nodi, {reports} tabelle vicini)",
+        "en": "🕸 MESH TOPOLOGY ({nodes} nodes, {reports} neighbor tables)",
+    },
+    "MESH_NO_NEIGHBOR_DATA": {
+        "it": "Nessuna tabella NeighborInfo ricevuta: la colonna \"Sentito da\" resta vuota finché i nodi non la trasmettono.",
+        "en": "No NeighborInfo tables received: the \"Heard by\" column stays empty until nodes broadcast one.",
+    },
+    "USAGE_TRACE": {"it": "Uso: /trace <id|aka>", "en": "Usage: /trace <id|aka>"},
+    "TRACE_IN_PROGRESS": {
+        "it": "Traceroute verso {name} in corso, attendo la risposta...",
+        "en": "Tracing route to {name}, waiting for the reply...",
+    },
+    "TRACE_TIMEOUT": {
+        "it": "Nessuna risposta al traceroute verso {name}.",
+        "en": "No traceroute reply from {name}.",
+    },
+    "TRACE_TITLE": {
+        "it": "◈ TRACEROUTE // {name} ({hops} hop)",
+        "en": "◈ TRACEROUTE // {name} ({hops} hops)",
+    },
+    "TRACE_SNR_TOWARDS": {"it": "SNR andata", "en": "SNR towards"},
+    "TRACE_ROUTE_BACK": {"it": "Percorso di ritorno", "en": "Return path"},
     "USAGE_DM": {"it": "Uso: /dm <target_id_o_aka> <testo>", "en": "Usage: /dm <target_id_or_aka> <text>"},
     "DM_SUCCESS": {"it": "🔒 DM inviato a {name}: {text}", "en": "🔒 DM sent to {name}: {text}"},
     "DM_ERROR": {"it": "Errore durante l'invio del DM a {name}.", "en": "Error sending DM to {name}."},
@@ -503,6 +561,9 @@ def command_descriptions(lang: str) -> dict[str, str]:
         "/send": t("CMD_DESC_SEND", lang),
         "/switch": t("CMD_DESC_SWITCH", lang),
         "/channels": t("CMD_DESC_CHANNELS", lang),
+        "/neighbors": t("CMD_DESC_NEIGHBORS", lang),
+        "/mesh": t("CMD_DESC_MESH", lang),
+        "/trace": t("CMD_DESC_TRACE", lang),
         "/info": t("CMD_DESC_INFO", lang),
         "/view": t("CMD_DESC_VIEW", lang),
         "/chat": t("CMD_DESC_CHAT", lang),

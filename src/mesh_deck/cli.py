@@ -45,6 +45,17 @@ def add_agent_subcommands(parser: argparse.ArgumentParser) -> None:
     _add_connection_arguments(node)
     _add_output_argument(node)
 
+    neighbors = subparsers.add_parser("neighbors", help="Show NeighborInfo tables heard from the mesh")
+    neighbors.add_argument("query", nargs="?", help="Limit to the table broadcast by one node")
+    _add_connection_arguments(neighbors)
+    _add_output_argument(neighbors)
+
+    trace = subparsers.add_parser("trace", help="Trace the hop path towards a node")
+    trace.add_argument("target")
+    trace.add_argument("--hop-limit", type=int, default=7)
+    _add_connection_arguments(trace)
+    _add_output_argument(trace)
+
     send = subparsers.add_parser("send", help="Preview or send a broadcast message")
     send.add_argument("text")
     send.add_argument("--channel", type=int, default=0)
@@ -61,7 +72,6 @@ def add_agent_subcommands(parser: argparse.ArgumentParser) -> None:
 
     mcp = subparsers.add_parser("mcp", help="Run the local MCP server over stdio")
     _add_connection_arguments(mcp)
-
 
 def resolve_connection_args(args: argparse.Namespace) -> tuple[str | None, int]:
     """Merge subcommand `--port`/`--timeout` with the legacy top-level `--port`.
@@ -107,6 +117,15 @@ def run_agent_command(
             data = active_service.get_node(args.query, port=port, timeout=timeout)
         elif command == "channels":
             data = active_service.list_channels(port=port, timeout=timeout)
+        elif command == "neighbors":
+            data = active_service.list_neighbors(args.query, port=port, timeout=timeout)
+        elif command == "trace":
+            data = active_service.trace_route(
+                args.target,
+                hop_limit=args.hop_limit,
+                port=port,
+                timeout=timeout,
+            )
         elif command == "send":
             data = active_service.send_broadcast(
                 args.text,
@@ -204,6 +223,16 @@ def _render_human(command: str, data: dict[str, Any], console: Console) -> None:
         _render_rows(console, f"Radio channels ({data['count']})", data["channels"])
     elif command == "node":
         _render_mapping(console, "Node details", data["node"])
+    elif command == "neighbors":
+        if not data["reports"]:
+            console.print("[dim]No neighbor tables received yet[/]")
+        for report in data["reports"]:
+            _render_rows(console, f"Neighbors of {report['node_id']}", report["neighbors"])
+    elif command == "trace":
+        if not data["completed"]:
+            console.print(f"[dim]No traceroute reply from {data['target']['id']}[/]")
+        else:
+            _render_mapping(console, f"Traceroute to {data['target']['id']}", data["route"])
     elif command == "info":
         _render_mapping(console, "Radio information", data)
     elif command in {"send", "dm"}:

@@ -17,6 +17,7 @@ from textual.widgets import Input, OptionList
 from mesh_deck.i18n import command_descriptions
 from mesh_deck.models import DeviceConnectionInfo, MeshMessage, NodeData
 from mesh_deck.ui.device_selector import DeviceSelectorScreen
+from mesh_deck.core.settings import Settings
 from mesh_deck.ui.repl import ConnectionScreen, MeshDeckApp, MeshDeckREPL, SettingsScreen
 from mesh_deck.ui import (
     MeshDeckCompleter,
@@ -1300,6 +1301,64 @@ class TestInteractiveNodesSorting(unittest.IsolatedAsyncioTestCase):
             # 820 m < 14.3 km, and the node without a fix sorts last.
             self.assertEqual(ordered[0], "820 m")
             self.assertEqual(ordered[-1], "--")
+
+
+class TestNodeSidebarLiveUpdates(unittest.IsolatedAsyncioTestCase):
+    """Node updates arriving from the radio thread must repaint the sidebar, coalesced."""
+
+    def _make_repl(self, nodes):
+        from mesh_deck.ui.repl import MeshDeckREPL
+
+        client = unittest.mock.MagicMock()
+        client.store.get_all_nodes.return_value = nodes
+        client.get_local_node.return_value = None
+        client.get_channels.return_value = []
+        client._node_callbacks = []
+        client.on_node_updated.side_effect = client._node_callbacks.append
+        settings = Settings()
+        settings.save = lambda: True
+        return MeshDeckREPL(client, console=unittest.mock.MagicMock(),
+                            dispatcher=unittest.mock.MagicMock(), settings=settings), client
+
+    async def test_node_update_repaints_sidebar_once_per_burst(self):
+        from mesh_deck.ui.repl import MeshDeckApp
+
+        node = NodeData(id="!aaa", num=1, long_name="Alpha", short_name="ALFA")
+        repl, client = self._make_repl([node])
+        app = MeshDeckApp(repl)
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.refresh_sidebar()
+            await pilot.pause()
+
+            with unittest.mock.patch.object(app, "refresh_sidebar") as repaint:
+                # A burst of radio-side updates collapses into one pending repaint.
+                for _ in range(20):
+                    app.request_sidebar_refresh()
+                self.assertTrue(app._sidebar_refresh_pending)
+                repaint.assert_not_called()
+                app._flush_sidebar_refresh()
+                repaint.assert_called_once()
+
+    async def test_repl_forwards_node_updates_to_the_console_bridge(self):
+        node = NodeData(id="!bbb", num=2, long_name="Bravo", short_name="BRVO")
+        repl, client = self._make_repl([node])
+        # MeshDeckREPL must have subscribed to the radio's node updates.
+        self.assertEqual(len(client._node_callbacks), 1)
+        client._node_callbacks[0](node)
+        repl.console.request_sidebar_refresh.assert_called_once_with()
+
+    async def test_disabled_sidebar_skips_scheduling(self):
+        from mesh_deck.ui.repl import MeshDeckApp
+
+        node = NodeData(id="!ccc", num=3, long_name="Charlie", short_name="CHRL")
+        repl, _client = self._make_repl([node])
+        repl.settings.sidebar_enabled = False
+        app = MeshDeckApp(repl)
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.request_sidebar_refresh()
+            self.assertFalse(app._sidebar_refresh_pending)
 
 
 if __name__ == "__main__":

@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from collections.abc import Callable
 
 from rich.console import Console
+from rich.panel import Panel
 from rich.table import Table
 
 from mesh_deck.core.scanner import scan_meshtastic_ports
@@ -15,7 +16,16 @@ from mesh_deck.core.settings import Settings
 from mesh_deck.i18n import t
 from mesh_deck.ui.banner import render_banner
 from mesh_deck.ui.tables import render_node_detail, render_nodes_table
-from mesh_deck.ui.theme import THEME_COLORS, set_theme, theme_names
+from mesh_deck.ui.theme import (
+    THEME_COLORS,
+    format_distance,
+    format_hops,
+    format_role,
+    format_snr,
+    format_time_ago,
+    set_theme,
+    theme_names,
+)
 
 if TYPE_CHECKING:
     from mesh_deck.core.radio_client import RadioClient
@@ -45,6 +55,11 @@ class CommandDispatcher:
             "/send": self.cmd_send,
             "/dm": self.cmd_dm,
             "/channels": self.cmd_channels,
+            "/neighbors": self.cmd_neighbors,
+            "/vicini": self.cmd_neighbors,
+            "/mesh": self.cmd_mesh,
+            "/trace": self.cmd_trace,
+            "/traceroute": self.cmd_trace,
             "/info": self.cmd_info,
             "/view": self.cmd_view,
             "/tui": self.cmd_view,
@@ -133,6 +148,9 @@ class CommandDispatcher:
             ("/send", "<testo>", t("CMD_DESC_SEND", lang)),
             ("/dm", "<id|aka> <testo>", t("CMD_DESC_DM", lang)),
             ("/channels", "", t("CMD_DESC_CHANNELS", lang)),
+            ("/neighbors", "[id|aka]", t("CMD_DESC_NEIGHBORS", lang)),
+            ("/mesh", "", t("CMD_DESC_MESH", lang)),
+            ("/trace", "<id|aka>", t("CMD_DESC_TRACE", lang)),
             ("/info", "", t("CMD_DESC_INFO", lang)),
             ("/settings", "[lang|theme|sort|port|notifications|history]", t("CMD_DESC_SETTINGS", lang)),
             ("/switch", "[porta|indice]", t("CMD_DESC_SWITCH", lang)),
@@ -191,10 +209,12 @@ class CommandDispatcher:
 
         local_node = self.client.get_local_node()
         dist_km = None
+        bearing = None
         if local_node and local_node.id != node.id:
             dist_km = self.client.store.calculate_distance(local_node.id, node.id)
+            bearing = self.client.store.calculate_bearing(local_node.id, node.id)
 
-        panel = render_node_detail(node, distance_km=dist_km, lang=lang)
+        panel = render_node_detail(node, distance_km=dist_km, lang=lang, bearing_deg=bearing)
         self.console.print(panel)
 
     def cmd_send(self, args: list[str]) -> None:
@@ -275,6 +295,133 @@ class CommandDispatcher:
             table.add_row(idx, name, role, f"Up: {up} | Down: {down}", psk_set)
 
         self.console.print(table)
+
+    def _node_label(self, node_id: str) -> str:
+        """Human-readable label for a node ID, falling back to the raw ID."""
+        node = self.client.store.get_node(node_id)
+        if node is None:
+            return node_id
+        return f"{node.display_name} ({node.id})" if node.display_name != node.id else node.id
+
+    def cmd_neighbors(self, args: list[str]) -> None:
+        """Show NeighborInfo tables heard from the mesh (RF-2.3)."""
+        lang = self.lang
+        if args:
+            target = self.client.store.get_node(args[0])
+            query = target.id if target else args[0]
+            report = self.client.get_neighbors_of(query)
+            reports = [report] if report else []
+        else:
+            reports = self.client.get_neighbor_reports()
+
+        if not reports:
+            self.console.print(f"[{THEME_COLORS['muted']}]{t('NEIGHBORS_EMPTY', lang)}[/]")
+            return
+
+        for report in reports:
+            table = Table(
+                title=t("NEIGHBORS_TABLE_TITLE", lang, node=self._node_label(report.node_id)),
+                title_style=f"bold {THEME_COLORS['primary']}",
+                border_style=THEME_COLORS["border"],
+                header_style=f"bold {THEME_COLORS['accent']}",
+            )
+            table.add_column("#", justify="center", width=4)
+            table.add_column(t("COL_NEIGHBOR", lang), style="bold white")
+            table.add_column(t("COL_SNR", lang), justify="right", width=12)
+            table.add_column(t("COL_LAST_HEARD", lang), justify="right", width=14)
+
+            for index, link in enumerate(report.neighbors, start=1):
+                table.add_row(
+                    str(index),
+                    self._node_label(link.node_id),
+                    format_snr(link.snr),
+                    format_time_ago(link.last_rx_time, lang),
+                )
+            self.console.print(table)
+
+    def cmd_mesh(self, args: list[str]) -> None:
+        """Summarize mesh topology: who hears whom, and how far away nodes are (RF-2.3)."""
+        lang = self.lang
+        reports = self.client.get_neighbor_reports()
+        nodes = self.client.store.get_all_nodes(sort_by="hops")
+
+        if not nodes:
+            self.console.print(f"[{THEME_COLORS['muted']}]{t('NODES_EMPTY', lang)}[/]")
+            return
+
+        # Count how many nodes report each node as a direct neighbor.
+        heard_by: dict[str, int] = {}
+        for report in reports:
+            for link in report.neighbors:
+                heard_by[link.node_id] = heard_by.get(link.node_id, 0) + 1
+
+        table = Table(
+            title=t("MESH_TABLE_TITLE", lang, nodes=len(nodes), reports=len(reports)),
+            title_style=f"bold {THEME_COLORS['primary']}",
+            border_style=THEME_COLORS["border"],
+            header_style=f"bold {THEME_COLORS['primary']}",
+        )
+        table.add_column(t("COL_NAME", lang), style="bold white", overflow="ellipsis")
+        table.add_column(t("COL_ROLE", lang), justify="center")
+        table.add_column(t("COL_HOPS", lang), justify="center", width=12)
+        table.add_column(t("COL_SNR", lang), justify="right", width=12)
+        table.add_column(t("COL_NEIGHBOR_OF", lang), justify="center", width=14)
+        table.add_column(t("COL_DISTANCE", lang), justify="right", width=10)
+
+        for node in nodes:
+            table.add_row(
+                f"{'★ ' if node.is_local else ''}{node.display_name}",
+                format_role(node.role),
+                format_hops(node.hops_away, lang),
+                format_snr(node.snr),
+                str(heard_by.get(node.id, 0)) if heard_by else "[dim]--[/dim]",
+                format_distance(node.distance_km),
+            )
+
+        self.console.print(table)
+        if not reports:
+            self.console.print(f"[dim]{t('MESH_NO_NEIGHBOR_DATA', lang)}[/dim]")
+
+    def cmd_trace(self, args: list[str]) -> None:
+        """Run a traceroute towards a node and render the hop path (RF-3.1)."""
+        lang = self.lang
+        if not args:
+            self.console.print(f"[{THEME_COLORS['alert']}]{t('USAGE_TRACE', lang)}[/]")
+            return
+
+        target_node = self.client.store.get_node(args[0])
+        target_id = target_node.id if target_node else args[0]
+        target_name = target_node.display_name if target_node else target_id
+
+        self.console.print(
+            f"[{THEME_COLORS['accent']}]{t('TRACE_IN_PROGRESS', lang, name=target_name)}[/]"
+        )
+        result = self.client.trace_route(target_id)
+        if result is None:
+            self.console.print(f"[{THEME_COLORS['warning']}]{t('TRACE_TIMEOUT', lang, name=target_name)}[/]")
+            return
+
+        local = self.client.get_local_node()
+        origin = local.display_name if local else t("LOCAL_NODE", lang)
+        hops = [origin] + [self._node_label(nid) for nid in result.route_to] + [target_name]
+        arrow = f" [{THEME_COLORS['primary']}]→[/] "
+        body = arrow.join(hops)
+        if result.snr_to:
+            snr_line = "  ".join(format_snr(value) for value in result.snr_to)
+            body += f"\n[dim]{t('TRACE_SNR_TOWARDS', lang)}:[/dim] {snr_line}"
+        if result.route_back:
+            back = arrow.join(
+                [target_name] + [self._node_label(nid) for nid in result.route_back] + [origin]
+            )
+            body += f"\n[dim]{t('TRACE_ROUTE_BACK', lang)}:[/dim] {back}"
+
+        self.console.print(Panel(
+            body,
+            title=f"[bold {THEME_COLORS['primary']}]"
+                  f"{t('TRACE_TITLE', lang, name=target_name, hops=result.hop_count)}[/]",
+            title_align="left",
+            border_style=THEME_COLORS["border"],
+        ))
 
     def cmd_info(self, args: list[str]) -> None:
         """Display radio and system info."""

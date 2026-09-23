@@ -82,6 +82,27 @@ def create_server(
         )
 
     @server.tool()
+    def list_neighbors(query: str | None = None, port: str | None = None) -> dict[str, Any]:
+        """List NeighborInfo tables heard from the mesh, optionally for one node."""
+        return call(
+            "list_neighbors",
+            query,
+            port=port or default_port,
+            timeout=default_timeout,
+        )
+
+    @server.tool()
+    def trace_route(target: str, hop_limit: int = 7, port: str | None = None) -> dict[str, Any]:
+        """Trace the hop path towards a node and return the discovered route."""
+        return call(
+            "trace_route",
+            target,
+            hop_limit=hop_limit,
+            port=port or default_port,
+            timeout=default_timeout,
+        )
+
+    @server.tool()
     def send_broadcast(
         text: str,
         channel_index: int = 0,

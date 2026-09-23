@@ -104,7 +104,7 @@ class MeshDeckCompleter:
             return completions
 
         # 2. Dynamic argument completion for commands that target nodes (/node, /dm)
-        for target_cmd in ("/node", "/dm"):
+        for target_cmd in ("/node", "/dm", "/trace", "/neighbors"):
             cmd_prefix = f"{target_cmd} "
             if stripped.startswith(cmd_prefix):
                 remainder = stripped[len(cmd_prefix):]

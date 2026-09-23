@@ -18,6 +18,7 @@ from mesh_deck.models import MeshMessage, NodeData
 from mesh_deck.ui.theme import (
     THEME_COLORS as c,
     format_battery,
+    format_bearing,
     format_distance,
     format_hops,
     format_role,
@@ -119,6 +120,7 @@ def render_node_detail(
     node: NodeData,
     distance_km: float | None = None,
     lang: str = "it",
+    bearing_deg: float | None = None,
 ) -> Panel:
     """Render an in-depth analytical dossier panel for a single node.
 
@@ -225,7 +227,8 @@ def render_node_detail(
     geo_grid.add_row(
         f"[dim {c['muted']}]{t('LABEL_GPS_COORDS', lang)}:[/dim {c['muted']}]   {coords_val}\n"
         f"[dim {c['muted']}]{t('LABEL_ALTITUDE', lang)}:[/dim {c['muted']}]       [white]{alt_val}[/white]\n"
-        f"[dim {c['muted']}]{t('LABEL_DISTANCE_EST', lang)}:[/dim {c['muted']}]   [bold {c['accent']}]{dist_str}[/bold {c['accent']}]",
+        f"[dim {c['muted']}]{t('LABEL_DISTANCE_EST', lang)}:[/dim {c['muted']}]   [bold {c['accent']}]{dist_str}[/bold {c['accent']}]\n"
+        f"[dim {c['muted']}]{t('LABEL_BEARING', lang)}:[/dim {c['muted']}]       [bold {c['accent']}]{format_bearing(bearing_deg)}[/bold {c['accent']}]",
         f"[dim {c['muted']}]{t('LABEL_OSM', lang)}:[/dim {c['muted']}]\n{osm_link}",
     )
 

@@ -418,6 +418,59 @@ riavvii.
 
 ---
 
+### `/neighbors` (o `/vicini`)
+- **Sintassi**: `/neighbors` oppure `/neighbors <id|aka|nome>`.
+- **Parametri**: Opzionalmente un nodo, per mostrare solo la tabella da lui trasmessa.
+- **Descrizione**: Mostra le tabelle **NeighborInfo** ricevute dalla mesh. Ogni
+  nodo con il modulo NeighborInfo abilitato trasmette periodicamente l'elenco
+  dei nodi che sente in modo diretto, con il relativo SNR: è il dato che
+  permette di ricostruire chi raggiunge chi senza inferirlo dagli hop.
+  Per ciascun vicino sono riportati nome, SNR e momento dell'ultimo contatto.
+- **Nota**: Se nessun nodo ha il modulo attivo l'elenco resta vuoto; è una
+  funzione opzionale del firmware, non un errore di Mesh-Deck.
+- **Esempio d'uso**:
+
+  ```text
+  mesh-deck [VM290] ❯ /neighbors
+  mesh-deck [VM290] ❯ /neighbors TRIN
+  ```
+
+---
+
+### `/mesh`
+- **Sintassi**: `/mesh`.
+- **Parametri**: Nessuno.
+- **Descrizione**: Riepiloga la topologia della rete in un'unica tabella
+  ordinata per numero di hop: ruolo del nodo, hop di distanza, SNR, distanza
+  geografica stimata e colonna **Sentito da**, cioè quanti nodi dichiarano quel
+  nodo fra i propri vicini diretti. È la vista d'insieme complementare al
+  dettaglio per nodo di `/neighbors`.
+- **Esempio d'uso**:
+
+  ```text
+  mesh-deck [VM290] ❯ /mesh
+  ```
+
+---
+
+### `/trace` (o `/traceroute`)
+- **Sintassi**: `/trace <id|aka|nome>`.
+- **Parametri**: Il nodo di destinazione.
+- **Descrizione**: Invia una richiesta **traceroute** verso il nodo indicato e
+  mostra il percorso a salti effettivamente seguito dal pacchetto, con l'SNR di
+  ogni tratta e, quando disponibile, il percorso di ritorno. La richiesta viene
+  inviata senza bloccare l'interfaccia e senza scrivere su stdout, così resta
+  utilizzabile anche dal server MCP.
+- **Nota**: Se nessuna risposta arriva entro il timeout viene segnalato senza
+  errori: su reti congestionate o con nodi fuori portata è un esito normale.
+- **Esempio d'uso**:
+
+  ```text
+  mesh-deck [VM290] ❯ /trace TRIN
+  ```
+
+---
+
 ### `/scan`
 - **Sintassi**: `/scan`
 - **Parametri**: Nessuno.
@@ -567,6 +620,19 @@ I risultati vengono formattati in modo leggibile:
 - Sotto 1 km: visualizzazione in metri (es. `450 m`).
 - Tra 1 e 10 km: visualizzazione con 2 decimali (es. `6.24 km`).
 - Oltre 10 km: visualizzazione con 1 decimale (es. `42.8 km`).
+
+#### Direzione (Bearing)
+
+Accanto alla distanza, la scheda `/node` riporta l'**azimut iniziale** (forward
+azimuth) dal nodo locale a quello remoto, cioè la direzione in cui puntare
+un'antenna direttiva partendo dalla propria posizione:
+
+$$\theta = \operatorname{atan2}\big(\sin(\Delta\lambda)\cos(\phi_2),\; \cos(\phi_1)\sin(\phi_2) - \sin(\phi_1)\cos(\phi_2)\cos(\Delta\lambda)\big)$$
+
+Il risultato è normalizzato in $[0°, 360°)$ con 0° = nord geografico, e
+accompagnato dall'abbreviazione a 16 punti della rosa dei venti (es.
+`127° SE`). Su tratte lunghe l'azimut cambia lungo il percorso: il valore
+mostrato è quello iniziale, da ricalcolare se ci si sposta.
 
 #### Filtro e Ordinamento Nodi
 

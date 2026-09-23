@@ -357,6 +357,68 @@ class MeshMessage:
 
 
 @dataclass
+class NeighborLink:
+    """A single neighbor reported by a node's NeighborInfo broadcast."""
+
+    node_id: str  # Neighbor node ID, e.g. "!45a466e4"
+    snr: float | None = None  # SNR of the neighbor as heard by the reporter
+    last_rx_time: datetime | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "node_id": self.node_id,
+            "snr": self.snr,
+            "last_rx_time": self.last_rx_time.isoformat() if self.last_rx_time else None,
+        }
+
+
+@dataclass
+class NeighborReport:
+    """The neighbor table broadcast by one node (NEIGHBORINFO_APP)."""
+
+    node_id: str
+    neighbors: list[NeighborLink] = field(default_factory=list)
+    broadcast_interval_secs: int | None = None
+    received_at: datetime = field(default_factory=datetime.now)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "node_id": self.node_id,
+            "neighbors": [n.to_dict() for n in self.neighbors],
+            "broadcast_interval_secs": self.broadcast_interval_secs,
+            "received_at": self.received_at.isoformat(),
+        }
+
+
+@dataclass
+class TraceRouteResult:
+    """The hop path returned by a TRACEROUTE_APP response."""
+
+    target_id: str
+    route_to: list[str] = field(default_factory=list)  # Node IDs, origin excluded
+    snr_to: list[float] = field(default_factory=list)
+    route_back: list[str] = field(default_factory=list)
+    snr_back: list[float] = field(default_factory=list)
+    completed_at: datetime = field(default_factory=datetime.now)
+
+    @property
+    def hop_count(self) -> int:
+        """Number of intermediate hops on the forward path."""
+        return len(self.route_to)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "target_id": self.target_id,
+            "route_to": list(self.route_to),
+            "snr_to": list(self.snr_to),
+            "route_back": list(self.route_back),
+            "snr_back": list(self.snr_back),
+            "hop_count": self.hop_count,
+            "completed_at": self.completed_at.isoformat(),
+        }
+
+
+@dataclass
 class DeviceConnectionInfo:
     """Connection and hardware identification details for a Meshtastic serial port."""
 
