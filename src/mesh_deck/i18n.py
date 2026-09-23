@@ -423,6 +423,43 @@ STRINGS: dict[str, dict[str, str]] = {
     },
     "COMPLETE_SORT_DESC": {"it": "Imposta ordinamento predefinito", "en": "Set default sorting"},
     "COMPLETE_PORT_SUB_DESC": {"it": "Imposta porta seriale predefinita", "en": "Set default serial port"},
+
+    # Sidebar sort/filter controls (ui/repl.py)
+    "SIDEBAR_SORT_LAST_HEARD": {"it": "Recenti", "en": "Recent"},
+    "SIDEBAR_SORT_SNR": {"it": "Segnale", "en": "Signal"},
+    "SIDEBAR_SORT_HOPS": {"it": "Hop", "en": "Hops"},
+    "SIDEBAR_SORT_NAME": {"it": "Nome", "en": "Name"},
+    "SIDEBAR_FILTER_ALL": {"it": "Tutti", "en": "All"},
+    "SIDEBAR_FILTER_ACTIVE": {"it": "Attivi", "en": "Active"},
+    "SIDEBAR_FILTER_FAVORITES": {"it": "Preferiti", "en": "Favorites"},
+    "SIDEBAR_SORT_TOOLTIP": {
+        "it": "Clic per cambiare l'ordinamento dei nodi (ultimo contatto, segnale, hop, nome)",
+        "en": "Click to change node sorting (last heard, signal, hops, name)",
+    },
+    "SIDEBAR_FILTER_TOOLTIP": {
+        "it": "Clic per filtrare i nodi (tutti, attivi, preferiti)",
+        "en": "Click to filter nodes (all, active, favorites)",
+    },
+
+    # Toast notifications for incoming messages (ui/repl.py: notify_message)
+    "NOTIFY_DM_TITLE": {"it": "🔒 DM da {sender}", "en": "🔒 DM from {sender}"},
+    "NOTIFY_CHANNEL_TITLE": {"it": "📡 Canale {channel} — {sender}", "en": "📡 Channel {channel} — {sender}"},
+
+    # CLI entrypoint messages (__main__.py)
+    "CLI_NO_DEVICES_USB": {
+        "it": "Nessun dispositivo Meshtastic rilevato sulle porte USB.",
+        "en": "No Meshtastic device detected on USB ports.",
+    },
+    "CLI_DEVICES_FOUND": {"it": "📡 Dispositivi Meshtastic rilevati:", "en": "📡 Meshtastic devices detected:"},
+    "CLI_NO_DEVICES": {"it": "Nessun dispositivo Meshtastic rilevato.", "en": "No Meshtastic device detected."},
+    "CLI_CONNECT_FAILED": {
+        "it": "Impossibile connettersi al dispositivo su {port}.",
+        "en": "Could not connect to the device on {port}.",
+    },
+    "CLI_NO_DEVICES_HINT": {
+        "it": "Verifica il cavo USB o specifica manualmente la porta con --port /dev/...",
+        "en": "Check the USB cable or specify the port manually with --port /dev/...",
+    },
 }
 
 

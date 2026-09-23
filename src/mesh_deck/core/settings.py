@@ -25,6 +25,8 @@ class Settings:
     notifications_enabled: bool = True
     history_enabled: bool = True
     sidebar_enabled: bool = True
+    sidebar_width: int = 32
+    sidebar_filter: str = "all"  # "all" | "active" | "favorites"
 
     @classmethod
     def load(cls) -> Settings:
@@ -46,6 +48,8 @@ class Settings:
                     notifications_enabled=bool(data.get("notifications_enabled", True)),
                     history_enabled=bool(data.get("history_enabled", True)),
                     sidebar_enabled=bool(data.get("sidebar_enabled", True)),
+                    sidebar_width=int(data.get("sidebar_width", 32)),
+                    sidebar_filter=str(data.get("sidebar_filter", "all")),
                 )
         except Exception:
             pass

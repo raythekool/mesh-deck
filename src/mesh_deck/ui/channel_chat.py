@@ -73,6 +73,11 @@ class ChannelChatScreen(Screen):
         self._unread: dict[int | str, int] = {}
         self.title = t("CHAT_TITLE", self.lang)
         self.sub_title = t("CHAT_SUBTITLE", self.lang)
+        self._bindings.key_to_bindings["q"] = [Binding("q", "close", t("BINDING_CLOSE", self.lang), show=True)]
+        self._bindings.key_to_bindings["escape"] = [Binding("escape", "close", t("BINDING_BACK", self.lang), show=True)]
+        self._bindings.key_to_bindings["r"] = [
+            Binding("r", "refresh_channels", t("BINDING_UPDATE_CHANNELS", self.lang), show=True)
+        ]
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)

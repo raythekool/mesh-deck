@@ -30,9 +30,6 @@ def _clean_text(markup_or_str: str) -> str:
 class InteractiveNodesScreen(Screen):
     """Interactive table screen with mouse click column sorting."""
 
-    TITLE = "📡 MESH-DECK // INTERACTIVE NODE EXPLORER"
-    SUB_TITLE = "Fai click su una colonna per ordinare • Premi 'q' o 'Esc' per tornare al prompt"
-
     BINDINGS = [
         Binding("q", "close", "Chiudi / Esci", show=True),
         Binding("escape", "close", "Torna al prompt", show=True),
@@ -114,6 +111,12 @@ class InteractiveNodesScreen(Screen):
         self._raw_rows: list[list[Any]] = []
         self.title = t("VIEW_TITLE", self.lang)
         self.sub_title = t("VIEW_SUBTITLE", self.lang)
+        self._bindings.key_to_bindings["q"] = [Binding("q", "close", t("BINDING_CLOSE", self.lang), show=True)]
+        self._bindings.key_to_bindings["escape"] = [Binding("escape", "close", t("BINDING_BACK", self.lang), show=True)]
+        self._bindings.key_to_bindings["r"] = [Binding("r", "refresh_nodes", t("BINDING_REFRESH", self.lang), show=True)]
+        self._bindings.key_to_bindings["slash"] = [
+            Binding("slash", "focus_filter", t("BINDING_FILTER", self.lang), show=True)
+        ]
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)

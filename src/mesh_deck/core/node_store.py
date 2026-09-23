@@ -177,6 +177,7 @@ class NodeStore:
         sort_by: str = "last_heard",
         active_only: bool = False,
         active_threshold_seconds: int = 7200,
+        favorites_only: bool = False,
     ) -> list[NodeData]:
         """Return all nodes, optionally filtered and sorted.
 
@@ -184,6 +185,7 @@ class NodeStore:
             sort_by: Sort criterion ("last_heard", "snr", "hops", or "name").
             active_only: If True, only include nodes heard recently or local node.
             active_threshold_seconds: Window in seconds for activity (default: 2 hours).
+            favorites_only: If True, only include favorite nodes or the local node.
 
         Returns:
             Sorted list of NodeData instances.
@@ -192,6 +194,9 @@ class NodeStore:
 
         with self._lock:
             node_list = list(self._nodes.values())
+
+            if favorites_only:
+                node_list = [n for n in node_list if n.is_favorite or n.is_local]
 
             if active_only:
                 filtered: list[NodeData] = []

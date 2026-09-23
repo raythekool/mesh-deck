@@ -12,6 +12,7 @@ from rich.console import Console
 from mesh_deck.cli import add_agent_subcommands, resolve_connection_args, run_agent_command
 from mesh_deck.core.radio_client import RadioClient
 from mesh_deck.core.scanner import scan_meshtastic_ports
+from mesh_deck.i18n import t
 from mesh_deck.ui.repl import MeshDeckApp, MeshDeckREPL
 from mesh_deck.ui.tables import render_nodes_table
 from mesh_deck.ui.theme import THEME_COLORS
@@ -80,9 +81,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.list:
         ports = scan_meshtastic_ports()
         if not ports:
-            console.print(f"[{THEME_COLORS['warning']}]Nessun dispositivo Meshtastic rilevato sulle porte USB.[/]")
+            console.print(f"[{THEME_COLORS['warning']}]{t('CLI_NO_DEVICES_USB', settings.language)}[/]")
             return 0
-        console.print(f"[{THEME_COLORS['primary']} bold]📡 Dispositivi Meshtastic rilevati:[/] {len(ports)}")
+        console.print(f"[{THEME_COLORS['primary']} bold]{t('CLI_DEVICES_FOUND', settings.language)}[/] {len(ports)}")
         for p in ports:
             console.print(f"  • [bold cyan]{p.port}[/] - [white]{p.hw_name}[/] [dim]({p.description})[/]")
         return 0
@@ -93,17 +94,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         if not port:
             ports = scan_meshtastic_ports()
             if not ports:
-                console.print(f"[{THEME_COLORS['alert']}]Nessun dispositivo Meshtastic rilevato.[/]")
+                console.print(f"[{THEME_COLORS['alert']}]{t('CLI_NO_DEVICES', settings.language)}[/]")
                 return 1
             port = ports[0].port
 
         client = RadioClient(history=_build_history(settings))
         if not client.connect(port, blocking=True):
-            console.print(f"[{THEME_COLORS['alert']}]Impossibile connettersi al dispositivo su {port}.[/]")
+            console.print(f"[{THEME_COLORS['alert']}]{t('CLI_CONNECT_FAILED', settings.language, port=port)}[/]")
             return 1
         nodes = client.store.get_all_nodes(sort_by=settings.default_sort)
         local = client.get_local_node()
-        table = render_nodes_table(nodes, local_node_id=local.id if local else None)
+        table = render_nodes_table(nodes, local_node_id=local.id if local else None, lang=settings.language)
         console.print(table)
         client.disconnect()
         return 0
@@ -113,8 +114,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         devices = scan_meshtastic_ports()
         if not devices:
             console.print(
-                f"[{THEME_COLORS['alert']}]Nessun dispositivo Meshtastic rilevato.[/] "
-                f"Verifica il cavo USB o specifica manualmente la porta con [bold]--port /dev/...[/bold]"
+                f"[{THEME_COLORS['alert']}]{t('CLI_NO_DEVICES', settings.language)}[/] "
+                f"{t('CLI_NO_DEVICES_HINT', settings.language)}"
             )
             return 1
 

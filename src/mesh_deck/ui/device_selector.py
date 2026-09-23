@@ -47,6 +47,9 @@ class DeviceSelectorScreen(Screen[str | None]):
         self.preferred_port = preferred_port
         self.lang = lang
         self.sub_title = t("DEVICE_SELECTOR_SUBTITLE", self.lang)
+        self._bindings.key_to_bindings["r"] = [Binding("r", "refresh_devices", t("BINDING_REFRESH", self.lang), show=True)]
+        self._bindings.key_to_bindings["q"] = [Binding("q", "cancel", t("BINDING_CANCEL", self.lang), show=True)]
+        self._bindings.key_to_bindings["escape"] = [Binding("escape", "cancel", t("BINDING_CANCEL", self.lang), show=False)]
 
     def compose(self) -> ComposeResult:
         with Vertical(id="device-dialog"):

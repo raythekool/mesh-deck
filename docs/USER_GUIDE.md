@@ -220,10 +220,17 @@ La cronologia conserva gli ultimi 100 comandi in
 `~/.config/mesh-deck/settings.json`. I messaggi ricevuti vengono aggiunti al log
 senza interrompere il testo in digitazione.
 
-La barra laterale a sinistra elenca i nodi rilevati: fai click su una riga (o
-selezionala con le frecce e premi `Invio`) per aprire la scheda dettaglio del
-nodo con `/node <id>`. La visibilità della barra è persistita in
-`~/.config/mesh-deck/settings.json` e si applica automaticamente ai riavvii.
+La barra laterale a sinistra elenca i nodi rilevati con ruolo, SNR, nome esteso
+ed ultimo contatto. Due pulsanti sopra l'elenco permettono di cambiare
+ordinamento (ultimo contatto, segnale, hop, nome) e filtro (tutti, attivi,
+preferiti) con un semplice click. Fai click su una riga (o selezionala con le
+frecce e premi `Invio`) per aprire la sua scheda dettaglio in un riquadro
+dedicato sopra il log: selezionando un altro nodo la stessa scheda viene
+sostituita, senza accumulare pannelli nel log. `Esc` chiude la scheda aperta.
+Trascina il divisore sul bordo destro della barra per ridimensionarla.
+Visibilità, larghezza, ordinamento e filtro della barra sono persistiti in
+`~/.config/mesh-deck/settings.json` e si applicano automaticamente ai
+riavvii.
 
 ![Console con barra laterale nodi](screenshots/console.svg)
 

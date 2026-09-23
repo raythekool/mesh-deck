@@ -7,11 +7,11 @@ from typing import TYPE_CHECKING, Any
 
 from rich.console import Console
 from rich.text import Text
+from textual import events, work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen, Screen
-from textual import work
 from textual.widgets import Button, Footer, Header, Input, Label, OptionList, RichLog, Select, Static
 from textual.widgets.option_list import Option
 
@@ -20,7 +20,8 @@ from mesh_deck.i18n import command_descriptions, t
 from mesh_deck.core.events import DeviceConnectionInfo, MeshMessage
 from mesh_deck.ui.device_selector import DeviceSelectorScreen
 from mesh_deck.ui.completer import Completion, MeshDeckCompleter
-from mesh_deck.ui.tables import render_message
+from mesh_deck.ui.tables import render_message, render_node_detail
+from mesh_deck.ui.theme import format_role, format_snr, format_time_ago
 
 if TYPE_CHECKING:
     from mesh_deck.commands.dispatcher import CommandDispatcher
@@ -156,6 +157,56 @@ class ConnectionScreen(ModalScreen[None]):
             self.app.return_to_device_selector()
 
 
+SIDEBAR_MIN_WIDTH = 18
+SIDEBAR_MAX_WIDTH_RATIO = 0.6
+SIDEBAR_SORT_CYCLE = ["last_heard", "snr", "hops", "name"]
+SIDEBAR_SORT_LABELS = {
+    "last_heard": "SIDEBAR_SORT_LAST_HEARD",
+    "snr": "SIDEBAR_SORT_SNR",
+    "hops": "SIDEBAR_SORT_HOPS",
+    "name": "SIDEBAR_SORT_NAME",
+}
+SIDEBAR_FILTER_CYCLE = ["all", "active", "favorites"]
+SIDEBAR_FILTER_LABELS = {
+    "all": "SIDEBAR_FILTER_ALL",
+    "active": "SIDEBAR_FILTER_ACTIVE",
+    "favorites": "SIDEBAR_FILTER_FAVORITES",
+}
+
+
+class SidebarResizeHandle(Static):
+    """Thin draggable divider that lets the user resize the node sidebar."""
+
+    def on_mouse_down(self, event: events.MouseDown) -> None:
+        event.stop()
+        self.capture_mouse()
+
+    def on_mouse_up(self, event: events.MouseUp) -> None:
+        if self.app.mouse_captured is not self:
+            return
+        self.release_mouse()
+        width = int(self.screen.query_one("#sidebar").size.width)
+        self.app.repl.settings.update(sidebar_width=width)
+
+    def on_mouse_move(self, event: events.MouseMove) -> None:
+        if self.app.mouse_captured is not self:
+            return
+        max_width = max(SIDEBAR_MIN_WIDTH, int(self.screen.size.width * SIDEBAR_MAX_WIDTH_RATIO))
+        width = max(SIDEBAR_MIN_WIDTH, min(max_width, event.screen_x))
+        self.screen.query_one("#sidebar").styles.width = width
+
+
+class SidebarControlButton(Static, can_focus=True):
+    """Compact clickable pill used for the sidebar sort/filter controls."""
+
+    def on_click(self, event: events.Click) -> None:
+        event.stop()
+        if self.id == "sidebar-sort":
+            self.app.action_cycle_sidebar_sort()
+        elif self.id == "sidebar-filter":
+            self.app.action_cycle_sidebar_filter()
+
+
 class MeshDeckApp(App):
     """Full-screen Textual command console with live radio output."""
 
@@ -171,10 +222,16 @@ class MeshDeckApp(App):
     Screen { background: #081018; color: #e8f1f5; }
     Header { background: #10212b; color: #00f3ff; }
     #body { height: 1fr; }
-    #sidebar { width: 28; border: round #1f8794; background: #0b1720; }
+    #sidebar { width: 32; min-width: 18; border: round #1f8794; background: #0b1720; }
     #sidebar-title { width: 100%; height: 1; background: #063b46; color: #00f3ff; content-align: center middle; text-style: bold; }
+    #sidebar-controls { height: 1; background: #0b1720; }
+    #sidebar-controls > SidebarControlButton { width: 1fr; height: 1; content-align: center middle; background: #10212b; color: #9fffd0; text-style: bold; }
+    #sidebar-controls > SidebarControlButton:hover { background: #1f8794; color: #00131a; }
     #sidebar-nodes { height: 1fr; background: #0b1720; color: #e8f1f5; }
+    #sidebar-resizer { width: 1; height: 1fr; background: #1f8794; }
+    #sidebar-resizer:hover { background: #00f3ff; }
     #main { height: 1fr; }
+    #node-detail { height: auto; max-height: 20; margin: 0 1; border: round #7c3aed; background: #0b1720; display: none; }
     #output { height: 1fr; margin: 0 1; border: round #1f8794; background: #0b1720; }
     #suggestions { height: auto; max-height: 5; margin: 0 1; color: #9fffd0; background: #10212b; }
     #command { margin: 0 1 1 1; border: round #00f3ff; background: #0b1720; color: #f8fafc; }
@@ -204,8 +261,13 @@ class MeshDeckApp(App):
         with Horizontal(id="body"):
             with Vertical(id="sidebar"):
                 yield Label(t("SIDEBAR_TITLE", self.repl.settings.language), id="sidebar-title")
+                with Horizontal(id="sidebar-controls"):
+                    yield SidebarControlButton(id="sidebar-sort")
+                    yield SidebarControlButton(id="sidebar-filter")
                 yield OptionList(id="sidebar-nodes", compact=True)
+            yield SidebarResizeHandle(id="sidebar-resizer")
             with Vertical(id="main"):
+                yield Static(id="node-detail")
                 yield RichLog(id="output", markup=True, wrap=True, highlight=True)
                 yield OptionList(id="suggestions", compact=True)
                 yield Input(placeholder=self.repl._get_prompt(), id="command")
@@ -217,6 +279,8 @@ class MeshDeckApp(App):
         self.repl.dispatcher.console = console
         self.query_one("#suggestions", OptionList).display = False
         self.query_one("#sidebar").display = self.repl.settings.sidebar_enabled
+        self.query_one("#sidebar").styles.width = self.repl.settings.sidebar_width
+        self.update_language(self.repl.settings.language)
         if self.initial_port:
             self.begin_connection(self.initial_port)
         elif self.devices is not None:
@@ -267,16 +331,34 @@ class MeshDeckApp(App):
 
     def refresh_sidebar(self) -> None:
         """Populate the node sidebar from the current NodeStore snapshot."""
-        nodes = self.repl.client.store.get_all_nodes(sort_by=self.repl.settings.default_sort)
+        lang = self.repl.settings.language
+        sort_by = self.repl.settings.default_sort
+        filter_state = self.repl.settings.sidebar_filter
+        self.query_one("#sidebar-sort", Static).update(f"\u2195 {t(SIDEBAR_SORT_LABELS.get(sort_by, 'SIDEBAR_SORT_LAST_HEARD'), lang)}")
+        self.query_one("#sidebar-sort", Static).tooltip = t("SIDEBAR_SORT_TOOLTIP", lang)
+        self.query_one("#sidebar-filter", Static).update(f"\u2691 {t(SIDEBAR_FILTER_LABELS.get(filter_state, 'SIDEBAR_FILTER_ALL'), lang)}")
+        self.query_one("#sidebar-filter", Static).tooltip = t("SIDEBAR_FILTER_TOOLTIP", lang)
+        local = self.repl.client.get_local_node()
+        local_id = local.id if local else None
+        nodes = self.repl.client.store.get_all_nodes(
+            sort_by=sort_by,
+            active_only=filter_state == "active",
+            favorites_only=filter_state == "favorites",
+        )
         sidebar = self.query_one("#sidebar-nodes", OptionList)
         sidebar.clear_options()
         self._sidebar_node_ids = [node.id for node in nodes]
         if not nodes:
-            sidebar.add_option(Option(f"[dim]{t('SIDEBAR_EMPTY', self.repl.settings.language)}[/]", disabled=True))
+            sidebar.add_option(Option(f"[dim]{t('SIDEBAR_EMPTY', lang)}[/]", disabled=True))
             return
         for node in nodes:
             label = node.short_name or node.display_name or node.id
-            sidebar.add_option(Option(f"[bold cyan]{label}[/] [dim]{node.id}[/]"))
+            long_name = node.long_name or node.display_name or node.id
+            marker = "★ " if node.id == local_id else ""
+            sidebar.add_option(Option(
+                f"{marker}[bold cyan]{label}[/] {format_role(node.role)}\n"
+                f"[italic #7fa8b8]{long_name}[/] · {format_snr(node.snr)} · {format_time_ago(node.last_heard, lang)}"
+            ))
         sidebar.highlighted = 0
 
     def action_toggle_sidebar(self) -> None:
@@ -285,6 +367,20 @@ class MeshDeckApp(App):
         self.query_one("#sidebar").display = enabled
         if enabled:
             self.refresh_sidebar()
+
+    def action_cycle_sidebar_sort(self) -> None:
+        current = self.repl.settings.default_sort
+        index = SIDEBAR_SORT_CYCLE.index(current) if current in SIDEBAR_SORT_CYCLE else -1
+        next_sort = SIDEBAR_SORT_CYCLE[(index + 1) % len(SIDEBAR_SORT_CYCLE)]
+        self.repl.settings.update(default_sort=next_sort)
+        self.refresh_sidebar()
+
+    def action_cycle_sidebar_filter(self) -> None:
+        current = self.repl.settings.sidebar_filter
+        index = SIDEBAR_FILTER_CYCLE.index(current) if current in SIDEBAR_FILTER_CYCLE else -1
+        next_filter = SIDEBAR_FILTER_CYCLE[(index + 1) % len(SIDEBAR_FILTER_CYCLE)]
+        self.repl.settings.update(sidebar_filter=next_filter)
+        self.refresh_sidebar()
 
     def write_output(self, renderable: Any) -> None:
         if isinstance(renderable, str):
@@ -314,25 +410,31 @@ class MeshDeckApp(App):
         self.repl.completer.commands = command_descriptions(language)
         self.repl.completer.lang = language
         self.query_one(Input).placeholder = self.repl._get_prompt()
+        self._bindings.key_to_bindings["ctrl+b"] = [
+            Binding("ctrl+b", "toggle_sidebar", t("SIDEBAR_TOGGLE", language), show=True)
+        ]
 
     def restart_console(self) -> None:
         """Apply saved settings and redraw the connected command console."""
         self.repl.settings = Settings.load()
         self.update_language(self.repl.settings.language)
         self.query_one("#sidebar").display = self.repl.settings.sidebar_enabled
+        self.query_one("#sidebar").styles.width = self.repl.settings.sidebar_width
+        self.close_node_detail()
         self.clear_output()
         self.activate_console()
 
     def notify_message(self, msg: MeshMessage) -> None:
         """Show a toast notification for a newly received mesh message."""
+        lang = self.repl.settings.language
         sender = msg.sender_name or msg.sender_short_name or msg.sender_id or "?"
         body = msg.text if len(msg.text) <= 140 else f"{msg.text[:137]}..."
         if msg.is_dm:
-            title = f"🔒 DM da {sender}"
+            title = t("NOTIFY_DM_TITLE", lang, sender=sender)
             severity = "warning"
         else:
             channel_label = msg.channel_name or msg.channel
-            title = f"📡 Canale {channel_label} — {sender}"
+            title = t("NOTIFY_CHANNEL_TITLE", lang, channel=channel_label, sender=sender)
             severity = "information"
         self.notify(body, title=title, severity=severity, timeout=6)
 
@@ -458,6 +560,7 @@ class MeshDeckApp(App):
 
     def action_clear_suggestions(self) -> None:
         self.clear_suggestions()
+        self.close_node_detail()
 
     def clear_suggestions(self) -> None:
         self.completions = []
@@ -469,8 +572,24 @@ class MeshDeckApp(App):
         node_ids = getattr(self, "_sidebar_node_ids", [])
         if index >= len(node_ids):
             return
-        self._submit_command(f"/node {node_ids[index]}")
-        self.query_one(Input).focus()
+        self.show_node_detail(node_ids[index])
+
+    def show_node_detail(self, node_id: str) -> None:
+        """Render the selected node as a single persistent detail card, replacing any previous one."""
+        node = self.repl.client.store.get_node(node_id)
+        if node is None:
+            return
+        local_node = self.repl.client.get_local_node()
+        distance_km = None
+        if local_node and local_node.id != node.id:
+            distance_km = self.repl.client.store.calculate_distance(local_node.id, node.id)
+        panel = render_node_detail(node, distance_km=distance_km, lang=self.repl.settings.language)
+        detail = self.query_one("#node-detail", Static)
+        detail.update(panel)
+        detail.display = True
+
+    def close_node_detail(self) -> None:
+        self.query_one("#node-detail", Static).display = False
 
 
 class MeshDeckREPL:

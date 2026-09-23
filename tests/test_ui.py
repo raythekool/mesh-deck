@@ -677,7 +677,33 @@ class TestMeshDeckREPLIntegration(unittest.TestCase):
         self.assertIn("Testing REPL stream", output)
 
 
-class TestDeviceSelectorKeyboard(unittest.IsolatedAsyncioTestCase):
+class _IsolatedSettingsTestCase(unittest.IsolatedAsyncioTestCase):
+    """Base test case that redirects Settings persistence to a throwaway temp directory.
+
+    Prevents tests that call Settings.update()/.save() from reading or polluting
+    the developer's real ~/.config/mesh-deck/settings.json.
+    """
+
+    def setUp(self) -> None:
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+
+        self._settings_tmp = TemporaryDirectory()
+        config_dir = Path(self._settings_tmp.name) / "mesh-deck"
+        self._settings_patchers = [
+            unittest.mock.patch("mesh_deck.core.settings.CONFIG_DIR", config_dir),
+            unittest.mock.patch("mesh_deck.core.settings.CONFIG_FILE", config_dir / "settings.json"),
+        ]
+        for patcher in self._settings_patchers:
+            patcher.start()
+
+    def tearDown(self) -> None:
+        for patcher in self._settings_patchers:
+            patcher.stop()
+        self._settings_tmp.cleanup()
+
+
+class TestDeviceSelectorKeyboard(_IsolatedSettingsTestCase):
     """Test keyboard navigation through startup screens in the unified TUI."""
 
     async def test_arrows_select_device_with_saved_command_history(self):
@@ -737,8 +763,29 @@ class TestDeviceSelectorKeyboard(unittest.IsolatedAsyncioTestCase):
             self.assertNotIsInstance(app.screen, ConnectionScreen)
             self.assertIsInstance(app.focused, Input)
 
+    async def test_device_selector_footer_bindings_follow_language(self):
+        from unittest.mock import MagicMock
 
-class TestNodeSidebar(unittest.IsolatedAsyncioTestCase):
+        client = MagicMock()
+        client.store.get_all_nodes.return_value = []
+        client.get_local_node.return_value = None
+        client.get_channels.return_value = []
+
+        repl = MeshDeckREPL(client)
+        repl.settings.language = "en"
+        app = MeshDeckApp(repl, devices=[
+            DeviceConnectionInfo("/dev/ttyACM0", "Heltec", "Heltec"),
+        ])
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            screen = app.screen
+            self.assertIsInstance(screen, DeviceSelectorScreen)
+            self.assertEqual(screen._bindings.key_to_bindings["r"][0].description, "Refresh")
+            self.assertEqual(screen._bindings.key_to_bindings["q"][0].description, "Cancel")
+
+
+class TestNodeSidebar(_IsolatedSettingsTestCase):
     """Test the mouse-clickable node sidebar in the main console."""
 
     async def test_sidebar_lists_nodes_and_enter_opens_node_detail(self):
@@ -747,13 +794,13 @@ class TestNodeSidebar(unittest.IsolatedAsyncioTestCase):
         node = NodeData(id="!45a466e4", short_name="ALPHA", long_name="Alpha Node")
         client = MagicMock()
         client.store.get_all_nodes.return_value = [node]
-        client.store.get_node.return_value = None
+        client.store.get_node.return_value = node
         client.get_local_node.return_value = None
         client.get_channels.return_value = []
         repl = MeshDeckREPL(client)
-        dispatch = repl.dispatcher.dispatch
-        repl.dispatcher.dispatch = MagicMock(wraps=dispatch)
         app = MeshDeckApp(repl)
+        show_detail = app.show_node_detail
+        app.show_node_detail = MagicMock(wraps=show_detail)
 
         async with app.run_test() as pilot:
             await pilot.pause()
@@ -763,7 +810,8 @@ class TestNodeSidebar(unittest.IsolatedAsyncioTestCase):
             await pilot.pause()
             await pilot.press("enter")
             await pilot.pause()
-            repl.dispatcher.dispatch.assert_called_once_with("/node !45a466e4")
+            app.show_node_detail.assert_called_once_with("!45a466e4")
+            self.assertTrue(app.query_one("#node-detail").display)
 
     async def test_ctrl_b_toggles_sidebar_visibility(self):
         from unittest.mock import MagicMock
@@ -785,6 +833,199 @@ class TestNodeSidebar(unittest.IsolatedAsyncioTestCase):
             await pilot.press("ctrl+b")
             await pilot.pause()
             self.assertEqual(sidebar.display, initial)
+
+    async def test_selecting_another_node_replaces_the_single_detail_card(self):
+        from unittest.mock import MagicMock
+        from textual.widgets import Static
+
+        node_a = NodeData(id="!45a466e4", short_name="ALPHA", long_name="Alpha Node")
+        node_b = NodeData(id="!78b211a0", short_name="BRAVO", long_name="Bravo Node")
+        client = MagicMock()
+        client.store.get_all_nodes.return_value = [node_a, node_b]
+        client.store.get_node.side_effect = lambda node_id: {node_a.id: node_a, node_b.id: node_b}.get(node_id)
+        client.get_local_node.return_value = None
+        client.get_channels.return_value = []
+        repl = MeshDeckREPL(client)
+        app = MeshDeckApp(repl)
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            sidebar = app.query_one("#sidebar-nodes", OptionList)
+            detail = app.query_one("#node-detail", Static)
+
+            sidebar.highlighted = 0
+            sidebar.focus()
+            await pilot.press("enter")
+            await pilot.pause()
+            self.assertTrue(detail.display)
+
+            sidebar.highlighted = 1
+            await pilot.press("enter")
+            await pilot.pause()
+
+            # A single card stays mounted and is replaced in place, never duplicated.
+            self.assertEqual(len(app.query("#node-detail")), 1)
+            self.assertTrue(detail.display)
+
+    async def test_sidebar_row_shows_long_name_instead_of_node_id(self):
+        from unittest.mock import MagicMock
+
+        node = NodeData(id="!45a466e4", short_name="ALPHA", long_name="Alpha Relay Station")
+        client = MagicMock()
+        client.store.get_all_nodes.return_value = [node]
+        client.get_local_node.return_value = None
+        client.get_channels.return_value = []
+        repl = MeshDeckREPL(client)
+        app = MeshDeckApp(repl)
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            sidebar = app.query_one("#sidebar-nodes", OptionList)
+            option_text = str(sidebar.get_option_at_index(0).prompt)
+            self.assertIn("Alpha Relay Station", option_text)
+            self.assertNotIn(node.id, option_text)
+
+    async def test_dragging_the_resize_handle_changes_sidebar_width(self):
+        from unittest.mock import MagicMock
+
+        client = MagicMock()
+        client.store.get_all_nodes.return_value = []
+        client.get_local_node.return_value = None
+        client.get_channels.return_value = []
+        repl = MeshDeckREPL(client)
+        app = MeshDeckApp(repl)
+
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            sidebar = app.query_one("#sidebar")
+            initial_width = sidebar.size.width
+
+            await pilot.mouse_down("#sidebar-resizer")
+            await pilot.hover("#body", offset=(50, 5))
+            await pilot.mouse_up("#body", offset=(50, 5))
+            await pilot.pause()
+
+            self.assertNotEqual(sidebar.size.width, initial_width)
+            self.assertEqual(repl.settings.sidebar_width, sidebar.size.width)
+
+    async def test_sort_button_cycles_through_criteria_and_persists(self):
+        from unittest.mock import MagicMock
+        from textual.widgets import Static
+
+        client = MagicMock()
+        client.store.get_all_nodes.return_value = []
+        client.get_local_node.return_value = None
+        client.get_channels.return_value = []
+        repl = MeshDeckREPL(client)
+        app = MeshDeckApp(repl)
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            sort_button = app.query_one("#sidebar-sort", Static)
+            self.assertEqual(repl.settings.default_sort, "last_heard")
+
+            await pilot.click("#sidebar-sort")
+            await pilot.pause()
+            self.assertEqual(repl.settings.default_sort, "snr")
+            self.assertIn("Segnale", str(sort_button.content))
+
+            await pilot.click("#sidebar-sort")
+            await pilot.pause()
+            self.assertEqual(repl.settings.default_sort, "hops")
+
+            await pilot.click("#sidebar-sort")
+            await pilot.pause()
+            self.assertEqual(repl.settings.default_sort, "name")
+
+            await pilot.click("#sidebar-sort")
+            await pilot.pause()
+            self.assertEqual(repl.settings.default_sort, "last_heard")
+
+    async def test_filter_button_cycles_and_filters_favorites(self):
+        from unittest.mock import MagicMock
+        from textual.widgets import Static
+
+        node_fav = NodeData(id="!11111111", short_name="FAV1", long_name="Favorite Node", is_favorite=True)
+        node_plain = NodeData(id="!22222222", short_name="PLA1", long_name="Plain Node", is_favorite=False)
+        all_nodes = [node_fav, node_plain]
+
+        def fake_get_all_nodes(sort_by="last_heard", active_only=False, active_threshold_seconds=7200, favorites_only=False):
+            if favorites_only:
+                return [n for n in all_nodes if n.is_favorite]
+            return list(all_nodes)
+
+        client = MagicMock()
+        client.store.get_all_nodes.side_effect = fake_get_all_nodes
+        client.get_local_node.return_value = None
+        client.get_channels.return_value = []
+        repl = MeshDeckREPL(client)
+        app = MeshDeckApp(repl)
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            filter_button = app.query_one("#sidebar-filter", Static)
+            sidebar = app.query_one("#sidebar-nodes", OptionList)
+            self.assertEqual(repl.settings.sidebar_filter, "all")
+            self.assertEqual(sidebar.option_count, 2)
+
+            await pilot.click("#sidebar-filter")
+            await pilot.pause()
+            self.assertEqual(repl.settings.sidebar_filter, "active")
+
+            await pilot.click("#sidebar-filter")
+            await pilot.pause()
+            self.assertEqual(repl.settings.sidebar_filter, "favorites")
+            self.assertIn("Preferiti", str(filter_button.content))
+            self.assertEqual(sidebar.option_count, 1)
+
+            await pilot.click("#sidebar-filter")
+            await pilot.pause()
+            self.assertEqual(repl.settings.sidebar_filter, "all")
+            self.assertEqual(sidebar.option_count, 2)
+
+
+class TestLanguageConsistency(_IsolatedSettingsTestCase):
+    """Ensure UI-facing strings consistently follow the active language setting."""
+
+    async def test_sidebar_toggle_footer_binding_follows_language(self):
+        from unittest.mock import MagicMock
+
+        client = MagicMock()
+        client.store.get_all_nodes.return_value = []
+        client.get_local_node.return_value = None
+        client.get_channels.return_value = []
+        repl = MeshDeckREPL(client)
+        repl.settings.language = "en"
+        app = MeshDeckApp(repl)
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            self.assertEqual(app._bindings.key_to_bindings["ctrl+b"][0].description, "Toggle sidebar")
+
+            app.update_language("it")
+            await pilot.pause()
+            self.assertEqual(
+                app._bindings.key_to_bindings["ctrl+b"][0].description,
+                "Mostra/nascondi barra laterale",
+            )
+
+    async def test_incoming_message_toast_titles_follow_language(self):
+        from unittest.mock import MagicMock
+
+        client = MagicMock()
+        client.store.get_all_nodes.return_value = []
+        client.get_local_node.return_value = None
+        client.get_channels.return_value = []
+        repl = MeshDeckREPL(client)
+        repl.settings.language = "en"
+        app = MeshDeckApp(repl)
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            msg = MeshMessage(text="hi", sender_name="Alpha", is_dm=True)
+            app.notify_message(msg)
+            await pilot.pause()
+            self.assertTrue(any("DM from Alpha" in n.title for n in app._notifications))
 
 
 class TestCommandAutocomplete(unittest.IsolatedAsyncioTestCase):

@@ -46,7 +46,7 @@ def render_banner(
     port_safe = escape(str(port or "N/A"))
 
     if local_node is not None:
-        long_safe = escape(str(local_node.long_name or "Unknown"))
+        long_safe = escape(str(local_node.long_name or t("BANNER_UNKNOWN", lang)))
         short_safe = escape(str(local_node.short_name or "????"))
         id_safe = escape(str(local_node.id or "!unknown"))
         hw_safe = escape(str(local_node.hardware or "UNSET"))
