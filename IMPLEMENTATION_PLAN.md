@@ -204,7 +204,11 @@ mesh-deck/
   1. `/logs` visualizza stream separati applicazione e dispositivo in un buffer thread-safe limitato in memoria.
   2. Il viewer offre filtri per sorgente, livello e testo, pausa del refresh, copia della riga selezionata ed export della vista filtrata.
   3. Le righe device arrivano dal topic Meshtastic `meshtastic.log.line`; i log applicativi vengono catturati solo mentre l'app Textual è montata e non propagano su stdout MCP.
+* **Incremento 7 — completato sul branch `feat/ui-node-explorer-foundation`**:
+  1. `/topology` espone una screen filtrabile di edge Reporter → Neighbor ricevuti da NeighborInfo, con SNR e recenza.
+  2. Un pannello qualità dati separa esplicitamente l'assenza di report dall'assenza di connettività.
+  3. `/mesh` resta disponibile come riepilogo testuale compatibile; un grafo è rinviato fino a disponibilità di dati reali sufficienti.
 * **Incrementi successivi — ordinati per valore operativo**:
   1. Screen `/device-settings` transazionale: snapshot, draft locale, validazione, diff semantico, conferma esplicita e rilettura dell'ack; PSK, regione, reset e firmware restano fuori ambito.
-  2. Topologia visuale e telemetria storica soltanto dopo che i dati NeighborInfo e JSONL reali dimostrano frequenza e qualità sufficienti.
+  2. Telemetria storica on-demand dal JSONL; topologia visuale soltanto dopo che i dati NeighborInfo reali dimostrano frequenza e qualità sufficienti.
 * **Criterio di Accettazione Incremento 1**: la suite `unittest` copre dettaglio, densità automatica, persistenza, localizzazione e strip radio; il linter `ruff` è pulito; la nuova UI preserva tutte le funzionalità `/view` esistenti.

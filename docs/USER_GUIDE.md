@@ -351,6 +351,15 @@ Nodes with NeighborInfo enabled periodically broadcast their direct neighbours a
 
 The table combines node role, hops, SNR, estimated distance, and the number of reporting nodes that list each node as a direct neighbour.
 
+### `/topology`
+
+- **Syntax:** `/topology`
+- **Purpose:** Open the interactive, data-first NeighborInfo topology explorer.
+
+The explorer lists reporter-to-neighbour edges with SNR and age, supports `/` to focus its filter, `r` to refresh, and an always-visible data-quality panel. A missing edge means the information is unknown; it does not prove the two nodes are disconnected.
+
+If no NeighborInfo reports have arrived, the screen explains how to enable the firmware module and wait for its broadcast interval. It deliberately does not render an empty animated graph.
+
 ### `/trace` or `/traceroute`
 
 - **Syntax:** `/trace <id|aka|name>`

@@ -1,6 +1,6 @@
 # UI Development Proposals
 
-> **Status:** sections 1–8 and 12 are implemented on `feat/ui-node-explorer-foundation`; sections 9–11 and 13 remain proposals. Each SVG is a wireframe that makes the intended interaction and information hierarchy reviewable before code is written.
+> **Status:** sections 1–9 and 12 are implemented on `feat/ui-node-explorer-foundation`; sections 10–11 and 13 remain proposals. Each SVG is a wireframe that makes the intended interaction and information hierarchy reviewable before code is written.
 
 ## Goals
 
@@ -93,11 +93,11 @@ This is especially useful where several USB serial adapters look similar.
 
 Sidebar, `/nodes`, and `/view` now share a `NodePresentation` model for SNR, hops, battery, distance, and last-heard values. Each surface chooses its density while preserving semantic formatter output, units, rounding, and colour roles. The goal is visual agreement, not a large new UI abstraction.
 
-## 9. Mesh Topology: Data First
+## 9. Mesh Topology: Data First — Implemented
 
 ![Mesh topology proposal](ui-development/images/09-topology-data-first.svg)
 
-`/mesh` now has the correct NeighborInfo data path, but the currently attached mesh has not broadcast any NeighborInfo reports. First provide a searchable, text-first edge list with recency and SNR. Only add a graph view when real reports are sufficiently frequent; an animated empty graph would be worse than the current table.
+`/topology` provides a searchable, text-first edge list with recency, SNR, and data-quality information while `/mesh` retains its concise summary. Only add a graph view when real reports are sufficiently frequent; an animated empty graph would be worse than a transparent data-quality panel.
 
 ## 10. Historical Telemetry
 

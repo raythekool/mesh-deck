@@ -62,6 +62,7 @@ class CommandDispatcher:
             "/neighbors": self.cmd_neighbors,
             "/vicini": self.cmd_neighbors,
             "/mesh": self.cmd_mesh,
+            "/topology": self.cmd_topology,
             "/trace": self.cmd_trace,
             "/traceroute": self.cmd_trace,
             "/info": self.cmd_info,
@@ -170,6 +171,7 @@ class CommandDispatcher:
             ("/channels", "", t("CMD_DESC_CHANNELS", lang)),
             ("/neighbors", "[id|aka]", t("CMD_DESC_NEIGHBORS", lang)),
             ("/mesh", "", t("CMD_DESC_MESH", lang)),
+            ("/topology", "", t("CMD_DESC_TOPOLOGY", lang)),
             ("/trace", "<id|aka>", t("CMD_DESC_TRACE", lang)),
             ("/info", "", t("CMD_DESC_INFO", lang)),
             ("/settings", "[lang|theme|sort|port|notifications|history]", t("CMD_DESC_SETTINGS", lang)),
@@ -413,6 +415,14 @@ class CommandDispatcher:
         self.console.print(table)
         if not reports:
             self.console.print(f"[dim]{t('MESH_NO_NEIGHBOR_DATA', lang)}[/dim]")
+
+    def cmd_topology(self, args: list[str]) -> None:
+        """Open the data-first NeighborInfo topology explorer."""
+        opener = getattr(self.console, "open_topology", None)
+        if callable(opener):
+            opener(self.client, self.lang)
+            return
+        self.cmd_mesh(args)
 
     def cmd_trace(self, args: list[str]) -> None:
         """Run a traceroute towards a node and render the hop path (RF-3.1)."""

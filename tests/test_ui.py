@@ -1512,6 +1512,72 @@ class TestLogViewerScreen(unittest.IsolatedAsyncioTestCase):
                 self.assertIn("copy this", exports[0].read_text(encoding="utf-8"))
 
 
+class TestTopologyScreen(unittest.IsolatedAsyncioTestCase):
+    """Topology remains useful as a filtered edge list before a graph is justified."""
+
+    def _app(self, reports):
+        from unittest.mock import MagicMock
+
+        client = MagicMock()
+        client.is_connected = False
+        client.port = None
+        client.store.get_all_nodes.return_value = []
+        nodes = {
+            "!aaa": NodeData(id="!aaa", long_name="Alpha"),
+            "!bbb": NodeData(id="!bbb", long_name="Bravo"),
+            "!ccc": NodeData(id="!ccc", long_name="Charlie"),
+        }
+        client.store.get_node.side_effect = nodes.get
+        client.get_local_node.return_value = None
+        client.get_channels.return_value = []
+        client.get_neighbor_reports.return_value = reports
+        repl = MeshDeckREPL(client)
+        repl.settings.language = "en"
+        return MeshDeckApp(repl), client
+
+    async def test_empty_topology_explains_missing_neighborinfo(self):
+        from mesh_deck.ui.topology import TopologyScreen
+        from textual.widgets import DataTable
+
+        app, client = self._app([])
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.open_topology(client, "en")
+            await pilot.pause()
+            self.assertIsInstance(app.screen, TopologyScreen)
+            self.assertEqual(app.screen.query_one("#topology-table", DataTable).row_count, 0)
+            quality = str(app.screen.query_one("#topology-quality-content", Static).content)
+            self.assertIn("No node has broadcast NeighborInfo yet", quality)
+
+    async def test_topology_lists_and_filters_neighbor_edges(self):
+        from mesh_deck.core.events import NeighborLink, NeighborReport
+        from mesh_deck.ui.topology import TopologyScreen
+        from textual.widgets import DataTable
+
+        reports = [
+            NeighborReport(
+                node_id="!aaa",
+                neighbors=[
+                    NeighborLink(node_id="!bbb", snr=5.5),
+                    NeighborLink(node_id="!ccc", snr=-2.0),
+                ],
+            )
+        ]
+        app, client = self._app(reports)
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.open_topology(client, "en")
+            await pilot.pause()
+            screen = app.screen
+            self.assertIsInstance(screen, TopologyScreen)
+            table = screen.query_one("#topology-table", DataTable)
+            self.assertEqual(table.row_count, 2)
+            screen.query_one("#topology-filter-input", Input).value = "bravo"
+            await pilot.pause()
+            self.assertEqual(table.row_count, 1)
+            self.assertIn("1 NeighborInfo reports received", str(screen.query_one("#topology-quality-content", Static).content))
+
+
 class TestNotifyMessageWiring(unittest.IsolatedAsyncioTestCase):
     """Test that MeshDeckApp.notify_message builds the expected toast for DMs/broadcasts."""
 

@@ -65,6 +65,9 @@ class TextualConsole:
     def open_logs(self) -> None:
         self._invoke(self.app.open_logs)
 
+    def open_topology(self, radio_client: Any, lang: str = "it") -> None:
+        self._invoke(self.app.open_topology, radio_client, lang)
+
     def update_language(self, language: str) -> None:
         self._invoke(self.app.update_language, language)
 
@@ -517,6 +520,11 @@ class MeshDeckApp(ThemedApp, App):
         from mesh_deck.ui.log_viewer import LogViewerScreen
 
         self.push_screen(LogViewerScreen(self.repl.log_buffer, lang=self.repl.settings.language))
+
+    def open_topology(self, radio_client: Any, lang: str = "it") -> None:
+        from mesh_deck.ui.topology import TopologyScreen
+
+        self.push_screen(TopologyScreen(radio_client, lang=lang))
 
     def apply_theme(self, name: str | None = None) -> None:
         """Activate a palette and repaint every Rich and Textual surface."""

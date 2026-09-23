@@ -222,6 +222,19 @@ class TestCommandDispatcher(unittest.TestCase):
         self.assertTrue(self.dispatcher.dispatch("/mesh"))
         self.mock_store.get_all_nodes.assert_called()
 
+    def test_dispatch_topology_opens_internal_viewer_when_available(self) -> None:
+        console = MagicMock()
+        console.open_topology = MagicMock()
+        dispatcher = CommandDispatcher(self.mock_client, console=console, settings=self.settings)
+
+        self.assertTrue(dispatcher.dispatch("/topology"))
+        console.open_topology.assert_called_once_with(self.mock_client, "it")
+
+    def test_dispatch_topology_falls_back_to_mesh_summary(self) -> None:
+        self.mock_client.get_neighbor_reports.return_value = []
+        self.assertTrue(self.dispatcher.dispatch("/topology"))
+        self.mock_store.get_all_nodes.assert_called()
+
     def test_dispatch_trace_requires_a_target(self) -> None:
         self.assertTrue(self.dispatcher.dispatch("/trace"))
         self.mock_client.trace_route.assert_not_called()

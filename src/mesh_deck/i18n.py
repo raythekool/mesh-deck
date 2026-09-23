@@ -275,6 +275,10 @@ STRINGS: dict[str, dict[str, str]] = {
         "it": "Riepilogo topologia della mesh",
         "en": "Mesh topology summary",
     },
+    "CMD_DESC_TOPOLOGY": {
+        "it": "Esplora i link NeighborInfo della mesh",
+        "en": "Explore mesh NeighborInfo links",
+    },
     "CMD_DESC_TRACE": {
         "it": "Traceroute verso un nodo: percorso a salti",
         "en": "Traceroute to a node: hop path",
@@ -528,6 +532,16 @@ STRINGS: dict[str, dict[str, str]] = {
     "BINDING_LOG_PAUSE": {"it": "Pausa", "en": "Pause"},
     "BINDING_LOG_COPY": {"it": "Copia", "en": "Copy"},
     "BINDING_LOG_EXPORT": {"it": "Esporta", "en": "Export"},
+    "TOPOLOGY_TITLE": {"it": "🕸 MESH-DECK // TOPOLOGIA", "en": "🕸 MESH-DECK // TOPOLOGY"},
+    "TOPOLOGY_SUBTITLE": {"it": "Link NeighborInfo ricevuti dalla mesh", "en": "NeighborInfo links received from the mesh"},
+    "TOPOLOGY_FILTER_PLACEHOLDER": {"it": "Cerca reporter, vicino o ID...", "en": "Search reporter, neighbor, or ID..."},
+    "TOPOLOGY_COL_REPORTER": {"it": "Reporter", "en": "Reporter"},
+    "TOPOLOGY_COL_NEIGHBOR": {"it": "Nodo vicino", "en": "Neighbor"},
+    "TOPOLOGY_QUALITY_TITLE": {"it": "QUALITÀ DATI", "en": "DATA QUALITY"},
+    "TOPOLOGY_QUALITY_REPORTS": {"it": "{count} tabelle NeighborInfo ricevute", "en": "{count} NeighborInfo reports received"},
+    "TOPOLOGY_QUALITY_NEWEST": {"it": "Report più recente: {age}", "en": "Newest report: {age}"},
+    "TOPOLOGY_QUALITY_HINT": {"it": "Un link assente significa dati sconosciuti, non una disconnessione.", "en": "A missing link means unknown data, not a disconnection."},
+    "TOPOLOGY_EMPTY_HINT": {"it": "Nessun nodo ha ancora trasmesso NeighborInfo. Abilita il modulo sul firmware e attendi il suo intervallo di broadcast.", "en": "No node has broadcast NeighborInfo yet. Enable the firmware module and wait for its broadcast interval."},
     "CHAT_SEND_FAILED_TITLE": {"it": "Invio fallito", "en": "Send failed"},
 
     # Device selector startup screen (ui/device_selector.py)
