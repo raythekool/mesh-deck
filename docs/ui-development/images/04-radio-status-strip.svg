@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700" role="img" aria-labelledby="title desc">
+  <title id="title">Persistent radio status strip proposal</title>
+  <desc id="desc">A one-line status strip showing a healthy connected state and a reconnecting state.</desc>
+  <rect width="1200" height="700" fill="#081018"/>
+  <text x="40" y="50" fill="#00f3ff" font-family="monospace" font-size="25" font-weight="bold">PERSISTENT RADIO STATUS STRIP</text>
+  <rect x="40" y="85" width="1120" height="55" rx="8" fill="#10212b" stroke="#00f3ff"/>
+  <text x="64" y="119" fill="#00ff66" font-family="monospace" font-size="19" font-weight="bold">CONNECTED</text>
+  <text x="245" y="119" fill="#e8f1f5" font-family="monospace" font-size="17">MRPH  !45a466e4</text>
+  <text x="525" y="119" fill="#94a3b8" font-family="monospace" font-size="17">COM6</text>
+  <text x="655" y="119" fill="#94a3b8" font-family="monospace" font-size="17">CH 0 LongFast</text>
+  <text x="930" y="119" fill="#94a3b8" font-family="monospace" font-size="17">EU_868 / MEDIUM_FAST</text>
+  <rect x="40" y="175" width="1120" height="55" rx="8" fill="#2a211c" stroke="#ffb800"/>
+  <text x="64" y="209" fill="#ffb800" font-family="monospace" font-size="19" font-weight="bold">RECONNECTING</text>
+  <text x="310" y="209" fill="#e8f1f5" font-family="monospace" font-size="17">COM6 unavailable</text>
+  <text x="600" y="209" fill="#e8f1f5" font-family="monospace" font-size="17">attempt 3</text>
+  <text x="810" y="209" fill="#e8f1f5" font-family="monospace" font-size="17">retry in 10s</text>
+  <rect x="40" y="265" width="1120" height="370" rx="10" fill="#0b1720" stroke="#1f8794"/>
+  <text x="65" y="305" fill="#94a3b8" font-family="monospace" font-size="17">Scrollable command output and incoming messages stay below.</text>
+  <text x="65" y="355" fill="#00f3ff" font-family="monospace" font-size="17">[18:04:22] #Primary TRIN  &gt; perimeter clear</text>
+  <text x="65" y="395" fill="#ffb800" font-family="monospace" font-size="17">[18:05:10] connection lost on COM6; retrying automatically</text>
+  <text x="65" y="435" fill="#00ff66" font-family="monospace" font-size="17">[18:05:22] connection restored on COM6</text>
+  <text x="65" y="580" fill="#94a3b8" font-family="monospace" font-size="16">The strip remains visible after these lines scroll away.</text>
+</svg>

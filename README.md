@@ -95,6 +95,7 @@ On interactive startup, Mesh-Deck first shows the Meshtastic devices it detected
 ## 📚 Documentation
 
 - 📖 [User Guide and Operational Guide](docs/USER_GUIDE.md): Full command syntax, visual badge interpretation, async architecture notes, and troubleshooting guidance.
+- 🎨 [UI Development Proposals](docs/UI_DEVELOPMENT.md): Reviewable SVG wireframes and an implementation order for the next UI improvements.
 - 📋 [Requirements](REQUIREMENTS.md): Functional, non-functional, UI, and architecture requirements.
 - 🚀 [Implementation Plan](IMPLEMENTATION_PLAN.md): Roadmap for the project’s development phases.
 

@@ -1,0 +1,155 @@
+# UI Development Proposals
+
+> **Status:** proposal-only documentation. None of the screens below changes
+> the current application behavior. Each SVG is a wireframe that makes the
+> intended interaction and information hierarchy reviewable before code is
+> written.
+
+## Goals
+
+The current Rich + Textual architecture, semantic theme palette, internal
+screens, and live radio bridge are sound. These proposals deliberately build
+on that base rather than introducing a web UI, a map dependency, or a second
+application.
+
+The recommended implementation order is:
+
+1. Node explorer master/detail and compact responsive layout.
+2. Complete live localization, persistent radio state, and command progress.
+3. Direct-message conversations and a clearer device selector.
+4. Rendering consistency, then topology and historical telemetry after real
+   data is available.
+5. Accessibility checks as a release gate for every theme.
+
+## 1. Node Explorer: Master / Detail
+
+![Node explorer master/detail proposal](ui-development/images/01-node-explorer-master-detail.svg)
+
+`/view` already filters and sorts nodes but a selected row has no action.
+Selection should open the existing node detail in a right-side pane on wide
+terminals, with explicit actions:
+
+- `Enter`: open or focus details.
+- `d`: direct message the selected node.
+- `t`: traceroute the selected node.
+- `m`: open the OpenStreetMap link when coordinates exist.
+- `c`: copy the node ID.
+
+The action row should disable unavailable actions rather than failing after a
+keypress.
+
+## 2. Responsive Compact Layout
+
+![Responsive compact node layout proposal](ui-development/images/02-responsive-compact-layout.svg)
+
+The current node table has eleven columns in both Rich and Textual. The
+compact layout retains only operator-critical fields (identity, role, SNR,
+hops, battery, and last heard), while the existing detail pane contains the
+full hardware, location, key, and telemetry data.
+
+Use an automatic breakpoint based on terminal width, plus a persisted
+`full` / `compact` toggle. This preserves the full current view on wide
+desktops without making small laptops or field terminals unusable.
+
+## 3. Complete Live Localization
+
+![Live localization proposal](ui-development/images/03-live-localization.svg)
+
+Changing language already updates command completion and the input prompt.
+The same operation should redraw the mounted title, sidebar heading, sort and
+filter pills, footer bindings, node detail, and any open modal. The screen
+should visibly update as a single transaction, with no `/restart` needed.
+
+## 4. Persistent Radio Status Strip
+
+![Persistent radio status proposal](ui-development/images/04-radio-status-strip.svg)
+
+Connection events currently enter the scrolling log. Add a small persistent
+strip below the header that always answers:
+
+- Which local node and serial port are active?
+- What channel is selected?
+- Is the radio connected, reconnecting, or unavailable?
+- If reconnecting, which retry is running and when is the next one?
+
+This is a status surface, not a second banner: it should consume one line and
+remain visible while the log scrolls.
+
+## 5. Command Progress
+
+![Command progress proposal](ui-development/images/05-command-progress.svg)
+
+Potentially slow operations (`/trace`, `/switch`, initial connection) already
+run outside the Textual event loop. Surface that fact near the input with a
+small cancellable progress state. The user can keep reading messages and can
+see precisely what is pending rather than hunting for a line in the log.
+
+## 6. Direct-message Conversations
+
+![Direct-message conversation proposal](ui-development/images/06-dm-conversations.svg)
+
+The current chat aggregates every direct message into one disabled
+"Direct Messages" entry. Replace that entry with individual conversations
+keyed by node, unread badges, an explicit recipient in the compose area, and
+a visible send target. This removes the context switch back to `/dm` while
+making accidental replies to the wrong node harder.
+
+## 7. Device Selection
+
+![Device selector proposal](ui-development/images/07-device-selector.svg)
+
+The initial device screen should distinguish:
+
+- Preferred/default port.
+- Currently active port after a return from `/switch`.
+- Last failed connection and retry action.
+- No-device state with concrete cable, driver, and scan guidance.
+
+This is especially useful where several USB serial adapters look similar.
+
+## 8. One Node Presentation Model
+
+![Unified node presentation proposal](ui-development/images/08-unified-node-rendering.svg)
+
+Sidebar, `/nodes`, and `/view` currently render the same SNR, hops, battery,
+distance, and last-heard values independently. They should share the existing
+semantic formatters and one compact row representation, then selectively hide
+columns by surface. The goal is visual agreement, not a large new UI
+abstraction.
+
+## 9. Mesh Topology: Data First
+
+![Mesh topology proposal](ui-development/images/09-topology-data-first.svg)
+
+`/mesh` now has the correct NeighborInfo data path, but the currently attached
+mesh has not broadcast any NeighborInfo reports. First provide a searchable,
+text-first edge list with recency and SNR. Only add a graph view when real
+reports are sufficiently frequent; an animated empty graph would be worse
+than the current table.
+
+## 10. Historical Telemetry
+
+![Historical telemetry proposal](ui-development/images/10-telemetry-history.svg)
+
+The JSONL history already records meaningful node changes. A node detail
+history tab can show compact sparklines for battery, SNR, temperature, and
+channel utilization with explicit time ranges. It should be an on-demand
+detail view, never a continuously redrawn dashboard.
+
+## 11. Accessibility and Theme Quality Gate
+
+![Accessibility and theme proposal](ui-development/images/11-accessibility-theme-gate.svg)
+
+Every palette should retain the same semantic roles, but operators must not
+depend on color alone. Add:
+
+- Visible keyboard focus and selected-row treatment.
+- Icons and text labels alongside colors for connection, SNR, and warnings.
+- Contrast checks for foreground/background combinations in all four themes.
+- A screenshot test matrix for default, compact, and high-density surfaces.
+
+## Explicit Non-goals
+
+Do not add a browser map, animation-heavy topology graph, component framework,
+or a separate dashboard at this stage. They add dependencies and duplicate
+working Textual surfaces before the real operating data justifies them.

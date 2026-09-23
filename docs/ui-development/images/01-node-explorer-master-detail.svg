@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700" role="img" aria-labelledby="title desc">
+  <title id="title">Node explorer master detail proposal</title>
+  <desc id="desc">A node list on the left, a selected node detail pane on the right, and explicit node actions.</desc>
+  <rect width="1200" height="700" fill="#081018"/>
+  <rect x="25" y="20" width="1150" height="54" rx="10" fill="#10212b" stroke="#00f3ff"/>
+  <text x="52" y="54" fill="#00f3ff" font-family="monospace" font-size="24" font-weight="bold">MESH-DECK / VIEW</text>
+  <text x="900" y="54" fill="#94a3b8" font-family="monospace" font-size="17">/ filter   r refresh   q back</text>
+  <rect x="25" y="94" width="495" height="570" rx="10" fill="#0b1720" stroke="#1f8794"/>
+  <text x="48" y="128" fill="#00f3ff" font-family="monospace" font-size="20" font-weight="bold">NODES  [ compact ]</text>
+  <rect x="45" y="146" width="455" height="42" rx="6" fill="#10212b"/>
+  <text x="62" y="173" fill="#9fffd0" font-family="monospace" font-size="17">Search name, AKA, ID, role...</text>
+  <text x="55" y="218" fill="#94a3b8" font-family="monospace" font-size="15">NAME             ROLE       SNR    HOPS  SEEN</text>
+  <rect x="45" y="233" width="455" height="72" rx="6" fill="#063b46" stroke="#00f3ff"/>
+  <text x="62" y="263" fill="#00ff66" font-family="monospace" font-size="18">TRIN  Trinity Recon</text>
+  <text x="62" y="287" fill="#e8f1f5" font-family="monospace" font-size="16">TRACKER    +9.5 dB    0     3m</text>
+  <text x="62" y="343" fill="#e8f1f5" font-family="monospace" font-size="18">ZION  Relay Tower</text>
+  <text x="62" y="367" fill="#94a3b8" font-family="monospace" font-size="16">ROUTER     +2.1 dB    1     27m</text>
+  <text x="62" y="423" fill="#e8f1f5" font-family="monospace" font-size="18">NIOB  Field Repeater</text>
+  <text x="62" y="447" fill="#94a3b8" font-family="monospace" font-size="16">REPEATER   -6.5 dB    2     2h</text>
+  <rect x="545" y="94" width="630" height="570" rx="10" fill="#0b1720" stroke="#7c3aed"/>
+  <text x="575" y="132" fill="#00f3ff" font-family="monospace" font-size="22" font-weight="bold">TRIN / Trinity Recon Scout</text>
+  <text x="575" y="163" fill="#94a3b8" font-family="monospace" font-size="16">!62d927b8   TRACKER   TLORA_T3_S3</text>
+  <line x1="575" y1="185" x2="1145" y2="185" stroke="#334155"/>
+  <text x="575" y="222" fill="#94a3b8" font-family="monospace" font-size="16">RADIO</text>
+  <text x="575" y="252" fill="#e8f1f5" font-family="monospace" font-size="18">SNR +9.5 dB     Direct (0)     last heard 3m</text>
+  <text x="575" y="302" fill="#94a3b8" font-family="monospace" font-size="16">POSITION</text>
+  <text x="575" y="332" fill="#e8f1f5" font-family="monospace" font-size="18">45.47510, 9.20880     2.1 km     127 deg SE</text>
+  <text x="575" y="382" fill="#94a3b8" font-family="monospace" font-size="16">POWER</text>
+  <text x="575" y="412" fill="#e8f1f5" font-family="monospace" font-size="18">87% (4.02 V)</text>
+  <rect x="575" y="478" width="120" height="46" rx="7" fill="#00f3ff"/>
+  <text x="601" y="508" fill="#081018" font-family="monospace" font-size="17" font-weight="bold">d DM</text>
+  <rect x="712" y="478" width="140" height="46" rx="7" fill="#ffb800"/>
+  <text x="738" y="508" fill="#081018" font-family="monospace" font-size="17" font-weight="bold">t TRACE</text>
+  <rect x="869" y="478" width="120" height="46" rx="7" fill="#1f8794"/>
+  <text x="894" y="508" fill="#e8f1f5" font-family="monospace" font-size="17" font-weight="bold">m MAP</text>
+  <rect x="1006" y="478" width="120" height="46" rx="7" fill="#334155"/>
+  <text x="1031" y="508" fill="#e8f1f5" font-family="monospace" font-size="17" font-weight="bold">c COPY</text>
+  <text x="575" y="590" fill="#94a3b8" font-family="monospace" font-size="15">Enter opens details. Unavailable actions render disabled.</text>
+</svg>

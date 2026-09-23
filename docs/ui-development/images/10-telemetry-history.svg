@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700" role="img" aria-labelledby="title desc">
+  <title id="title">Historical telemetry proposal</title>
+  <desc id="desc">An on demand node history tab with simple sparklines and time range controls.</desc>
+  <rect width="1200" height="700" fill="#081018"/>
+  <rect x="35" y="25" width="1130" height="56" rx="9" fill="#10212b" stroke="#00f3ff"/>
+  <text x="60" y="60" fill="#00f3ff" font-family="monospace" font-size="23" font-weight="bold">TRIN / NODE DETAIL</text>
+  <rect x="60" y="108" width="130" height="38" rx="6" fill="#10212b"/>
+  <text x="85" y="134" fill="#94a3b8" font-family="monospace" font-size="16">Identity</text>
+  <rect x="200" y="108" width="130" height="38" rx="6" fill="#10212b"/>
+  <text x="232" y="134" fill="#94a3b8" font-family="monospace" font-size="16">Radio</text>
+  <rect x="340" y="108" width="150" height="38" rx="6" fill="#063b46" stroke="#00f3ff"/>
+  <text x="368" y="134" fill="#00f3ff" font-family="monospace" font-size="16" font-weight="bold">History</text>
+  <rect x="850" y="108" width="90" height="38" rx="6" fill="#10212b"/>
+  <text x="877" y="134" fill="#e8f1f5" font-family="monospace" font-size="16">6h</text>
+  <rect x="948" y="108" width="90" height="38" rx="6" fill="#063b46"/>
+  <text x="975" y="134" fill="#00f3ff" font-family="monospace" font-size="16">24h</text>
+  <rect x="1046" y="108" width="90" height="38" rx="6" fill="#10212b"/>
+  <text x="1071" y="134" fill="#e8f1f5" font-family="monospace" font-size="16">7d</text>
+  <rect x="60" y="175" width="1075" height="100" rx="8" fill="#0b1720" stroke="#1f8794"/>
+  <text x="85" y="210" fill="#9fffd0" font-family="monospace" font-size="18">BATTERY / 24h</text>
+  <text x="980" y="210" fill="#00ff66" font-family="monospace" font-size="18">87% / 4.02V</text>
+  <polyline points="85,250 180,242 275,247 370,230 465,235 560,220 655,225 750,210 845,218 940,205 1035,212 1110,198" fill="none" stroke="#00ff66" stroke-width="4"/>
+  <rect x="60" y="295" width="1075" height="100" rx="8" fill="#0b1720" stroke="#1f8794"/>
+  <text x="85" y="330" fill="#9fffd0" font-family="monospace" font-size="18">SNR / 24h</text>
+  <text x="980" y="330" fill="#00f3ff" font-family="monospace" font-size="18">+9.5 dB</text>
+  <polyline points="85,370 180,350 275,365 370,330 465,345 560,320 655,350 750,325 845,340 940,315 1035,335 1110,322" fill="none" stroke="#00f3ff" stroke-width="4"/>
+  <rect x="60" y="415" width="520" height="150" rx="8" fill="#0b1720" stroke="#1f8794"/>
+  <text x="85" y="450" fill="#9fffd0" font-family="monospace" font-size="18">TEMPERATURE</text>
+  <polyline points="85,535 170,520 255,525 340,490 425,505 510,475 555,483" fill="none" stroke="#ffb800" stroke-width="4"/>
+  <text x="470" y="450" fill="#ffb800" font-family="monospace" font-size="18">22.4 C</text>
+  <rect x="615" y="415" width="520" height="150" rx="8" fill="#0b1720" stroke="#1f8794"/>
+  <text x="640" y="450" fill="#9fffd0" font-family="monospace" font-size="18">CHANNEL UTILIZATION</text>
+  <polyline points="640,530 725,520 810,528 895,500 980,510 1060,485 1110,495" fill="none" stroke="#c084fc" stroke-width="4"/>
+  <text x="1040" y="450" fill="#c084fc" font-family="monospace" font-size="18">12.4%</text>
+  <text x="60" y="630" fill="#94a3b8" font-family="monospace" font-size="15">Read JSONL only when the History tab is open. No continuous dashboard redraw.</text>
+</svg>

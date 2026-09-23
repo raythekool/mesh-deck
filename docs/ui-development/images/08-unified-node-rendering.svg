@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700" role="img" aria-labelledby="title desc">
+  <title id="title">Unified node rendering proposal</title>
+  <desc id="desc">The same semantic node metrics shown consistently in sidebar, table, and detail contexts.</desc>
+  <rect width="1200" height="700" fill="#081018"/>
+  <text x="40" y="50" fill="#00f3ff" font-family="monospace" font-size="25" font-weight="bold">ONE SEMANTIC NODE ROW, THREE SURFACES</text>
+  <rect x="45" y="100" width="340" height="490" rx="10" fill="#0b1720" stroke="#1f8794"/>
+  <text x="70" y="137" fill="#9fffd0" font-family="monospace" font-size="19" font-weight="bold">SIDEBAR</text>
+  <rect x="65" y="165" width="300" height="92" rx="7" fill="#063b46"/>
+  <text x="85" y="197" fill="#00ff66" font-family="monospace" font-size="19">TRIN  TRACKER</text>
+  <text x="85" y="225" fill="#e8f1f5" font-family="monospace" font-size="16">Trinity Recon / +9.5 dB / 3m</text>
+  <text x="85" y="278" fill="#94a3b8" font-family="monospace" font-size="15">Compact identity and urgency.</text>
+  <rect x="430" y="100" width="725" height="225" rx="10" fill="#0b1720" stroke="#1f8794"/>
+  <text x="455" y="137" fill="#9fffd0" font-family="monospace" font-size="19" font-weight="bold">FULL TABLE</text>
+  <rect x="450" y="165" width="685" height="38" fill="#10212b"/>
+  <text x="465" y="190" fill="#00f3ff" font-family="monospace" font-size="14">NAME       ROLE     SNR       HOPS     BATTERY     DISTANCE  LAST HEARD</text>
+  <text x="465" y="235" fill="#e8f1f5" font-family="monospace" font-size="16">Trinity    TRACKER  +9.5 dB   Direct   87% 4.02V   2.1 km    3m</text>
+  <text x="465" y="280" fill="#94a3b8" font-family="monospace" font-size="15">Same values, same labels, same rounding and semantic colors.</text>
+  <rect x="430" y="365" width="725" height="225" rx="10" fill="#0b1720" stroke="#7c3aed"/>
+  <text x="455" y="402" fill="#9fffd0" font-family="monospace" font-size="19" font-weight="bold">DETAIL</text>
+  <text x="455" y="447" fill="#e8f1f5" font-family="monospace" font-size="18">SNR      +9.5 dB        Hops       Direct (0)</text>
+  <text x="455" y="482" fill="#e8f1f5" font-family="monospace" font-size="18">Battery  87% (4.02 V)   Distance   2.1 km</text>
+  <text x="455" y="517" fill="#e8f1f5" font-family="monospace" font-size="18">Last     3m ago         Bearing    127 deg SE</text>
+  <text x="455" y="555" fill="#94a3b8" font-family="monospace" font-size="15">Reuse formatters; each screen chooses density, not its own meanings.</text>
+</svg>

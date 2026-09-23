@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700" role="img" aria-labelledby="title desc">
+  <title id="title">Device selector proposal</title>
+  <desc id="desc">Device selector with preferred device, active device, a failed connection state, and actionable empty state.</desc>
+  <rect width="1200" height="700" fill="#081018"/>
+  <text x="40" y="50" fill="#00f3ff" font-family="monospace" font-size="25" font-weight="bold">DEVICE SELECTION: OPERATOR CONTEXT</text>
+  <rect x="65" y="90" width="650" height="530" rx="12" fill="#10212b" stroke="#00f3ff"/>
+  <rect x="88" y="116" width="604" height="55" fill="#063b46"/>
+  <text x="115" y="151" fill="#00f3ff" font-family="monospace" font-size="22" font-weight="bold">DETECTED MESHTASTIC DEVICES</text>
+  <text x="110" y="205" fill="#94a3b8" font-family="monospace" font-size="16">Enter connect  |  r rescan  |  q cancel</text>
+  <rect x="100" y="235" width="580" height="92" rx="7" fill="#063b46" stroke="#00f3ff"/>
+  <text x="122" y="267" fill="#00ff66" font-family="monospace" font-size="20">COM6  T-Beam Vaiano</text>
+  <text x="122" y="295" fill="#e8f1f5" font-family="monospace" font-size="16">USB-Enhanced-SERIAL CH9102</text>
+  <text x="525" y="267" fill="#00f3ff" font-family="monospace" font-size="14">PREFERRED</text>
+  <text x="525" y="293" fill="#00ff66" font-family="monospace" font-size="14">LAST ACTIVE</text>
+  <rect x="100" y="342" width="580" height="92" rx="7" fill="#0b1720" stroke="#1f8794"/>
+  <text x="122" y="374" fill="#e8f1f5" font-family="monospace" font-size="20">COM7  CP210x USB UART</text>
+  <text x="122" y="402" fill="#94a3b8" font-family="monospace" font-size="16">Candidate serial adapter</text>
+  <rect x="100" y="465" width="580" height="105" rx="7" fill="#2a211c" stroke="#ffb800"/>
+  <text x="122" y="497" fill="#ffb800" font-family="monospace" font-size="18">LAST CONNECTION FAILED / COM8</text>
+  <text x="122" y="524" fill="#e8f1f5" font-family="monospace" font-size="15">Access denied. Close the app currently using the port.</text>
+  <rect x="515" y="535" width="145" height="28" rx="5" fill="#ffb800"/>
+  <text x="542" y="555" fill="#081018" font-family="monospace" font-size="14" font-weight="bold">Retry COM8</text>
+  <rect x="760" y="90" width="370" height="530" rx="12" fill="#0b1720" stroke="#1f8794"/>
+  <text x="790" y="130" fill="#9fffd0" font-family="monospace" font-size="19" font-weight="bold">NO DEVICE FOUND</text>
+  <text x="790" y="185" fill="#e8f1f5" font-family="monospace" font-size="17">1. Check USB cable and power.</text>
+  <text x="790" y="225" fill="#e8f1f5" font-family="monospace" font-size="17">2. Close other serial apps.</text>
+  <text x="790" y="265" fill="#e8f1f5" font-family="monospace" font-size="17">3. Confirm the driver is installed.</text>
+  <rect x="790" y="330" width="245" height="48" rx="7" fill="#00f3ff"/>
+  <text x="844" y="361" fill="#081018" font-family="monospace" font-size="17" font-weight="bold">r RESCAN</text>
+  <text x="790" y="430" fill="#94a3b8" font-family="monospace" font-size="15">Show the actual scan time and error.</text>
+</svg>
