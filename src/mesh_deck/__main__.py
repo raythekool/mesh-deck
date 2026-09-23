@@ -20,6 +20,24 @@ from mesh_deck.ui.theme import THEME_COLORS, set_theme
 console = Console()
 
 
+def _force_utf8_stdio() -> None:
+    """Make stdout/stderr UTF-8 capable.
+
+    On Windows the standard streams default to the legacy ANSI code page, so
+    any non-ASCII output — the emoji in the argparse description, accented
+    Italian strings — raises UnicodeEncodeError before argparse can even print
+    its help. Rich re-encodes its own output, but argparse writes directly.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        try:
+            reconfigure(encoding="utf-8", errors="replace")
+        except (ValueError, OSError):  # already detached or not a text stream
+            pass
+
+
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="mesh-deck",
@@ -64,6 +82,7 @@ def _build_history(settings: Any) -> Any:
 def main(argv: Sequence[str] | None = None) -> int:
     from mesh_deck.core.settings import Settings
 
+    _force_utf8_stdio()
     settings = Settings.load()
     set_theme(settings.theme)
     args = parse_args(argv)

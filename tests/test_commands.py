@@ -463,6 +463,31 @@ class TestAgentCLI(unittest.TestCase):
         self.assertEqual(payload["error"]["code"], "node_not_found")
         self.assertEqual(self.stderr_buffer.getvalue(), "")
 
+    def test_help_survives_a_legacy_codepage_stdout(self) -> None:
+        """--help must not die on the emoji when stdout is not UTF-8 (Windows)."""
+        from mesh_deck.__main__ import _force_utf8_stdio, main
+
+        # A byte stream whose text layer cannot encode the emoji, like a
+        # Windows console defaulting to cp1252.
+        raw = io.BytesIO()
+        stream = io.TextIOWrapper(raw, encoding="cp1252", errors="strict", write_through=True)
+        with patch("sys.stdout", stream), patch("sys.stderr", stream):
+            _force_utf8_stdio()
+            with self.assertRaises(SystemExit) as exit_info:
+                main(["--help"])
+        self.assertEqual(exit_info.exception.code, 0)
+        stream.flush()
+        rendered = raw.getvalue().decode("utf-8", errors="replace")
+        self.assertIn("mesh-deck", rendered)
+        self.assertIn("neighbors", rendered)
+        self.assertIn("trace", rendered)
+
+    def test_force_utf8_stdio_ignores_streams_without_reconfigure(self) -> None:
+        from mesh_deck.__main__ import _force_utf8_stdio
+
+        with patch("sys.stdout", io.StringIO()), patch("sys.stderr", io.StringIO()):
+            _force_utf8_stdio()  # must not raise
+
     def test_send_is_preview_without_confirm(self):
         self.service.send_broadcast.return_value = {
             "sent": False,
