@@ -1,6 +1,6 @@
 # UI Development Proposals
 
-> **Status:** sections 1–9 and 12 are implemented on `feat/ui-node-explorer-foundation`; sections 10–11 and 13 remain proposals. Each SVG is a wireframe that makes the intended interaction and information hierarchy reviewable before code is written.
+> **Status:** sections 1–10 and 12 are implemented on `feat/ui-node-explorer-foundation`; sections 11 and 13 remain proposals. Each SVG is a wireframe that makes the intended interaction and information hierarchy reviewable before code is written.
 
 ## Goals
 
@@ -99,11 +99,11 @@ Sidebar, `/nodes`, and `/view` now share a `NodePresentation` model for SNR, hop
 
 `/topology` provides a searchable, text-first edge list with recency, SNR, and data-quality information while `/mesh` retains its concise summary. Only add a graph view when real reports are sufficiently frequent; an animated empty graph would be worse than a transparent data-quality panel.
 
-## 10. Historical Telemetry
+## 10. Historical Telemetry — Implemented
 
 ![Historical telemetry proposal](ui-development/images/10-telemetry-history.svg)
 
-The JSONL history already records meaningful node changes. A node detail history tab can show compact sparklines for battery, SNR, temperature, and channel utilization with explicit time ranges. It should be an on-demand detail view, never a continuously redrawn dashboard.
+`/history <node>` reads existing JSONL snapshots only on demand and shows compact sparklines for battery, SNR, temperature, and channel utilization with 6-hour, 24-hour, 7-day, and all-time ranges. The compact node dossier exposes the same screen with `h`. It is never a continuously redrawn dashboard.
 
 ## 11. Accessibility and Theme Quality Gate
 

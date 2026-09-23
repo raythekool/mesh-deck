@@ -56,6 +56,7 @@ class CommandDispatcher:
             "/?": self.cmd_help,
             "/nodes": self.cmd_nodes,
             "/node": self.cmd_node,
+            "/history": self.cmd_history,
             "/send": self.cmd_send,
             "/dm": self.cmd_dm,
             "/channels": self.cmd_channels,
@@ -166,6 +167,7 @@ class CommandDispatcher:
             ("/chat", "", t("CMD_DESC_CHAT", lang)),
             ("/logs", "", t("CMD_DESC_LOGS", lang)),
             ("/node", "<id|aka>", t("CMD_DESC_NODE", lang)),
+            ("/history", "<id|aka>", t("CMD_DESC_HISTORY", lang)),
             ("/send", "<testo>", t("CMD_DESC_SEND", lang)),
             ("/dm", "<id|aka> <testo>", t("CMD_DESC_DM", lang)),
             ("/channels", "", t("CMD_DESC_CHANNELS", lang)),
@@ -238,6 +240,26 @@ class CommandDispatcher:
 
         panel = render_node_detail(node, distance_km=dist_km, lang=lang, bearing_deg=bearing)
         self.console.print(panel)
+
+    def cmd_history(self, args: list[str]) -> None:
+        """Open on-demand local telemetry history for a specific node."""
+        lang = self.lang
+        if not args:
+            self.console.print(f"[{THEME_COLORS['alert']}]{t('USAGE_HISTORY', lang)}[/]")
+            return
+        if self.client.history is None:
+            self.console.print(f"[{THEME_COLORS['warning']}]{t('HISTORY_DISABLED', lang)}[/]")
+            return
+        node = self.client.store.get_node(args[0])
+        if node is None:
+            self.console.print(f"[{THEME_COLORS['alert']}]{t('NODE_NOT_FOUND', lang, query=args[0])}[/]")
+            return
+        opener = getattr(self.console, "open_node_history", None)
+        if callable(opener):
+            opener(node)
+            return
+        entries = self.client.history.iter_node_history(node.id)
+        self.console.print(f"[{THEME_COLORS['muted']}]{t('HISTORY_TUI_ONLY', lang, count=len(entries))}[/]")
 
     def cmd_send(self, args: list[str]) -> None:
         """Send a broadcast message."""
@@ -593,7 +615,13 @@ class CommandDispatcher:
         local_node = self.client.get_local_node()
         opener = getattr(self.console, "open_node_explorer", None)
         if callable(opener):
-            opener(self.client.store, local_node, lang, self.settings.explorer_view_mode)
+            opener(
+                self.client.store,
+                local_node,
+                lang,
+                self.settings.explorer_view_mode,
+                self.client.history,
+            )
             return
 
         from mesh_deck.ui.interactive_table import launch_interactive_nodes
@@ -603,6 +631,7 @@ class CommandDispatcher:
             local_node=local_node,
             lang=lang,
             view_mode=self.settings.explorer_view_mode,
+            history=self.client.history,
         )
 
     def cmd_chat(self, args: list[str]) -> None:

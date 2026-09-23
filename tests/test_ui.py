@@ -1578,6 +1578,72 @@ class TestTopologyScreen(unittest.IsolatedAsyncioTestCase):
             self.assertIn("1 NeighborInfo reports received", str(screen.query_one("#topology-quality-content", Static).content))
 
 
+class TestNodeHistoryScreen(unittest.IsolatedAsyncioTestCase):
+    """JSONL node history renders only on demand and stays useful without all metrics."""
+
+    def _history(self):
+        from tempfile import TemporaryDirectory
+
+        temp = TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        from mesh_deck.core.history import HistoryStore
+
+        return HistoryStore(temp.name)
+
+    async def test_history_screen_renders_snapshot_metrics(self):
+        from unittest.mock import MagicMock
+
+        from mesh_deck.ui.node_history import NodeHistoryScreen
+
+        history = self._history()
+        node = NodeData(id="!aaa", long_name="Alpha", battery_level=80, snr=2.0)
+        history.record_node(node)
+        node.battery_level = 75
+        node.snr = 4.0
+        node.temperature = 21.5
+        node.channel_util = 12.0
+        history.record_node(node)
+
+        client = MagicMock()
+        client.is_connected = False
+        client.port = None
+        client.history = history
+        client.store.get_all_nodes.return_value = []
+        client.get_local_node.return_value = None
+        client.get_channels.return_value = []
+        repl = MeshDeckREPL(client)
+        repl.settings.language = "en"
+        app = MeshDeckApp(repl)
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.open_node_history(node)
+            await pilot.pause()
+            self.assertIsInstance(app.screen, NodeHistoryScreen)
+            self.assertIn("2 snapshots", str(app.screen.query_one("#history-summary", Static).content))
+            self.assertIn("75.0%", str(app.screen.query_one("#history-battery-value", Static).content))
+            self.assertIn("4.0 dB", str(app.screen.query_one("#history-snr-value", Static).content))
+            self.assertIn("21.5 °C", str(app.screen.query_one("#history-temperature-value", Static).content))
+
+    async def test_history_screen_explains_absent_snapshots(self):
+        from mesh_deck.ui.node_history import NodeHistoryScreen
+
+        history = self._history()
+        node = NodeData(id="!bbb", long_name="Bravo")
+        app = NodeHistoryScreen(node, history, lang="en")
+        from mesh_deck.ui.theme import ThemedApp
+        from textual.app import App
+
+        class HistoryApp(ThemedApp, App):
+            def on_mount(self):
+                self.push_screen(app, callback=lambda _: self.exit())
+
+        host = HistoryApp()
+        async with host.run_test() as pilot:
+            await pilot.pause()
+            self.assertIn("No local snapshots", str(host.screen.query_one("#history-summary", Static).content))
+
+
 class TestNotifyMessageWiring(unittest.IsolatedAsyncioTestCase):
     """Test that MeshDeckApp.notify_message builds the expected toast for DMs/broadcasts."""
 

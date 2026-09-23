@@ -235,6 +235,20 @@ class TestCommandDispatcher(unittest.TestCase):
         self.assertTrue(self.dispatcher.dispatch("/topology"))
         self.mock_store.get_all_nodes.assert_called()
 
+    def test_dispatch_history_opens_internal_screen_for_known_node(self) -> None:
+        console = MagicMock()
+        console.open_node_history = MagicMock()
+        self.mock_client.history = MagicMock()
+        dispatcher = CommandDispatcher(self.mock_client, console=console, settings=self.settings)
+
+        self.assertTrue(dispatcher.dispatch("/history TRIN"))
+        console.open_node_history.assert_called_once_with(self.remote_node)
+
+    def test_dispatch_history_requires_persistence_and_target(self) -> None:
+        self.mock_client.history = None
+        self.assertTrue(self.dispatcher.dispatch("/history TRIN"))
+        self.assertTrue(self.dispatcher.dispatch("/history"))
+
     def test_dispatch_trace_requires_a_target(self) -> None:
         self.assertTrue(self.dispatcher.dispatch("/trace"))
         self.mock_client.trace_route.assert_not_called()

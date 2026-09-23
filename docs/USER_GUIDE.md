@@ -297,6 +297,15 @@ Examples:
 /node Tracker
 ```
 
+### `/history`
+
+- **Syntax:** `/history <id|aka|name>`
+- **Purpose:** Open the local telemetry history screen for one known node.
+
+The screen reads existing `nodes.jsonl` snapshots only when opened. It offers 6-hour, 24-hour, 7-day, and all-time ranges with compact sparklines for battery, SNR, temperature, and channel utilization. Press `r` to refresh and `q` or `Esc` to return.
+
+When local history is disabled or no snapshots exist, Mesh-Deck explains the condition without fabricating measurements. From the compact node detail screen, press `h` for the same history view when history is enabled.
+
 ### `/send`
 
 - **Syntax:** `/send <message>` or plain text at the prompt

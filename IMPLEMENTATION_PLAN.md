@@ -208,7 +208,11 @@ mesh-deck/
   1. `/topology` espone una screen filtrabile di edge Reporter → Neighbor ricevuti da NeighborInfo, con SNR e recenza.
   2. Un pannello qualità dati separa esplicitamente l'assenza di report dall'assenza di connettività.
   3. `/mesh` resta disponibile come riepilogo testuale compatibile; un grafo è rinviato fino a disponibilità di dati reali sufficienti.
+* **Incremento 8 — completato sul branch `feat/ui-node-explorer-foundation`**:
+  1. `/history <id|aka|nome>` legge on-demand gli snapshot `nodes.jsonl` già presenti.
+  2. Range 6 ore, 24 ore, 7 giorni e completo mostrano sparkline per batteria, SNR, temperatura e utilizzo canale.
+  3. Il dettaglio nodo compatto espone la stessa screen con binding `h`; assenza di snapshot o storico disattivato viene mostrata esplicitamente.
 * **Incrementi successivi — ordinati per valore operativo**:
   1. Screen `/device-settings` transazionale: snapshot, draft locale, validazione, diff semantico, conferma esplicita e rilettura dell'ack; PSK, regione, reset e firmware restano fuori ambito.
-  2. Telemetria storica on-demand dal JSONL; topologia visuale soltanto dopo che i dati NeighborInfo reali dimostrano frequenza e qualità sufficienti.
+  2. Topologia visuale soltanto dopo che i dati NeighborInfo reali dimostrano frequenza e qualità sufficienti.
 * **Criterio di Accettazione Incremento 1**: la suite `unittest` copre dettaglio, densità automatica, persistenza, localizzazione e strip radio; il linter `ruff` è pulito; la nuova UI preserva tutte le funzionalità `/view` esistenti.

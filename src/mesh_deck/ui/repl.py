@@ -52,9 +52,14 @@ class TextualConsole:
         self._invoke(self.app.clear_output)
 
     def open_node_explorer(
-        self, node_store: Any, local_node: Any, lang: str = "it", view_mode: str = "auto"
+        self,
+        node_store: Any,
+        local_node: Any,
+        lang: str = "it",
+        view_mode: str = "auto",
+        history: Any = None,
     ) -> None:
-        self._invoke(self.app.open_node_explorer, node_store, local_node, lang, view_mode)
+        self._invoke(self.app.open_node_explorer, node_store, local_node, lang, view_mode, history)
 
     def open_channel_chat(self, radio_client: Any, lang: str = "it") -> None:
         self._invoke(self.app.open_channel_chat, radio_client, lang)
@@ -64,6 +69,9 @@ class TextualConsole:
 
     def open_logs(self) -> None:
         self._invoke(self.app.open_logs)
+
+    def open_node_history(self, node: NodeData) -> None:
+        self._invoke(self.app.open_node_history, node)
 
     def open_topology(self, radio_client: Any, lang: str = "it") -> None:
         self._invoke(self.app.open_topology, radio_client, lang)
@@ -493,7 +501,12 @@ class MeshDeckApp(ThemedApp, App):
         self.query_one(RichLog).clear()
 
     def open_node_explorer(
-        self, node_store: Any, local_node: Any, lang: str = "it", view_mode: str = "auto"
+        self,
+        node_store: Any,
+        local_node: Any,
+        lang: str = "it",
+        view_mode: str = "auto",
+        history: Any = None,
     ) -> None:
         from mesh_deck.ui.interactive_table import InteractiveNodesScreen
         self.push_screen(
@@ -503,6 +516,7 @@ class MeshDeckApp(ThemedApp, App):
                 lang=lang,
                 view_mode=view_mode,
                 on_view_mode_change=self._set_explorer_view_mode,
+                history=history,
             )
         )
 
@@ -520,6 +534,15 @@ class MeshDeckApp(ThemedApp, App):
         from mesh_deck.ui.log_viewer import LogViewerScreen
 
         self.push_screen(LogViewerScreen(self.repl.log_buffer, lang=self.repl.settings.language))
+
+    def open_node_history(self, node: NodeData) -> None:
+        history = self.repl.client.history
+        if history is None:
+            self.notify(t("HISTORY_DISABLED", self.repl.settings.language), severity="warning")
+            return
+        from mesh_deck.ui.node_history import NodeHistoryScreen
+
+        self.push_screen(NodeHistoryScreen(node, history, lang=self.repl.settings.language))
 
     def open_topology(self, radio_client: Any, lang: str = "it") -> None:
         from mesh_deck.ui.topology import TopologyScreen

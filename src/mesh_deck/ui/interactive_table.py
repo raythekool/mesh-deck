@@ -23,6 +23,7 @@ from mesh_deck.ui.theme import ThemedApp
 
 if TYPE_CHECKING:
     from mesh_deck.core.events import NodeData
+    from mesh_deck.core.history import HistoryStore
     from mesh_deck.core.node_store import NodeStore
 
 
@@ -75,6 +76,7 @@ class NodeDetailScreen(Screen[None]):
         node_store: NodeStore,
         local_node: NodeData | None,
         lang: str,
+        history: HistoryStore | None = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
@@ -82,12 +84,16 @@ class NodeDetailScreen(Screen[None]):
         self.store = node_store
         self.local_node = local_node
         self.lang = lang
+        self.history = history
         self.title = t("VIEW_NODE_DETAIL_TITLE", lang, name=node.display_name)
         self._bindings.key_to_bindings["escape"] = [
             Binding("escape", "close", t("BINDING_BACK", lang), show=True)
         ]
         self._bindings.key_to_bindings["q"] = [
             Binding("q", "close", t("BINDING_CLOSE", lang), show=True)
+        ]
+        self._bindings.key_to_bindings["h"] = [
+            Binding("h", "open_history", t("BINDING_HISTORY", lang), show=history is not None)
         ]
 
     def compose(self) -> ComposeResult:
@@ -110,6 +116,14 @@ class NodeDetailScreen(Screen[None]):
     def action_close(self) -> None:
         self.dismiss()
 
+    def action_open_history(self) -> None:
+        if self.history is None:
+            self.notify(t("HISTORY_DISABLED", self.lang), severity="warning")
+            return
+        from mesh_deck.ui.node_history import NodeHistoryScreen
+
+        self.app.push_screen(NodeHistoryScreen(self.node, self.history, lang=self.lang))
+
 
 class InteractiveNodesScreen(Screen):
     """Interactive table screen with mouse click column sorting."""
@@ -120,6 +134,7 @@ class InteractiveNodesScreen(Screen):
         Binding("r", "refresh_nodes", "Aggiorna", show=True),
         Binding("slash", "focus_filter", "Cerca / Filtra", show=True),
         Binding("v", "cycle_view_mode", "View", show=True),
+        Binding("h", "open_history", "History", show=True),
     ]
 
     CSS = """
@@ -222,6 +237,7 @@ class InteractiveNodesScreen(Screen):
         local_node: NodeData | None = None,
         lang: str = "it",
         view_mode: str = "full",
+        history: HistoryStore | None = None,
         on_view_mode_change: Callable[[str], None] | None = None,
         **kwargs: Any,
     ) -> None:
@@ -233,6 +249,7 @@ class InteractiveNodesScreen(Screen):
         self.sort_reverse = False
         self.view_mode = view_mode if view_mode in EXPLORER_VIEW_MODES else "auto"
         self._on_view_mode_change = on_view_mode_change
+        self.history = history
         self._effective_compact: bool | None = None
         self._selected_node_id: str | None = None
         self.column_keys: list[str] = []
@@ -248,6 +265,9 @@ class InteractiveNodesScreen(Screen):
         ]
         self._bindings.key_to_bindings["v"] = [
             Binding("v", "cycle_view_mode", t("BINDING_VIEW_MODE", self.lang), show=True)
+        ]
+        self._bindings.key_to_bindings["h"] = [
+            Binding("h", "open_history", t("BINDING_HISTORY", self.lang), show=history is not None)
         ]
 
     def compose(self) -> ComposeResult:
@@ -457,10 +477,23 @@ class InteractiveNodesScreen(Screen):
         self._selected_node_id = node_id
         if self.is_compact:
             self.app.push_screen(
-                NodeDetailScreen(node, self.store, self.local_node, self.lang)
+                NodeDetailScreen(node, self.store, self.local_node, self.lang, self.history)
             )
             return
         self._render_detail(node_id)
+
+    def action_open_history(self) -> None:
+        if self._selected_node_id is None:
+            return
+        node = self.store.get_node(self._selected_node_id)
+        if node is None:
+            return
+        if self.history is None:
+            self.notify(t("HISTORY_DISABLED", self.lang), severity="warning")
+            return
+        from mesh_deck.ui.node_history import NodeHistoryScreen
+
+        self.app.push_screen(NodeHistoryScreen(node, self.history, lang=self.lang))
 
     def _render_detail(self, node_id: str) -> None:
         node = self.store.get_node(node_id)
@@ -494,6 +527,9 @@ class InteractiveNodesScreen(Screen):
         self._bindings.key_to_bindings["r"] = [Binding("r", "refresh_nodes", t("BINDING_REFRESH", lang), show=True)]
         self._bindings.key_to_bindings["slash"] = [Binding("slash", "focus_filter", t("BINDING_FILTER", lang), show=True)]
         self._bindings.key_to_bindings["v"] = [Binding("v", "cycle_view_mode", t("BINDING_VIEW_MODE", lang), show=True)]
+        self._bindings.key_to_bindings["h"] = [
+            Binding("h", "open_history", t("BINDING_HISTORY", lang), show=self.history is not None)
+        ]
         self.query_one("#filter-label", Label).update(t("FILTER_LABEL", lang))
         self.query_one("#filter-input", Input).placeholder = t("FILTER_PLACEHOLDER", lang)
         self._configure_layout(force=True)
@@ -518,6 +554,7 @@ class InteractiveNodesApp(ThemedApp, App):
         local_node: NodeData | None = None,
         lang: str = "it",
         view_mode: str = "full",
+        history: HistoryStore | None = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
@@ -525,10 +562,17 @@ class InteractiveNodesApp(ThemedApp, App):
         self.local_node = local_node
         self.lang = lang
         self.view_mode = view_mode
+        self.history = history
 
     def on_mount(self) -> None:
         self.push_screen(
-            InteractiveNodesScreen(self.store, local_node=self.local_node, lang=self.lang, view_mode=self.view_mode),
+            InteractiveNodesScreen(
+                self.store,
+                local_node=self.local_node,
+                lang=self.lang,
+                view_mode=self.view_mode,
+                history=self.history,
+            ),
             callback=lambda _: self.exit(),
         )
 
@@ -538,6 +582,13 @@ def launch_interactive_nodes(
     local_node: NodeData | None = None,
     lang: str = "it",
     view_mode: str = "full",
+    history: HistoryStore | None = None,
 ) -> None:
     """Run the interactive table viewer as a standalone application."""
-    InteractiveNodesApp(node_store=node_store, local_node=local_node, lang=lang, view_mode=view_mode).run()
+    InteractiveNodesApp(
+        node_store=node_store,
+        local_node=local_node,
+        lang=lang,
+        view_mode=view_mode,
+        history=history,
+    ).run()
