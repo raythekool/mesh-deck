@@ -303,6 +303,7 @@ class MeshDeckApp(ThemedApp, App):
         self._sidebar_node_ids: list[str] = []
         self._active_command: str | None = None
         self._active_cancel_event: threading.Event | None = None
+        self._last_connection_failure: tuple[str, str] | None = None
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -345,7 +346,14 @@ class MeshDeckApp(ThemedApp, App):
 
     def push_device_selector(self) -> None:
         self.push_screen(
-            DeviceSelectorScreen(self.devices or [], preferred_port=self.preferred_port, lang=self.repl.settings.language),
+            DeviceSelectorScreen(
+                self.devices or [],
+                preferred_port=self.preferred_port,
+                active_port=self.repl.client.port,
+                failed_port=self._last_connection_failure[0] if self._last_connection_failure else None,
+                failure_reason=self._last_connection_failure[1] if self._last_connection_failure else None,
+                lang=self.repl.settings.language,
+            ),
             callback=self.on_device_selected,
         )
 
@@ -356,6 +364,7 @@ class MeshDeckApp(ThemedApp, App):
         self.begin_connection(port)
 
     def begin_connection(self, port: str) -> None:
+        self._last_connection_failure = None
         self.push_screen(ConnectionScreen(port, lang=self.repl.settings.language))
         self.connect_radio(port)
 
@@ -366,10 +375,15 @@ class MeshDeckApp(ThemedApp, App):
 
     def connection_complete(self, success: bool) -> None:
         if success:
+            self._last_connection_failure = None
             self.pop_screen()
             self.activate_console()
             return
         if isinstance(self.screen, ConnectionScreen):
+            self._last_connection_failure = (
+                self.screen.port,
+                t("CONNECTION_FAILED", self.repl.settings.language, port=self.screen.port),
+            )
             self.screen.show_error()
 
     def return_to_device_selector(self) -> None:

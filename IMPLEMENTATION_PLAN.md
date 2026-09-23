@@ -192,10 +192,13 @@ mesh-deck/
   1. `/chat` raggruppa i messaggi diretti per peer anziché in una entry sintetica condivisa.
   2. Ogni conversazione mostra badge non letti, storico dedicato, hint con destinatario e input abilitato per la risposta diretta.
   3. `/dm` resta il flusso esplicito per iniziare una conversazione con un nodo non ancora presente nell'elenco.
+* **Incremento 4 — completato sul branch `feat/ui-node-explorer-foundation`**:
+  1. Il selettore startup visualizza badge per porta preferita, attiva e da ritentare.
+  2. Dopo un errore di handshake conserva porta e motivazione, esponendo un retry esplicito con binding `t`.
+  3. Quando non trova periferiche, presenta uno stato vuoto con indicazioni concrete su cavo, alimentazione, driver seriale e contesa della porta.
 * **Incrementi successivi — ordinati per valore operativo**:
-  1. Selettore device con radio preferita, errore di connessione più recente, retry esplicito e empty state diagnostico.
-  2. Renderer nodo condiviso tra sidebar, `/nodes` e `/view`, in modo che etichette, unità, arrotondamenti e colori semantici non divergano.
-  3. Viewer `/logs` per stream applicazione e device, con buffer limitato, ricerca, filtri, pausa ed export, senza contaminare stdout MCP.
-  4. Screen `/device-settings` transazionale: snapshot, draft locale, validazione, diff semantico, conferma esplicita e rilettura dell'ack; PSK, regione, reset e firmware restano fuori ambito.
-  5. Topologia visuale e telemetria storica soltanto dopo che i dati NeighborInfo e JSONL reali dimostrano frequenza e qualità sufficienti.
+  1. Renderer nodo condiviso tra sidebar, `/nodes` e `/view`, in modo che etichette, unità, arrotondamenti e colori semantici non divergano.
+  2. Viewer `/logs` per stream applicazione e device, con buffer limitato, ricerca, filtri, pausa ed export, senza contaminare stdout MCP.
+  3. Screen `/device-settings` transazionale: snapshot, draft locale, validazione, diff semantico, conferma esplicita e rilettura dell'ack; PSK, regione, reset e firmware restano fuori ambito.
+  4. Topologia visuale e telemetria storica soltanto dopo che i dati NeighborInfo e JSONL reali dimostrano frequenza e qualità sufficienti.
 * **Criterio di Accettazione Incremento 1**: la suite `unittest` copre dettaglio, densità automatica, persistenza, localizzazione e strip radio; il linter `ruff` è pulito; la nuova UI preserva tutte le funzionalità `/view` esistenti.

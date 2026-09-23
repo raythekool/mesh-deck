@@ -786,6 +786,88 @@ class TestDeviceSelectorKeyboard(_IsolatedSettingsTestCase):
             self.assertEqual(screen._bindings.key_to_bindings["r"][0].description, "Refresh")
             self.assertEqual(screen._bindings.key_to_bindings["q"][0].description, "Cancel")
 
+    async def test_selector_shows_preferred_active_and_retry_context(self):
+        from mesh_deck.ui.device_selector import DeviceSelectorApp
+
+        app = DeviceSelectorApp(
+            [
+                DeviceConnectionInfo("COM6", "T-Beam", "T-Beam"),
+                DeviceConnectionInfo("COM7", "Heltec", "Heltec"),
+            ],
+            preferred_port="COM6",
+            active_port="COM6",
+            failed_port="COM7",
+            failure_reason="Access denied",
+            lang="en",
+        )
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            screen = app.screen
+            options = screen.query_one("#devices", OptionList)
+            first = str(options.get_option_at_index(0).prompt)
+            second = str(options.get_option_at_index(1).prompt)
+            self.assertIn("PREFERRED", first)
+            self.assertIn("ACTIVE", first)
+            self.assertIn("RETRY", second)
+            self.assertTrue(screen.query_one("#device-error", Static).display)
+            self.assertIn("Access denied", str(screen.query_one("#device-error", Static).content))
+            self.assertEqual(screen._bindings.key_to_bindings["t"][0].description, "Retry")
+
+    async def test_selector_retry_action_returns_failed_port(self):
+        from mesh_deck.ui.device_selector import DeviceSelectorApp
+
+        app = DeviceSelectorApp(
+            [DeviceConnectionInfo("COM7", "Heltec", "Heltec")],
+            failed_port="COM7",
+            lang="en",
+        )
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            screen = app.screen
+            with unittest.mock.patch.object(screen, "dismiss") as dismiss:
+                screen.action_retry_failed_device()
+                dismiss.assert_called_once_with("COM7")
+
+    async def test_selector_empty_state_explains_recovery(self):
+        from mesh_deck.ui.device_selector import DeviceSelectorApp
+
+        app = DeviceSelectorApp([], lang="en")
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            screen = app.screen
+            empty = screen.query_one("#device-empty", Static)
+            self.assertTrue(empty.display)
+            self.assertIn("No Meshtastic radio was detected", str(empty.content))
+
+    async def test_failed_handshake_is_presented_on_return_to_selector(self):
+        from unittest.mock import MagicMock
+
+        client = MagicMock()
+        client.is_connected = False
+        client.port = None
+        client.store.get_all_nodes.return_value = []
+        client.get_local_node.return_value = None
+        client.get_channels.return_value = []
+        repl = MeshDeckREPL(client)
+        repl.settings.language = "en"
+        app = MeshDeckApp(
+            repl,
+            devices=[DeviceConnectionInfo("COM6", "T-Beam", "T-Beam")],
+        )
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.push_screen(ConnectionScreen("COM6", lang="en"))
+            await pilot.pause()
+            self.assertIsInstance(app.screen, ConnectionScreen)
+            app.connection_complete(False)
+            app.return_to_device_selector()
+            await pilot.pause()
+            self.assertIsInstance(app.screen, DeviceSelectorScreen)
+            error = app.screen.query_one("#device-error", Static)
+            self.assertTrue(error.display)
+            self.assertIn("COM6", str(error.content))
+
 
 class TestNodeSidebar(_IsolatedSettingsTestCase):
     """Test the mouse-clickable node sidebar in the main console."""

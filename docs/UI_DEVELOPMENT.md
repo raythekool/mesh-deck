@@ -1,6 +1,6 @@
 # UI Development Proposals
 
-> **Status:** sections 1–6 are implemented on `feat/ui-node-explorer-foundation`; sections 7–13 remain proposals. Each SVG is a wireframe that makes the intended interaction and information hierarchy reviewable before code is written.
+> **Status:** sections 1–7 are implemented on `feat/ui-node-explorer-foundation`; sections 8–13 remain proposals. Each SVG is a wireframe that makes the intended interaction and information hierarchy reviewable before code is written.
 
 ## Goals
 
@@ -72,16 +72,18 @@ The chat now creates individual direct-message conversations keyed by peer, with
 
 `/dm` remains the deliberate way to start a new conversation before any message has been exchanged.
 
-## 7. Device Selection
+## 7. Device Selection — Implemented
 
 ![Device selector proposal](ui-development/images/07-device-selector.svg)
 
-The initial device screen should distinguish:
+The initial device screen distinguishes:
 
 - Preferred/default port.
 - Currently active port after a return from `/switch`.
 - Last failed connection and retry action.
 - No-device state with concrete cable, driver, and scan guidance.
+
+The retry binding is only exposed after a failure. The empty state offers cable, power, driver, and port-ownership recovery guidance before rescan.
 
 This is especially useful where several USB serial adapters look similar.
 

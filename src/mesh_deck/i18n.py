@@ -507,7 +507,20 @@ STRINGS: dict[str, dict[str, str]] = {
         "it": "Usa freccia Su/Giù e Invio per selezionare",
         "en": "Use Up/Down arrows and Enter to select",
     },
+    "DEVICE_SELECTOR_ACTIVE": {"it": "ATTIVA", "en": "ACTIVE"},
+    "DEVICE_SELECTOR_PREFERRED": {"it": "PREFERITA", "en": "PREFERRED"},
+    "DEVICE_SELECTOR_RETRY": {"it": "RIPROVA", "en": "RETRY"},
+    "DEVICE_SELECTOR_FAILURE": {
+        "it": "Ultima connessione a {port} non riuscita: {reason}",
+        "en": "Last connection to {port} failed: {reason}",
+    },
+    "DEVICE_SELECTOR_FAILURE_UNKNOWN": {"it": "errore non specificato", "en": "unspecified error"},
+    "DEVICE_SELECTOR_EMPTY_HELP": {
+        "it": "Nessuna radio Meshtastic rilevata. Verifica cavo USB, alimentazione, driver seriale e che nessun'altra app stia usando la porta; poi premi r per aggiornare.",
+        "en": "No Meshtastic radio was detected. Check the USB cable, power, serial driver, and that no other app owns the port; then press r to rescan.",
+    },
     "BINDING_CANCEL": {"it": "Annulla", "en": "Cancel"},
+    "BINDING_RETRY": {"it": "Riprova", "en": "Retry"},
     "CONNECTION_HEADING": {"it": "Connessione alla periferica", "en": "Connecting to device"},
     "CONNECTION_STATUS": {
         "it": "Apertura di {port} e sincronizzazione del NodeDB...",
