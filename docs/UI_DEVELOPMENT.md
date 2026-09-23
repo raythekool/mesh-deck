@@ -17,9 +17,10 @@ The recommended implementation order is:
 1. Node explorer master/detail and compact responsive layout.
 2. Complete live localization, persistent radio state, and command progress.
 3. Direct-message conversations and a clearer device selector.
-4. Rendering consistency, then topology and historical telemetry after real
+4. Observability and safe device configuration.
+5. Rendering consistency, then topology and historical telemetry after real
    data is available.
-5. Accessibility checks as a release gate for every theme.
+6. Accessibility checks as a release gate for every theme.
 
 ## 1. Node Explorer: Master / Detail
 
@@ -147,6 +148,59 @@ depend on color alone. Add:
 - Icons and text labels alongside colors for connection, SNR, and warnings.
 - Contrast checks for foreground/background combinations in all four themes.
 - A screenshot test matrix for default, compact, and high-density surfaces.
+
+## 12. Application and Device Logs
+
+![Application and device logs proposal](ui-development/images/12-observability-logs.svg)
+
+Add an internal `/logs` screen for diagnostics without forcing operators to
+leave the TUI or find a terminal scrollback. It combines two explicitly
+labelled streams:
+
+- **Application**: Mesh-Deck events such as connection attempts, command
+  failures, history writes, and UI errors.
+- **Device**: log lines forwarded by the connected Meshtastic radio, tagged
+  with the serial port and firmware timestamp when supplied.
+
+The operator can filter by source and severity, pause auto-scroll, search,
+copy a selected range, and export the currently filtered view to a local text
+file. The default should be `Warning` and above so normal radio traffic does
+not turn the console into a firehose; an operator deliberately enables
+`Debug` while investigating a problem.
+
+This is a viewer, not a new persistent logging subsystem: it should subscribe
+to the existing Python logging and Meshtastic log-line events, retain a bounded
+in-memory buffer, and leave standard MCP stdout untouched.
+
+## 13. Connected Device Settings
+
+![Connected device settings proposal](ui-development/images/13-device-settings.svg)
+
+Add a separate `/device-settings` screen for the principal radio settings of
+the **currently connected** device. It must be clearly distinct from
+`/settings`, which controls Mesh-Deck's local user preferences.
+
+The first version should expose only settings with a safe, well-understood
+effect:
+
+| Group | Examples | Guardrail |
+| :---- | :------- | :-------- |
+| Identity | long name, short name, device role | Validate required names and show the node affected. |
+| Radio | modem preset, TX power, position broadcast interval | Show regulatory/coverage warning and expected reconnect or reboot. |
+| Position | fixed coordinates, altitude, position precision | Validate coordinate bounds and make position sharing explicit. |
+| Channels | channel name, enabled role, uplink/downlink flags | Never display or edit PSK material in the UI. |
+
+The UI follows a transaction rather than mutating controls immediately:
+
+1. Read and label the current radio snapshot.
+2. Edit a local draft with inline validation.
+3. Review a semantic diff, including side effects such as a radio reboot.
+4. Require explicit **Apply to device** confirmation.
+5. Show the radio acknowledgement, then re-read the snapshot.
+
+Region changes, factory reset, firmware operations, and raw protobuf editing
+are deliberately excluded from this first screen. They are high-risk actions
+that require a separate, explicit maintenance workflow.
 
 ## Explicit Non-goals
 

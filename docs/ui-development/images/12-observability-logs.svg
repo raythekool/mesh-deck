@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700" role="img" aria-labelledby="title desc">
+  <title id="title">Application and device logs proposal</title>
+  <desc id="desc">A log viewer with application and device sources, severity filters, search, pause, copy, and export controls.</desc>
+  <rect width="1200" height="700" fill="#081018"/>
+  <rect x="25" y="20" width="1150" height="54" rx="10" fill="#10212b" stroke="#00f3ff"/>
+  <text x="50" y="54" fill="#00f3ff" font-family="monospace" font-size="24" font-weight="bold">MESH-DECK / LOGS</text>
+  <text x="910" y="54" fill="#94a3b8" font-family="monospace" font-size="16">bounded buffer / no MCP stdout</text>
+  <rect x="25" y="94" width="255" height="570" rx="10" fill="#10212b" stroke="#1f8794"/>
+  <text x="52" y="130" fill="#9fffd0" font-family="monospace" font-size="19" font-weight="bold">SOURCE</text>
+  <rect x="45" y="150" width="215" height="42" rx="6" fill="#063b46" stroke="#00f3ff"/>
+  <text x="67" y="178" fill="#00f3ff" font-family="monospace" font-size="17">[x] All streams</text>
+  <text x="67" y="226" fill="#e8f1f5" font-family="monospace" font-size="17">[x] Application</text>
+  <text x="67" y="266" fill="#e8f1f5" font-family="monospace" font-size="17">[x] Device / COM6</text>
+  <line x1="52" y1="292" x2="250" y2="292" stroke="#334155"/>
+  <text x="52" y="330" fill="#9fffd0" font-family="monospace" font-size="19" font-weight="bold">SEVERITY</text>
+  <text x="67" y="372" fill="#e8f1f5" font-family="monospace" font-size="17">[ ] Debug</text>
+  <text x="67" y="412" fill="#e8f1f5" font-family="monospace" font-size="17">[x] Info</text>
+  <text x="67" y="452" fill="#ffb800" font-family="monospace" font-size="17">[x] Warning</text>
+  <text x="67" y="492" fill="#ff3366" font-family="monospace" font-size="17">[x] Error</text>
+  <text x="52" y="590" fill="#94a3b8" font-family="monospace" font-size="14">Default: Warning + Error</text>
+  <rect x="305" y="94" width="870" height="570" rx="10" fill="#0b1720" stroke="#00f3ff"/>
+  <rect x="330" y="118" width="455" height="42" rx="6" fill="#10212b" stroke="#1f8794"/>
+  <text x="350" y="146" fill="#9fffd0" font-family="monospace" font-size="16">Search text, port, command...</text>
+  <rect x="805" y="118" width="105" height="42" rx="6" fill="#2a211c" stroke="#ffb800"/>
+  <text x="826" y="146" fill="#ffb800" font-family="monospace" font-size="16">Pause</text>
+  <rect x="925" y="118" width="95" height="42" rx="6" fill="#10212b" stroke="#1f8794"/>
+  <text x="944" y="146" fill="#e8f1f5" font-family="monospace" font-size="16">Copy</text>
+  <rect x="1035" y="118" width="115" height="42" rx="6" fill="#00f3ff"/>
+  <text x="1051" y="146" fill="#081018" font-family="monospace" font-size="16" font-weight="bold">Export</text>
+  <line x1="330" y1="183" x2="1150" y2="183" stroke="#334155"/>
+  <text x="335" y="220" fill="#94a3b8" font-family="monospace" font-size="14">TIME      SOURCE       LEVEL    MESSAGE</text>
+  <rect x="330" y="236" width="820" height="44" fill="#10212b"/>
+  <text x="345" y="264" fill="#e8f1f5" font-family="monospace" font-size="16">18:21:03  APP          INFO     Connected to COM6 / T-Beam Vaiano</text>
+  <text x="345" y="310" fill="#94a3b8" font-family="monospace" font-size="16">18:21:04  DEVICE COM6  INFO     NodeDB synchronization complete</text>
+  <rect x="330" y="326" width="820" height="44" fill="#2a211c"/>
+  <text x="345" y="354" fill="#ffb800" font-family="monospace" font-size="16">18:22:10  APP          WARNING  Traceroute reply not received yet</text>
+  <rect x="330" y="416" width="820" height="44" fill="#32151c"/>
+  <text x="345" y="444" fill="#ff3366" font-family="monospace" font-size="16">18:23:17  DEVICE COM6  ERROR    Radio reported serial timeout</text>
+  <text x="345" y="590" fill="#94a3b8" font-family="monospace" font-size="15">Paused: 12 new lines buffered. Resume keeps operator position stable.</text>
+</svg>

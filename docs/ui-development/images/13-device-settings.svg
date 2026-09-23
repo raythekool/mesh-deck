@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700" role="img" aria-labelledby="title desc">
+  <title id="title">Connected device settings proposal</title>
+  <desc id="desc">A connected-device settings transaction with current snapshot, editable draft, semantic diff, validation, and explicit apply confirmation.</desc>
+  <rect width="1200" height="700" fill="#081018"/>
+  <rect x="25" y="20" width="1150" height="54" rx="10" fill="#10212b" stroke="#00f3ff"/>
+  <text x="50" y="54" fill="#00f3ff" font-family="monospace" font-size="24" font-weight="bold">MESH-DECK / DEVICE SETTINGS</text>
+  <text x="805" y="54" fill="#00ff66" font-family="monospace" font-size="17">CONNECTED: T-Beam Vaiano / COM6</text>
+  <rect x="25" y="94" width="235" height="570" rx="10" fill="#10212b" stroke="#1f8794"/>
+  <text x="52" y="130" fill="#9fffd0" font-family="monospace" font-size="19" font-weight="bold">GROUPS</text>
+  <rect x="45" y="150" width="195" height="44" rx="6" fill="#063b46" stroke="#00f3ff"/>
+  <text x="67" y="179" fill="#00f3ff" font-family="monospace" font-size="17">Identity</text>
+  <text x="67" y="230" fill="#e8f1f5" font-family="monospace" font-size="17">Radio</text>
+  <text x="67" y="275" fill="#e8f1f5" font-family="monospace" font-size="17">Position</text>
+  <text x="67" y="320" fill="#e8f1f5" font-family="monospace" font-size="17">Channels</text>
+  <line x1="52" y1="350" x2="230" y2="350" stroke="#334155"/>
+  <text x="52" y="390" fill="#ffb800" font-family="monospace" font-size="15">High-risk actions excluded:</text>
+  <text x="52" y="420" fill="#94a3b8" font-family="monospace" font-size="14">region changes</text>
+  <text x="52" y="445" fill="#94a3b8" font-family="monospace" font-size="14">factory reset</text>
+  <text x="52" y="470" fill="#94a3b8" font-family="monospace" font-size="14">firmware / raw protobuf</text>
+  <rect x="285" y="94" width="560" height="570" rx="10" fill="#0b1720" stroke="#00f3ff"/>
+  <text x="315" y="130" fill="#9fffd0" font-family="monospace" font-size="19" font-weight="bold">IDENTITY / LOCAL DRAFT</text>
+  <text x="315" y="180" fill="#94a3b8" font-family="monospace" font-size="15">Current device snapshot read at 18:26:10</text>
+  <text x="315" y="230" fill="#e8f1f5" font-family="monospace" font-size="17">Long name</text>
+  <rect x="315" y="242" width="490" height="42" rx="6" fill="#10212b" stroke="#1f8794"/>
+  <text x="332" y="270" fill="#e8f1f5" font-family="monospace" font-size="16">T-Beam Vaiano</text>
+  <text x="315" y="330" fill="#e8f1f5" font-family="monospace" font-size="17">Short name</text>
+  <rect x="315" y="342" width="210" height="42" rx="6" fill="#10212b" stroke="#1f8794"/>
+  <text x="332" y="370" fill="#e8f1f5" font-family="monospace" font-size="16">237c</text>
+  <text x="315" y="430" fill="#e8f1f5" font-family="monospace" font-size="17">Device role</text>
+  <rect x="315" y="442" width="260" height="42" rx="6" fill="#10212b" stroke="#1f8794"/>
+  <text x="332" y="470" fill="#e8f1f5" font-family="monospace" font-size="16">CLIENT  v</text>
+  <text x="315" y="540" fill="#94a3b8" font-family="monospace" font-size="15">Inline validation: name length, required fields, supported roles.</text>
+  <rect x="870" y="94" width="305" height="570" rx="10" fill="#10212b" stroke="#ffb800"/>
+  <text x="895" y="130" fill="#ffb800" font-family="monospace" font-size="19" font-weight="bold">REVIEW CHANGE</text>
+  <text x="895" y="185" fill="#94a3b8" font-family="monospace" font-size="15">No change is live yet.</text>
+  <line x1="895" y1="205" x2="1145" y2="205" stroke="#334155"/>
+  <text x="895" y="248" fill="#e8f1f5" font-family="monospace" font-size="16">Short name</text>
+  <text x="895" y="278" fill="#94a3b8" font-family="monospace" font-size="15">237c</text>
+  <text x="954" y="278" fill="#ffb800" font-family="monospace" font-size="15">-&gt;</text>
+  <text x="995" y="278" fill="#00ff66" font-family="monospace" font-size="15">BASE</text>
+  <text x="895" y="338" fill="#e8f1f5" font-family="monospace" font-size="16">Side effect</text>
+  <text x="895" y="366" fill="#ffb800" font-family="monospace" font-size="15">Radio may reconnect</text>
+  <rect x="895" y="490" width="250" height="52" rx="7" fill="#ffb800"/>
+  <text x="920" y="523" fill="#081018" font-family="monospace" font-size="16" font-weight="bold">Apply to device</text>
+  <text x="895" y="585" fill="#94a3b8" font-family="monospace" font-size="14">Confirm, wait for ack, re-read.</text>
+  <text x="895" y="610" fill="#94a3b8" font-family="monospace" font-size="14">PSK values are never displayed.</text>
+</svg>
