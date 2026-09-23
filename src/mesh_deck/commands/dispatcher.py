@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import shlex
 from typing import TYPE_CHECKING
 from collections.abc import Callable
@@ -120,6 +121,13 @@ class CommandDispatcher:
         """
         try:
             handler(args)
+        except SystemExit as exc:
+            # meshtastic-python exits the process on some failures; inside the
+            # TUI that would take the console down with it.
+            logger.error("Command aborted by the radio library: %s", exc)
+            self.console.print(
+                f"[{THEME_COLORS['alert']}]{t('COMMAND_FAILED', self.lang, error=exc)}[/]"
+            )
         except Exception as exc:
             logger.exception("Command failed: %s", exc)
             self.console.print(
@@ -246,10 +254,22 @@ class CommandDispatcher:
         target_query = args[0]
         text = " ".join(args[1:]).strip()
 
-        # Resolve target query to node
+        # Resolve the target, or accept a well-formed node ID we simply have
+        # not heard yet. Anything else would reach meshtastic-python as a raw
+        # string, which reports the failure by exiting the process; the agent
+        # layer already refuses unknown targets, so do the same here.
         target_node = self.client.store.get_node(target_query)
-        target_id = target_node.id if target_node else target_query
-        target_name = target_node.display_name if target_node else target_id
+        if target_node is not None:
+            target_id = target_node.id
+            target_name = target_node.display_name
+        elif re.fullmatch(r"!?[0-9a-fA-F]{8}", target_query):
+            target_id = target_query if target_query.startswith("!") else f"!{target_query.lower()}"
+            target_name = target_id
+        else:
+            self.console.print(
+                f"[{THEME_COLORS['alert']}]{t('NODE_NOT_FOUND', lang, query=target_query)}[/]"
+            )
+            return
 
         try:
             self.client.send_dm(target_id, text)

@@ -157,6 +157,19 @@ class TestCommandDispatcher(unittest.TestCase):
         self.assertTrue(res)
         self.mock_client.send_dm.assert_called_with("!62d927b8", "Secret ping message")
 
+    def test_dispatch_dm_refuses_an_unresolvable_target(self) -> None:
+        """A raw name would reach meshtastic as a string and exit the process."""
+        self.assertTrue(self.dispatcher.dispatch("/dm NodoCheNonEsiste ciao"))
+        self.mock_client.send_dm.assert_not_called()
+
+    def test_dispatch_dm_accepts_a_well_formed_id_not_yet_heard(self) -> None:
+        self.assertTrue(self.dispatcher.dispatch("/dm !deadbeef ciao"))
+        self.mock_client.send_dm.assert_called_with("!deadbeef", "ciao")
+
+        self.mock_client.send_dm.reset_mock()
+        self.assertTrue(self.dispatcher.dispatch("/dm DEADBEEF ciao"))
+        self.mock_client.send_dm.assert_called_with("!deadbeef", "ciao")
+
     def test_dispatch_dm_missing_args(self) -> None:
         # /dm with no args or only target
         res1 = self.dispatcher.dispatch("/dm")
@@ -346,6 +359,16 @@ class TestCommandDispatcher(unittest.TestCase):
 
         self.mock_client.send_dm.side_effect = ConnectionError("radio unplugged")
         self.assertTrue(self.dispatcher.dispatch("/dm TRIN hello"))
+
+    def test_dispatch_survives_a_library_sys_exit(self) -> None:
+        """meshtastic-python exits the process on some failures; the TUI must not die."""
+        self.mock_client.send_dm.side_effect = SystemExit(1)
+        self.assertTrue(self.dispatcher.dispatch("/dm TRIN hello"))
+        self.assertTrue(self.dispatcher.running)
+
+        self.mock_client.get_channels.side_effect = SystemExit(1)
+        self.assertTrue(self.dispatcher.dispatch("/channels"))
+        self.assertTrue(self.dispatcher.running)
 
     def test_dispatch_reports_unexpected_handler_error(self) -> None:
         self.mock_client.get_channels.side_effect = RuntimeError("boom")

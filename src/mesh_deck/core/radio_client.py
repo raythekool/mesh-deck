@@ -38,6 +38,30 @@ logger = logging.getLogger(__name__)
 RECONNECT_BACKOFF_SECONDS: tuple[float, ...] = (2.0, 5.0, 10.0, 20.0, 30.0)
 
 
+class RadioOperationError(RuntimeError):
+    """A radio operation failed inside meshtastic-python."""
+
+
+def _guard_library_exit(operation: str, func: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
+    """Run a meshtastic call, converting its ``sys.exit()`` into an exception.
+
+    meshtastic-python reports some failures (an unknown destination node, for
+    instance) by calling ``our_exit()``, which prints and raises SystemExit.
+    SystemExit derives from BaseException, so it sails past every ``except
+    Exception`` in the app and takes the whole process — or the Textual
+    worker running the command — down with it. Converting it here fixes the
+    REPL, the CLI and the MCP server at once, since they all send through
+    RadioClient.
+    """
+    try:
+        return func(*args, **kwargs)
+    except SystemExit as exc:
+        raise RadioOperationError(
+            f"{operation} was rejected by the radio library "
+            f"(the destination may be unknown to this node)."
+        ) from exc
+
+
 class RadioClient:
     """High-level client for Meshtastic serial connection, event dispatching, and state tracking."""
 
@@ -69,6 +93,7 @@ class RadioClient:
         self._reconnect_thread: threading.Thread | None = None
         self._reconnect_stop = threading.Event()
         self._reconnect_callbacks: list[Callable[[str, int], Any]] = []
+        self._expect_disconnect = threading.Event()
 
         # Mesh topology state (RF-2.3) and traceroute plumbing (RF-3.1)
         self._neighbor_reports: dict[str, NeighborReport] = {}
@@ -260,6 +285,9 @@ class RadioClient:
         self._port = None
 
         if iface is not None:
+            # Closing publishes meshtastic.connection.lost; flag it so the echo
+            # of our own shutdown is not reported to the user as a failure.
+            self._expect_disconnect.set()
             try:
                 iface.close()
             except Exception as exc:
@@ -433,7 +461,9 @@ class RadioClient:
             self._traceroute_waiters[target] = waiter
 
         try:
-            iface.sendData(
+            _guard_library_exit(
+                "The traceroute request",
+                iface.sendData,
                 mesh_pb2.RouteDiscovery(),
                 destinationId=target,
                 portNum=portnums_pb2.PortNum.TRACEROUTE_APP,
@@ -599,6 +629,12 @@ class RadioClient:
         if self._interface is not None and interface is not None and interface != self._interface:
             return
 
+        if self._expect_disconnect.is_set():
+            # Echo of a disconnect() or a port switch we initiated ourselves.
+            self._expect_disconnect.clear()
+            logger.debug("Ignoring connection.lost echo from our own shutdown")
+            return
+
         logger.warning("Pubsub signaled connection lost on %s", self._port)
         lost_port = self._port
         with self._lock:
@@ -707,7 +743,13 @@ class RadioClient:
                 raise ConnectionError("RadioClient is not connected to any radio.")
             iface = self._interface
 
-        result = iface.sendText(text=text, destinationId="^all", channelIndex=channel_index)
+        result = _guard_library_exit(
+            "Broadcast",
+            iface.sendText,
+            text=text,
+            destinationId="^all",
+            channelIndex=channel_index,
+        )
         self._record_outgoing_message(
             text,
             receiver_id="^all",
@@ -732,7 +774,13 @@ class RadioClient:
                 raise ConnectionError("RadioClient is not connected to any radio.")
             iface = self._interface
 
-        result = iface.sendText(text=text, destinationId=target_id, wantAck=True)
+        result = _guard_library_exit(
+            "The direct message",
+            iface.sendText,
+            text=text,
+            destinationId=target_id,
+            wantAck=True,
+        )
         target_node = self._node_store.get_node(str(target_id))
         self._record_outgoing_message(
             text,

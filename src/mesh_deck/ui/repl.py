@@ -11,6 +11,7 @@ from textual import events, work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
+from textual.css.query import NoMatches
 from textual.screen import ModalScreen
 from textual.widgets import Button, Footer, Header, Input, Label, OptionList, RichLog, Select, Static
 from textual.widgets.option_list import Option
@@ -75,10 +76,23 @@ class TextualConsole:
         self._invoke(self.app.request_sidebar_refresh)
 
     def _invoke(self, callback: Any, *args: Any) -> None:
-        if threading.get_ident() == getattr(self.app, "ui_thread_id", None):
-            callback(*args)
-        else:
-            self.app.call_from_thread(callback, *args)
+        """Run a UI callback on the Textual thread, tolerating a dying app.
+
+        Radio threads keep publishing during shutdown, after the widgets are
+        gone and the event loop has stopped. Losing a log line at that point
+        is fine; crashing the callback (and with it the pubsub dispatch) is
+        not, so teardown races are swallowed here rather than in every caller.
+        """
+        try:
+            if threading.get_ident() == getattr(self.app, "ui_thread_id", None):
+                callback(*args)
+            else:
+                self.app.call_from_thread(callback, *args)
+        except NoMatches:
+            pass  # widget already unmounted
+        except RuntimeError as exc:
+            if "App is not running" not in str(exc):
+                raise
 
 
 class SettingsScreen(ModalScreen[None]):

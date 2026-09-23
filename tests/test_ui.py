@@ -1396,5 +1396,52 @@ class TestScreenshotGenerator(unittest.TestCase):
         self.assertIn("ZION", exported)
 
 
+class TestConsoleBridgeTeardown(unittest.IsolatedAsyncioTestCase):
+    """Radio threads keep publishing while the app shuts down; the bridge must absorb it."""
+
+    async def test_console_print_after_shutdown_is_swallowed(self):
+        from mesh_deck.ui.repl import MeshDeckApp, MeshDeckREPL, TextualConsole
+
+        client = unittest.mock.MagicMock()
+        client.store.get_all_nodes.return_value = []
+        client.get_local_node.return_value = None
+        client.get_channels.return_value = []
+        settings = Settings()
+        settings.save = lambda: True
+        repl = MeshDeckREPL(client, console=unittest.mock.MagicMock(),
+                            dispatcher=unittest.mock.MagicMock(), settings=settings)
+        app = MeshDeckApp(repl)
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            console = TextualConsole(app)
+            console.print("still alive")
+
+        # The app is stopped and its widgets are gone: a late radio callback
+        # must not raise NoMatches or "App is not running".
+        console.print("too late")
+        console.request_sidebar_refresh()
+        console.notify_message(MeshMessage(sender_id="!a", text="late"))
+
+    async def test_connection_change_callback_survives_a_dead_app(self):
+        from mesh_deck.ui.repl import MeshDeckApp, MeshDeckREPL, TextualConsole
+
+        client = unittest.mock.MagicMock()
+        client.store.get_all_nodes.return_value = []
+        client.get_local_node.return_value = None
+        client.get_channels.return_value = []
+        settings = Settings()
+        settings.save = lambda: True
+        repl = MeshDeckREPL(client, console=unittest.mock.MagicMock(),
+                            dispatcher=unittest.mock.MagicMock(), settings=settings)
+        app = MeshDeckApp(repl)
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            repl.console = TextualConsole(app)
+
+        # Exactly the teardown race seen in the wild: the radio reports the
+        # connection loss after the screen is gone.
+        repl._handle_connection_change(False, "COM6")
+
+
 if __name__ == "__main__":
     unittest.main()

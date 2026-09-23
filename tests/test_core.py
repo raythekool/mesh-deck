@@ -865,6 +865,42 @@ class TestRadioClient(unittest.TestCase):
         with self.assertRaises(ConnectionError):
             client.send_dm("!b8f862d9", "Will fail")
 
+    def test_library_sys_exit_becomes_a_catchable_error(self):
+        """meshtastic's our_exit() raises SystemExit, which every `except Exception` misses."""
+        from mesh_deck.core.radio_client import RadioOperationError
+
+        client = RadioClient()
+        mock_iface = MagicMock()
+        mock_iface.sendText.side_effect = SystemExit(1)
+        mock_iface.sendData.side_effect = SystemExit(1)
+        client._interface = mock_iface
+        client._is_connected = True
+
+        for call in (
+            lambda: client.send_broadcast("boom"),
+            lambda: client.send_dm("!deadbeef", "boom"),
+            lambda: client.trace_route("!deadbeef", timeout=0.05),
+        ):
+            with self.assertRaises(RadioOperationError):
+                call()
+
+        # The traceroute waiter must not leak when the send itself blew up.
+        self.assertEqual(client._traceroute_waiters, {})
+
+    def test_failed_send_is_not_recorded_in_history(self):
+        from mesh_deck.core.radio_client import RadioOperationError
+
+        history = MagicMock()
+        client = RadioClient(history=history)
+        mock_iface = MagicMock()
+        mock_iface.sendText.side_effect = SystemExit(1)
+        client._interface = mock_iface
+        client._is_connected = True
+
+        with self.assertRaises(RadioOperationError):
+            client.send_dm("!deadbeef", "boom")
+        history.record_message.assert_not_called()
+
     def test_state_getters_when_disconnected_and_connected(self):
         client = RadioClient()
         self.assertIsNone(client.get_local_node())
@@ -1061,6 +1097,42 @@ class TestMeshTopologyAndTraceroute(unittest.TestCase):
 
         client._on_pubsub_connection_lost()
         self.assertFalse(client.is_reconnecting)
+
+    def test_intentional_disconnect_is_not_reported_as_a_loss(self):
+        """Closing the interface publishes connection.lost; that echo is ours."""
+        client = self._client()
+        client.auto_reconnect = True
+        client._interface = MagicMock()
+        client._is_connected = True
+        client._port = "/dev/ttyACM0"
+
+        events = []
+        client.on_connection_change(lambda connected, port: events.append((connected, port)))
+        client.disconnect()
+        # disconnect() itself reports the state change exactly once...
+        self.assertEqual(events, [(False, "/dev/ttyACM0")])
+
+        # ...and the pubsub echo that follows must stay silent and not retry.
+        client._on_pubsub_connection_lost()
+        self.assertEqual(events, [(False, "/dev/ttyACM0")])
+        self.assertFalse(client.is_reconnecting)
+
+    def test_a_genuine_loss_after_a_reconnect_is_still_reported(self):
+        client = self._client()
+        client._interface = MagicMock()
+        client._is_connected = True
+        client._port = "/dev/ttyACM0"
+        client.disconnect()
+        client._on_pubsub_connection_lost()  # consumes the expected echo
+
+        # A later, unexpected drop must be reported normally.
+        client._interface = MagicMock()
+        client._is_connected = True
+        client._port = "/dev/ttyACM0"
+        events = []
+        client.on_connection_change(lambda connected, port: events.append((connected, port)))
+        client._on_pubsub_connection_lost()
+        self.assertEqual(events, [(False, "/dev/ttyACM0")])
 
 
 class TestBearing(unittest.TestCase):
