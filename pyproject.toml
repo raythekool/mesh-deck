@@ -22,7 +22,7 @@ build-backend = "hatchling.build"
 [tool.ruff]
 line-length = 120
 target-version = "py311"
-src = ["src", "tests"]
+src = ["src", "tests", "tools"]
 
 [tool.ruff.lint]
 # Correctness-focused: unused/undefined names, bugbear, obvious simplifications.

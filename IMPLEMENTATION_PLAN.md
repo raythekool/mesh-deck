@@ -47,9 +47,10 @@ mesh-deck/
 │       └── commands/           # Dispatcher dei comandi utente
 │           ├── __init__.py
 │           └── dispatcher.py   # Router dei comandi (/nodes, /dm, /switch...)
-└── tests/                      # Suite unittest (test_core, test_commands, test_ui)
+├── tests/                      # Suite unittest (test_core, test_commands, test_ui)
+└── tools/
+    └── make_screenshots.py     # Rigenerazione deterministica degli SVG in docs/
 ```
-
 > **Invarianti architetturali**
 >
 > - `core/` non dipende da `ui/`; `commands/dispatcher.py` orchestra i due strati.

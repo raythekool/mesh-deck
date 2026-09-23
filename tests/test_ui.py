@@ -1361,5 +1361,40 @@ class TestNodeSidebarLiveUpdates(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(app._sidebar_refresh_pending)
 
 
+class TestScreenshotGenerator(unittest.TestCase):
+    """The docs screenshot generator must keep working as the UI evolves."""
+
+    def _module(self):
+        import importlib.util
+        from pathlib import Path
+
+        path = Path(__file__).resolve().parents[1] / "tools" / "make_screenshots.py"
+        spec = importlib.util.spec_from_file_location("make_screenshots", path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+    def test_sample_data_renders_every_rich_surface(self):
+        module = self._module()
+        store = module._sample_store()
+        local = store.get_local_node()
+        self.assertIsNotNone(local)
+        self.assertTrue(local.is_local)
+        # Sample data must exercise distance and bearing, not just names.
+        target = store.get_node("ZION")
+        self.assertIsNotNone(store.calculate_distance(local.id, target.id))
+        self.assertIsNotNone(store.calculate_bearing(local.id, target.id))
+
+        console = module._console()
+        console.print(render_banner(local, port="/dev/ttyACM0", channels=module._sample_channels()))
+        console.print(render_nodes_table(store.get_all_nodes(), local_node_id=local.id))
+        console.print(render_node_detail(target, distance_km=1.0, bearing_deg=42.0))
+        for msg in module._sample_messages():
+            console.print(render_message(msg))
+        exported = console.export_svg(title="test")
+        self.assertIn("MRPH", exported)
+        self.assertIn("ZION", exported)
+
+
 if __name__ == "__main__":
     unittest.main()

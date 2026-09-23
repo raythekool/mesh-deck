@@ -44,6 +44,10 @@ A full-screen chat view: click a channel to switch, see unread badges on the "Di
 
 ![Channel and DM chat viewer](docs/screenshots/chat.svg)
 
+> These SVGs are generated from fixed sample data, with no radio attached, by
+> `uv run python tools/make_screenshots.py`. Pass `--theme midnight|nord|ember`
+> to render the same views with another palette.
+
 ---
 
 ## ⚡ Core Features
