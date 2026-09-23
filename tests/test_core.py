@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, UTC
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock, patch
@@ -152,6 +152,59 @@ class TestEvents(unittest.TestCase):
         d = msg.to_dict()
         self.assertEqual(d["text"], "Hello Mesh!")
         self.assertFalse(d["is_dm"])
+        # Canonical spelling only: no duplicated alias keys.
+        for alias in ("recipient_id", "is_direct", "hops_away"):
+            self.assertNotIn(alias, d)
+
+    def test_mesh_message_round_trips_through_dict(self):
+        original = MeshMessage(
+            sender_id="!45a466e4",
+            sender_name="Heltec Node",
+            sender_short_name="HELT",
+            receiver_id="!62d927b8",
+            recipient_name="Trinity",
+            text="Rientro alla base",
+            channel=2,
+            channel_name="Ops",
+            snr=-4.5,
+            hops=3,
+            is_dm=True,
+        )
+        restored = MeshMessage.from_dict(original.to_dict())
+        self.assertEqual(restored.to_dict(), original.to_dict())
+        self.assertEqual(restored.timestamp, original.timestamp)
+
+    def test_mesh_message_from_dict_accepts_legacy_history_records(self):
+        # Shape written by older versions of HistoryStore.record_message().
+        legacy = {
+            "sender_id": "!45a466e4",
+            "sender_name": "Heltec Node",
+            "recipient_id": "!62d927b8",
+            "text": "vecchio record",
+            "channel": 1,
+            "hops_away": 2,
+            "is_direct": True,
+            "timestamp": "2024-05-01T10:30:00",
+            "direction": "in",
+            "recorded_at": "2024-05-01T10:30:01",
+        }
+        msg = MeshMessage.from_dict(legacy)
+        self.assertEqual(msg.receiver_id, "!62d927b8")
+        self.assertTrue(msg.is_dm)
+        self.assertEqual(msg.hops, 2)
+        self.assertEqual(msg.timestamp.year, 2024)
+        self.assertEqual(msg.text, "vecchio record")
+
+    def test_mesh_message_from_dict_tolerates_broken_timestamp(self):
+        msg = MeshMessage.from_dict({"text": "hi", "timestamp": "not-a-date"})
+        self.assertIsInstance(msg.timestamp, datetime)
+
+    def test_models_reject_unknown_keyword_arguments(self):
+        # The hand-written __init__ used to swallow typos via **kwargs.
+        with self.assertRaises(TypeError):
+            NodeData(id="!1", not_a_field=True)
+        with self.assertRaises(TypeError):
+            MeshMessage(text="hi", not_a_field=True)
 
     def test_device_connection_info(self):
         dev = DeviceConnectionInfo(
@@ -464,7 +517,7 @@ class TestNodeStore(unittest.TestCase):
             "user": {"id": "!1", "longName": "Local No Pos"},
         }, is_local=True)
         store_no_local_pos.set_local_node_id("!1")
-        target = store_no_local_pos.update_from_node_dict({
+        store_no_local_pos.update_from_node_dict({
             "num": 2,
             "user": {"id": "!2"},
             "position": {"latitude": 45.0, "longitude": 9.0},
@@ -562,7 +615,7 @@ class TestNodeStore(unittest.TestCase):
         self.assertEqual(by_lh[-1].short_name, "ZETA")
 
     def test_active_only_filtering_with_timezones(self):
-        now_utc = datetime.now(timezone.utc)
+        now_utc = datetime.now(UTC)
         # Active timezone-aware node
         self.store.update_from_node_dict({
             "num": 50,
@@ -818,6 +871,69 @@ class TestRadioClient(unittest.TestCase):
         self.assertEqual(client.get_my_info()["is_connected"], False)
         self.assertEqual(client.get_channels(), [])
 
+    def test_get_channels_emits_normalized_keys_without_the_psk(self):
+        from meshtastic import channel_pb2
+
+        channel = channel_pb2.Channel()
+        channel.index = 1
+        channel.role = channel_pb2.Channel.Role.SECONDARY
+        channel.settings.name = "Telemetry"
+        channel.settings.uplink_enabled = True
+        channel.settings.downlink_enabled = False
+        channel.settings.psk = b"super-secret-key"
+
+        client = RadioClient()
+        client._interface = MagicMock()
+        client._interface.localNode.channels = [channel]
+
+        (result,) = client.get_channels()
+        self.assertEqual(result["index"], 1)
+        self.assertEqual(result["name"], "Telemetry")
+        self.assertEqual(result["role"], "SECONDARY")
+        self.assertTrue(result["uplink_enabled"])
+        self.assertFalse(result["downlink_enabled"])
+        self.assertTrue(result["has_psk"])
+        self.assertNotIn("psk", result)
+
+    def test_get_channels_reports_no_psk_for_default_channel(self):
+        from meshtastic import channel_pb2
+
+        channel = channel_pb2.Channel()
+        channel.settings.name = ""
+
+        client = RadioClient()
+        client._interface = MagicMock()
+        client._interface.localNode.channels = [channel]
+
+        (result,) = client.get_channels()
+        self.assertFalse(result["has_psk"])
+        self.assertFalse(result["uplink_enabled"])
+
+    def test_get_my_info_normalizes_keys_and_adds_radio_profile(self):
+        from meshtastic import config_pb2, mesh_pb2
+
+        my_info = mesh_pb2.MyNodeInfo()
+        my_info.my_node_num = 1168467684
+
+        lora = config_pb2.Config.LoRaConfig()
+        lora.region = config_pb2.Config.LoRaConfig.RegionCode.EU_868
+        lora.modem_preset = config_pb2.Config.LoRaConfig.ModemPreset.MEDIUM_FAST
+
+        client = RadioClient()
+        client._interface = MagicMock()
+        client._interface.myInfo = my_info
+        client._interface.metadata.firmware_version = "2.7.11"
+        client._interface.localNode.localConfig.lora = lora
+        client._port = "/dev/ttyACM0"
+
+        info = client.get_my_info()
+        self.assertEqual(info["my_node_num"], 1168467684)
+        self.assertEqual(info["firmware_version"], "2.7.11")
+        self.assertEqual(info["region"], "EU_868")
+        self.assertEqual(info["modem_preset"], "MEDIUM_FAST")
+        self.assertEqual(info["port"], "/dev/ttyACM0")
+        self.assertNotIn("myNodeNum", info)
+
 
 class TestHistoryStore(unittest.TestCase):
     """Test HistoryStore JSONL persistence, dedupe logic, and filtering."""
@@ -826,6 +942,28 @@ class TestHistoryStore(unittest.TestCase):
         self._tmp = TemporaryDirectory()
         self.addCleanup(self._tmp.cleanup)
         self.store = HistoryStore(base_dir=self._tmp.name)
+
+    def test_recorded_messages_reload_as_mesh_messages(self):
+        """The /chat preload contract: what we write must read back unchanged."""
+        original = MeshMessage(
+            sender_id="!45a466e4",
+            sender_name="Heltec Milan",
+            sender_short_name="MILA",
+            receiver_id="!62d927b8",
+            recipient_name="Trinity",
+            text="Coordinate ricevute",
+            channel=1,
+            channel_name="Ops",
+            snr=6.25,
+            hops=2,
+            is_dm=True,
+        )
+        self.store.record_message(original, direction="out")
+
+        (entry,) = self.store.iter_messages()
+        self.assertEqual(entry["direction"], "out")
+        restored = MeshMessage.from_dict(entry)
+        self.assertEqual(restored.to_dict(), original.to_dict())
 
     def test_record_node_appends_and_dedupes(self):
         node = NodeData(id="!45a466e4", long_name="Heltec Milan", battery_level=80)
@@ -939,7 +1077,10 @@ class TestRadioClientHistoryWiring(unittest.TestCase):
     def test_off_message_received_unsubscribes(self):
         client = RadioClient()
         messages = []
-        callback = lambda m: messages.append(m)
+
+        def callback(msg):
+            messages.append(msg)
+
         client.on_message_received(callback)
         client.off_message_received(callback)
 

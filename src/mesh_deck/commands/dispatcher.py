@@ -2,22 +2,25 @@
 
 from __future__ import annotations
 
+import logging
 import shlex
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
+from collections.abc import Callable
 
 from rich.console import Console
-from rich.panel import Panel
 from rich.table import Table
 
 from mesh_deck.core.scanner import scan_meshtastic_ports
 from mesh_deck.core.settings import Settings
 from mesh_deck.i18n import t
 from mesh_deck.ui.banner import render_banner
-from mesh_deck.ui.tables import render_message, render_node_detail, render_nodes_table
-from mesh_deck.ui.theme import THEME_COLORS
+from mesh_deck.ui.tables import render_node_detail, render_nodes_table
+from mesh_deck.ui.theme import THEME_COLORS, set_theme, theme_names
 
 if TYPE_CHECKING:
     from mesh_deck.core.radio_client import RadioClient
+
+logger = logging.getLogger(__name__)
 
 
 class CommandDispatcher:
@@ -85,12 +88,28 @@ class CommandDispatcher:
                     args = shlex.split(rest)
                 except ValueError:
                     args = rest.split()
-                handler(args)
+                self._run(handler, args)
         else:
             # Plain text input defaults to broadcasting on channel 0
-            self.cmd_send([line])
+            self._run(self.cmd_send, [line])
 
         return self.running
+
+    def _run(self, handler: Callable[[list[str]], None], args: list[str]) -> None:
+        """Execute a command handler, reporting failures instead of propagating.
+
+        Handlers talk to the radio, which raises (e.g. ``ConnectionError`` when
+        the cable is unplugged). The REPL runs them on a Textual worker thread,
+        so an escaping exception would kill the worker rather than inform the
+        operator.
+        """
+        try:
+            handler(args)
+        except Exception as exc:
+            logger.exception("Command failed: %s", exc)
+            self.console.print(
+                f"[{THEME_COLORS['alert']}]{t('COMMAND_FAILED', self.lang, error=exc)}[/]"
+            )
 
     def cmd_help(self, args: list[str]) -> None:
         """Display available commands."""
@@ -186,13 +205,16 @@ class CommandDispatcher:
             self.console.print(f"[{THEME_COLORS['alert']}]{t('USAGE_SEND', lang)}[/]")
             return
 
-        success = self.client.send_broadcast(text)
-        if success:
-            self.console.print(
-                f"[{THEME_COLORS['secondary']}]{t('SEND_SUCCESS', lang, text=text)}[/]"
-            )
-        else:
-            self.console.print(f"[{THEME_COLORS['alert']}]{t('SEND_ERROR', lang)}[/]")
+        try:
+            self.client.send_broadcast(text)
+        except Exception as exc:
+            logger.warning("Broadcast failed: %s", exc)
+            self.console.print(f"[{THEME_COLORS['alert']}]{t('SEND_ERROR', lang)} ({exc})[/]")
+            return
+
+        self.console.print(
+            f"[{THEME_COLORS['secondary']}]{t('SEND_SUCCESS', lang, text=text)}[/]"
+        )
 
     def cmd_dm(self, args: list[str]) -> None:
         """Send a direct message."""
@@ -207,15 +229,20 @@ class CommandDispatcher:
         # Resolve target query to node
         target_node = self.client.store.get_node(target_query)
         target_id = target_node.id if target_node else target_query
-
-        success = self.client.send_dm(target_id, text)
         target_name = target_node.display_name if target_node else target_id
-        if success:
+
+        try:
+            self.client.send_dm(target_id, text)
+        except Exception as exc:
+            logger.warning("Direct message failed: %s", exc)
             self.console.print(
-                f"[{THEME_COLORS['magenta']}]{t('DM_SUCCESS', lang, name=target_name, text=text)}[/]"
+                f"[{THEME_COLORS['alert']}]{t('DM_ERROR', lang, name=target_name)} ({exc})[/]"
             )
-        else:
-            self.console.print(f"[{THEME_COLORS['alert']}]{t('DM_ERROR', lang, name=target_name)}[/]")
+            return
+
+        self.console.print(
+            f"[{THEME_COLORS['magenta']}]{t('DM_SUCCESS', lang, name=target_name, text=text)}[/]"
+        )
 
     def cmd_channels(self, args: list[str]) -> None:
         """Display configured channels."""
@@ -414,7 +441,11 @@ class CommandDispatcher:
             table.add_column(t("SETTING_OPTS", lang), style="dim cyan")
 
             table.add_row(t("SETTINGS_ROW_LANG", lang), settings.language, "/settings lang <it|en>")
-            table.add_row(t("SETTINGS_ROW_THEME", lang), settings.theme, "/settings theme <cyberpunk|high_contrast|amber|matrix>")
+            table.add_row(
+                t("SETTINGS_ROW_THEME", lang),
+                settings.theme,
+                f"/settings theme <{'|'.join(theme_names())}>",
+            )
             table.add_row(
                 t("SETTINGS_ROW_PORT", lang),
                 settings.default_port or t("SETTINGS_AUTODETECT", lang),
@@ -449,11 +480,15 @@ class CommandDispatcher:
                 self.console.print(f"[{THEME_COLORS['alert']}]{t('SETTINGS_LANG_INVALID', lang)}[/]")
         elif sub in ("theme", "tema") and len(args) > 1:
             theme_val = args[1].lower()
-            if theme_val in ("cyberpunk", "high_contrast", "amber", "matrix"):
+            if theme_val in theme_names():
                 settings.update(theme=theme_val)
+                set_theme(theme_val)
+                repainter = getattr(self.console, "apply_theme", None)
+                if callable(repainter):
+                    repainter(theme_val)
                 self.console.print(f"[{THEME_COLORS['secondary']}]{t('SETTINGS_THEME_SET', lang, theme=theme_val)}[/]")
             else:
-                self.console.print(f"[{THEME_COLORS['alert']}]{t('SETTINGS_THEME_INVALID', lang)}[/]")
+                self.console.print(f"[{THEME_COLORS['alert']}]{t('SETTINGS_THEME_INVALID', lang, options=', '.join(theme_names()))}[/]")
         elif sub in ("sort", "ordinamento") and len(args) > 1:
             sort_val = args[1].lower()
             if sort_val in ("last_heard", "snr", "hops", "name"):

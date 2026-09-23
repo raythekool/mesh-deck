@@ -1,4 +1,9 @@
-"""In-memory node database, state manager, and geospatial calculations for Meshtastic nodes."""
+"""In-memory node database, state manager, and geospatial calculations for Meshtastic nodes.
+
+Locking: ``NodeStore`` owns a reentrant lock and never calls back into
+``RadioClient``. The established lock order is therefore ``RadioClient`` →
+``NodeStore``; do not acquire the radio lock from code holding the store lock.
+"""
 
 from __future__ import annotations
 
@@ -8,30 +13,9 @@ import threading
 from datetime import datetime
 from typing import Any
 
-from meshtastic import config_pb2, mesh_pb2
-from mesh_deck.core.events import NodeData
+from mesh_deck.core.events import NodeData, parse_node_fields
 
 logger = logging.getLogger(__name__)
-
-
-def _format_hw_model(val: Any) -> str:
-    """Format hardware model value to string."""
-    if isinstance(val, int):
-        try:
-            return mesh_pb2.HardwareModel.Name(val)
-        except Exception:
-            return f"HW_{val}"
-    return str(val) if val is not None else "UNSET"
-
-
-def _format_role(val: Any) -> str:
-    """Format node role value to string."""
-    if isinstance(val, int):
-        try:
-            return config_pb2.Config.DeviceConfig.Role.Name(val)
-        except Exception:
-            return f"ROLE_{val}"
-    return str(val) if val is not None else "CLIENT"
 
 
 class NodeStore:
@@ -41,7 +25,14 @@ class NodeStore:
         self._lock = threading.RLock()
         self._nodes: dict[str, NodeData] = {}
         self._nodes_by_num: dict[int, str] = {}
+        self._nodes_by_short_name: dict[str, str] = {}
         self._local_node_id: str | None = local_node_id
+
+    def _index(self, node: NodeData, num: int | None = None) -> None:
+        """Refresh the secondary lookup indexes for a node. Caller holds the lock."""
+        self._nodes_by_num[num if num is not None else node.num] = node.id
+        if node.short_name:
+            self._nodes_by_short_name[node.short_name.lower()] = node.id
 
     @property
     def local_node_id(self) -> str | None:
@@ -130,10 +121,10 @@ class NodeStore:
                 if clean_nid == normalized_q:
                     return node
 
-            # 2. Exact match on short name / AKA
-            for node in self._nodes.values():
-                if node.short_name and node.short_name.lower() == q_lower:
-                    return node
+            # 2. Exact match on short name / AKA (indexed)
+            by_short_name = self._nodes_by_short_name.get(q_lower)
+            if by_short_name and by_short_name in self._nodes:
+                return self._nodes[by_short_name]
 
             # 3. Exact match on decimal node number
             try:
@@ -256,6 +247,10 @@ class NodeStore:
     def update_from_node_dict(self, node_dict: dict[str, Any], is_local: bool | None = None) -> NodeData:
         """Update or insert a node from a raw Meshtastic node dictionary.
 
+        Parsing is shared with :meth:`NodeData.from_meshtastic_dict` via
+        :func:`parse_node_fields`, which only reports the keys actually present
+        so an update never blanks out previously learned values.
+
         Args:
             node_dict: Meshtastic node dictionary (from interface.nodes or pubsub).
             is_local: Optional override for is_local flag.
@@ -263,48 +258,10 @@ class NodeStore:
         Returns:
             The updated or created NodeData instance.
         """
-        num = node_dict.get("num")
-        user = node_dict.get("user") or {}
-        pos = node_dict.get("position") or {}
-        dev_metrics = node_dict.get("deviceMetrics") or {}
+        fields = parse_node_fields(node_dict)
+        node_id = fields["id"]
+        num = fields["num"]
 
-        # Resolve ID and Num
-        node_id = user.get("id")
-        if not node_id:
-            if num is not None:
-                node_id = f"!{num:08x}"
-            else:
-                node_id = "!unknown"
-
-        if num is None and node_id.startswith("!"):
-            try:
-                num = int(node_id[1:], 16)
-            except ValueError:
-                num = 0
-
-        num = int(num or 0)
-
-        # Parse position
-        lat = pos.get("latitude")
-        lon = pos.get("longitude")
-        if lat is None and "latitudeI" in pos and pos["latitudeI"] is not None:
-            lat = float(pos["latitudeI"] * 1e-7)
-        if lon is None and "longitudeI" in pos and pos["longitudeI"] is not None:
-            lon = float(pos["longitudeI"] * 1e-7)
-        alt = pos.get("altitude")
-
-        # Parse last heard
-        lh_val = node_dict.get("lastHeard")
-        last_heard_dt: datetime | None = None
-        if isinstance(lh_val, (int, float)) and lh_val > 0:
-            try:
-                last_heard_dt = datetime.fromtimestamp(lh_val)
-            except Exception:
-                last_heard_dt = None
-        elif isinstance(lh_val, datetime):
-            last_heard_dt = lh_val
-
-        # Determine local status
         if is_local is None:
             is_local = (
                 (self._local_node_id is not None and node_id == self._local_node_id)
@@ -313,96 +270,49 @@ class NodeStore:
 
         with self._lock:
             existing = self._nodes.get(node_id)
-            if existing:
-                # Merge fields non-destructively
-                if user.get("longName"):
-                    existing.long_name = user["longName"]
-                if user.get("shortName"):
-                    existing.short_name = user["shortName"]
-                if user.get("hwModel") is not None:
-                    existing.hw_model = _format_hw_model(user["hwModel"])
-                if user.get("role") is not None:
-                    existing.role = _format_role(user["role"])
-
-                if node_dict.get("snr") is not None:
-                    existing.snr = float(node_dict["snr"])
-                if node_dict.get("hopsAway") is not None:
-                    existing.hops_away = int(node_dict["hopsAway"])
-                if dev_metrics.get("batteryLevel") is not None:
-                    existing.battery_level = int(dev_metrics["batteryLevel"])
-                if dev_metrics.get("voltage") is not None:
-                    existing.voltage = float(dev_metrics["voltage"])
-                if dev_metrics.get("channelUtilization") is not None:
-                    existing.channel_util = float(dev_metrics["channelUtilization"])
-                if dev_metrics.get("airUtilTx") is not None:
-                    existing.air_util_tx = float(dev_metrics["airUtilTx"])
-
-                if lat is not None:
-                    existing.latitude = float(lat)
-                if lon is not None:
-                    existing.longitude = float(lon)
-                if alt is not None:
-                    existing.altitude = float(alt)
-
-                if last_heard_dt is not None:
-                    existing.last_heard = last_heard_dt
-
-                if "isFavorite" in node_dict:
-                    existing.is_favorite = bool(node_dict["isFavorite"])
-
+            if existing is not None:
+                for key, value in fields.items():
+                    if key not in ("id", "num"):
+                        setattr(existing, key, value)
                 if is_local:
                     existing.is_local = True
-
-                self._nodes_by_num[num] = node_id
+                self._index(existing, num)
                 existing.distance_km = self.calculate_distance(existing)
                 return existing
 
-            # Create new NodeData
-            new_node = NodeData(
-                id=node_id,
-                num=num,
-                long_name=user.get("longName") or "",
-                short_name=user.get("shortName") or "",
-                hw_model=_format_hw_model(user.get("hwModel")),
-                role=_format_role(user.get("role")),
-                snr=float(node_dict["snr"]) if node_dict.get("snr") is not None else None,
-                hops_away=int(node_dict["hopsAway"]) if node_dict.get("hopsAway") is not None else None,
-                battery_level=int(dev_metrics["batteryLevel"]) if dev_metrics.get("batteryLevel") is not None else None,
-                voltage=float(dev_metrics["voltage"]) if dev_metrics.get("voltage") is not None else None,
-                channel_util=float(dev_metrics["channelUtilization"]) if dev_metrics.get("channelUtilization") is not None else None,
-                air_util_tx=float(dev_metrics["airUtilTx"]) if dev_metrics.get("airUtilTx") is not None else None,
-                latitude=float(lat) if lat is not None else None,
-                longitude=float(lon) if lon is not None else None,
-                altitude=float(alt) if alt is not None else None,
-                last_heard=last_heard_dt,
-                is_local=is_local,
-                is_favorite=bool(node_dict.get("isFavorite", False)),
-            )
+            new_node = NodeData(**fields, is_local=is_local)
             self._nodes[node_id] = new_node
-            self._nodes_by_num[num] = node_id
+            self._index(new_node, num)
             new_node.distance_km = self.calculate_distance(new_node)
             return new_node
 
-    def update_from_telemetry_packet(self, packet: dict[str, Any]) -> NodeData | None:
-        """Update node state from a received telemetry packet.
+    def _node_for_packet(self, packet: dict[str, Any]) -> NodeData | None:
+        """Resolve the sender of a packet, creating a stub entry when unknown.
 
-        Parses deviceMetrics, environmentMetrics, powerMetrics, and localStats.
+        Returns None when the packet carries no usable sender identity.
+        Callers must already hold ``self._lock``.
         """
         from_num = packet.get("from")
         from_id = packet.get("fromId")
         if from_num is None and not from_id:
             return None
 
+        node = self.get_node_by_id(from_id) if from_id else self.get_node_by_num(from_num)
+        if node is not None:
+            return node
+
+        node_id = from_id or f"!{from_num:08x}"
+        return self.update_from_node_dict({"num": from_num or 0, "user": {"id": node_id}})
+
+    def update_from_telemetry_packet(self, packet: dict[str, Any]) -> NodeData | None:
+        """Update node state from a received telemetry packet.
+
+        Parses deviceMetrics, environmentMetrics, powerMetrics, and localStats.
+        """
         with self._lock:
-            node = (
-                self.get_node_by_id(from_id)
-                if from_id
-                else self.get_node_by_num(from_num)
-            )
-            if not node:
-                # Synthesize a minimal node entry
-                n_id = from_id or f"!{from_num:08x}"
-                node = self.update_from_node_dict({"num": from_num or 0, "user": {"id": n_id}})
+            node = self._node_for_packet(packet)
+            if node is None:
+                return None
 
             telemetry = packet.get("decoded", {}).get("telemetry", {})
             dev_metrics = telemetry.get("deviceMetrics", {})
@@ -448,22 +358,12 @@ class NodeStore:
 
     def update_from_position_packet(self, packet: dict[str, Any]) -> NodeData | None:
         """Update node coordinates from a received position packet with bounds validation."""
-        from_num = packet.get("from")
-        from_id = packet.get("fromId")
-        if from_num is None and not from_id:
-            return None
-
         pos = packet.get("decoded", {}).get("position", {})
 
         with self._lock:
-            node = (
-                self.get_node_by_id(from_id)
-                if from_id
-                else self.get_node_by_num(from_num)
-            )
-            if not node:
-                n_id = from_id or f"!{from_num:08x}"
-                node = self.update_from_node_dict({"num": from_num or 0, "user": {"id": n_id}})
+            node = self._node_for_packet(packet)
+            if node is None:
+                return None
 
             lat = pos.get("latitude")
             lon = pos.get("longitude")
@@ -499,20 +399,10 @@ class NodeStore:
 
     def update_from_packet(self, packet: dict[str, Any]) -> NodeData | None:
         """Update node last_heard, SNR, and hops from any generic packet."""
-        from_num = packet.get("from")
-        from_id = packet.get("fromId")
-        if from_num is None and not from_id:
-            return None
-
         with self._lock:
-            node = (
-                self.get_node_by_id(from_id)
-                if from_id
-                else self.get_node_by_num(from_num)
-            )
-            if not node:
-                n_id = from_id or f"!{from_num:08x}"
-                node = self.update_from_node_dict({"num": from_num or 0, "user": {"id": n_id}})
+            node = self._node_for_packet(packet)
+            if node is None:
+                return None
 
             self._update_common_packet_fields(node, packet)
             return node
@@ -549,7 +439,7 @@ class NodeStore:
         """Insert or replace a NodeData instance in the store."""
         with self._lock:
             self._nodes[node_data.id] = node_data
-            self._nodes_by_num[node_data.num] = node_data.id
+            self._index(node_data)
             node_data.distance_km = self.calculate_distance(node_data)
 
     @staticmethod
@@ -642,6 +532,7 @@ class NodeStore:
         with self._lock:
             self._nodes.clear()
             self._nodes_by_num.clear()
+            self._nodes_by_short_name.clear()
 
     def __len__(self) -> int:
         with self._lock:

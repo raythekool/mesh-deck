@@ -15,7 +15,7 @@ from mesh_deck.core.scanner import scan_meshtastic_ports
 from mesh_deck.i18n import t
 from mesh_deck.ui.repl import MeshDeckApp, MeshDeckREPL
 from mesh_deck.ui.tables import render_nodes_table
-from mesh_deck.ui.theme import THEME_COLORS
+from mesh_deck.ui.theme import THEME_COLORS, set_theme
 
 console = Console()
 
@@ -65,6 +65,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     from mesh_deck.core.settings import Settings
 
     settings = Settings.load()
+    set_theme(settings.theme)
     args = parse_args(argv)
 
     if args.command == "mcp":
@@ -120,7 +121,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 1
 
     client = RadioClient(history=_build_history(settings))
-    repl = MeshDeckREPL(client, console=console)
+    repl = MeshDeckREPL(client, console=console, settings=settings)
     try:
         MeshDeckApp(
             repl,

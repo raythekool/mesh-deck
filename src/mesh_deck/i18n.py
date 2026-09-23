@@ -52,7 +52,6 @@ STRINGS: dict[str, dict[str, str]] = {
         "it": "📡 NODI NELLA MESH ({count} rilevati)",
         "en": "📡 MESH NODES ({count} detected)",
     },
-    "COL_INDEX": {"it": "#", "en": "#"},
     "COL_NAME": {"it": "Nome Nodo", "en": "Node Name"},
     "COL_AKA": {"it": "AKA", "en": "AKA"},
     "COL_ID": {"it": "ID", "en": "ID"},
@@ -173,10 +172,6 @@ STRINGS: dict[str, dict[str, str]] = {
     "HOPS_DIRECT": {"it": "Diretto", "en": "Direct"},
 
     # Node table (tables.py: render_nodes_table)
-    "NODES_TABLE_TITLE": {
-        "it": "📡 NODI NELLA MESH ({count} rilevati)",
-        "en": "📡 MESH NODES ({count} detected)",
-    },
     "NODE_UNKNOWN_NAME": {"it": "Sconosciuto", "en": "Unknown"},
 
     # Node detail dossier (tables.py: render_node_detail)
@@ -255,6 +250,10 @@ STRINGS: dict[str, dict[str, str]] = {
     "USAGE_SEND": {"it": "Uso: /send <testo del messaggio>", "en": "Usage: /send <message text>"},
     "SEND_SUCCESS": {"it": "📢 Inviato (Broadcast #0): {text}", "en": "📢 Sent (Broadcast #0): {text}"},
     "SEND_ERROR": {"it": "Errore durante l'invio del messaggio broadcast.", "en": "Error sending broadcast message."},
+    "COMMAND_FAILED": {
+        "it": "Comando non riuscito: {error}",
+        "en": "Command failed: {error}",
+    },
     "USAGE_DM": {"it": "Uso: /dm <target_id_o_aka> <testo>", "en": "Usage: /dm <target_id_or_aka> <text>"},
     "DM_SUCCESS": {"it": "🔒 DM inviato a {name}: {text}", "en": "🔒 DM sent to {name}: {text}"},
     "DM_ERROR": {"it": "Errore durante l'invio del DM a {name}.", "en": "Error sending DM to {name}."},
@@ -333,8 +332,8 @@ STRINGS: dict[str, dict[str, str]] = {
     },
     "SETTINGS_THEME_SET": {"it": "✓ Tema impostato su: {theme}", "en": "✓ Theme set to: {theme}"},
     "SETTINGS_THEME_INVALID": {
-        "it": "Tema non valido. Usa 'cyberpunk', 'high_contrast', 'amber', o 'matrix'.",
-        "en": "Invalid theme. Use 'cyberpunk', 'high_contrast', 'amber', or 'matrix'.",
+        "it": "Tema non valido. Disponibili: {options}.",
+        "en": "Invalid theme. Available: {options}.",
     },
     "SETTINGS_SORT_SET": {"it": "✓ Ordinamento predefinito impostato su: {sort}", "en": "✓ Default sort set to: {sort}"},
     "SETTINGS_SORT_INVALID": {
@@ -418,8 +417,24 @@ STRINGS: dict[str, dict[str, str]] = {
     "COMPLETE_PORT_DESC": {"it": "Porta seriale USB", "en": "USB serial port"},
     "COMPLETE_LANG_DESC": {"it": "Imposta lingua (it, en)", "en": "Set language (it, en)"},
     "COMPLETE_THEME_DESC": {
-        "it": "Imposta tema (cyberpunk, high_contrast, amber, matrix)",
-        "en": "Set theme (cyberpunk, high_contrast, amber, matrix)",
+        "it": "Imposta tema (cyberpunk, midnight, nord, ember)",
+        "en": "Set theme (cyberpunk, midnight, nord, ember)",
+    },
+    "THEME_DESC_CYBERPUNK": {
+        "it": "Neon ciano/verde su nero profondo",
+        "en": "Neon cyan/green on deep black",
+    },
+    "THEME_DESC_MIDNIGHT": {
+        "it": "Indaco notturno, blu e viola tenui",
+        "en": "Night indigo with soft blues and violets",
+    },
+    "THEME_DESC_NORD": {
+        "it": "Palette artica fredda, a basso affaticamento",
+        "en": "Cool arctic palette, low eye strain",
+    },
+    "THEME_DESC_EMBER": {
+        "it": "Ambra e corallo caldi su carbone",
+        "en": "Warm amber and coral on charcoal",
     },
     "COMPLETE_SORT_DESC": {"it": "Imposta ordinamento predefinito", "en": "Set default sorting"},
     "COMPLETE_PORT_SUB_DESC": {"it": "Imposta porta seriale predefinita", "en": "Set default serial port"},

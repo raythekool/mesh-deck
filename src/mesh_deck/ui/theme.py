@@ -1,103 +1,142 @@
-"""Cyberpunk / Matrix high-contrast theme and visual badge formatters for Mesh-Deck.
+"""Theme palettes and visual badge formatters for Mesh-Deck.
 
-Inspired by Hermes TUI, Claude CLI, and Aider aesthetics.
+A single *active* palette (``THEME_COLORS``) drives every Rich renderable and,
+through :func:`css_variables`, every Textual stylesheet. ``THEME_COLORS`` is
+mutated in place by :func:`set_theme` so modules that did
+``from ... import THEME_COLORS`` keep seeing the current theme.
 """
 
 from __future__ import annotations
 
+import math
 from datetime import datetime
 from typing import Final
-from rich.theme import Theme
 
 from mesh_deck.i18n import t
 
-# High-Contrast Cyberpunk / Matrix Color Palette (No low-contrast dark pink)
-THEME_COLORS: Final[dict[str, str]] = {
-    "neon_green": "#00ff66",  # Matrix glowing green (strong signals, online, success)
-    "neon_cyan": "#00f3ff",   # Cyberpunk electric cyan (primary accents, titles, local node)
-    "neon_magenta": "#c084fc",# Bright luminous violet / lavender (high-contrast DMs, alerts)
-    "neon_amber": "#ffb800",  # High-contrast golden amber (accent, warnings, repeaters)
-    "neon_yellow": "#ffb800", # Amber/Gold (warnings, medium battery, repeaters)
-    "neon_red": "#ff3366",    # Alert red (critical battery, weak SNR, errors)
-    "neon_purple": "#7c3aed", # Deep rich purple (routers, special roles)
-    "dim_gray": "#94a3b8",    # Slate gray for secondary text and units
-    "border": "#00f3ff",      # Panel border accent
-    "border_dim": "#334155",  # Table separator border
-    "bg_dark": "#0a0e17",     # Deep void dark background
-    "text_bright": "#f8fafc", # Bright white foreground
-    # Semantic aliases
-    "primary": "#00f3ff",     # Electric cyan
-    "secondary": "#00ff66",   # Neon green
-    "accent": "#ffb800",      # Bright golden amber (high readability!)
-    "warning": "#ffb800",     # Amber
-    "alert": "#ff3366",       # Bright coral/red
-    "muted": "#94a3b8",       # Readable light slate
-    "magenta": "#c084fc",     # Bright luminous violet
-}
+DEFAULT_THEME: Final[str] = "cyberpunk"
 
+# Every theme defines the same semantic keys; nothing is inherited between
+# themes so a palette can never end up half-applied.
 THEMES: Final[dict[str, dict[str, str]]] = {
-    "cyberpunk": THEME_COLORS,
-    "high_contrast": {
-        **THEME_COLORS,
-        "primary": "#38bdf8",
-        "secondary": "#4ade80",
-        "accent": "#facc15",
-        "muted": "#cbd5e1",
-        "border": "#38bdf8",
+    # Neon cyan/green on deep void: the original Mesh-Deck identity.
+    "cyberpunk": {
+        "bg": "#081018",
+        "bg_panel": "#0b1720",
+        "bg_elevated": "#10212b",
+        "bg_header": "#063b46",
+        "primary": "#00f3ff",
+        "secondary": "#00ff66",
+        "accent": "#ffb800",
+        "warning": "#ffb800",
+        "alert": "#ff3366",
+        "magenta": "#c084fc",
+        "purple": "#7c3aed",
+        "border": "#00f3ff",
+        "border_soft": "#1f8794",
+        "border_dim": "#334155",
+        "text": "#e8f1f5",
+        "muted": "#94a3b8",
     },
-    "amber": {
-        **THEME_COLORS,
-        "primary": "#ffb000",
-        "secondary": "#ffd700",
-        "accent": "#ffcc00",
-        "warning": "#f59e0b",
-        "alert": "#ef4444",
-        "muted": "#d97706",
-        "border": "#ffb000",
+    # Tokyo-Night inspired: low-glare indigo with soft blues and violets.
+    "midnight": {
+        "bg": "#1a1b26",
+        "bg_panel": "#1f2335",
+        "bg_elevated": "#24283b",
+        "bg_header": "#2f3549",
+        "primary": "#7aa2f7",
+        "secondary": "#9ece6a",
+        "accent": "#e0af68",
+        "warning": "#e0af68",
+        "alert": "#f7768e",
+        "magenta": "#bb9af7",
+        "purple": "#9d7cd8",
+        "border": "#7aa2f7",
+        "border_soft": "#414868",
+        "border_dim": "#3b4261",
+        "text": "#c0caf5",
+        "muted": "#7f8bb5",
     },
-    "matrix": {
-        **THEME_COLORS,
-        "primary": "#22c55e",
-        "secondary": "#4ade80",
-        "accent": "#86efac",
-        "warning": "#eab308",
-        "alert": "#f87171",
-        "muted": "#16a34a",
-        "border": "#22c55e",
+    # Nord: cool arctic palette, easiest on the eyes for long sessions.
+    "nord": {
+        "bg": "#2e3440",
+        "bg_panel": "#3b4252",
+        "bg_elevated": "#434c5e",
+        "bg_header": "#4c566a",
+        "primary": "#88c0d0",
+        "secondary": "#a3be8c",
+        "accent": "#ebcb8b",
+        "warning": "#ebcb8b",
+        "alert": "#bf616a",
+        "magenta": "#b48ead",
+        "purple": "#b48ead",
+        "border": "#88c0d0",
+        "border_soft": "#5e81ac",
+        "border_dim": "#4c566a",
+        "text": "#eceff4",
+        "muted": "#9aa5b8",
+    },
+    # Ember: warm amber/coral on charcoal, a modern take on phosphor terminals.
+    "ember": {
+        "bg": "#14100e",
+        "bg_panel": "#1d1714",
+        "bg_elevated": "#2a211c",
+        "bg_header": "#3a2c24",
+        "primary": "#ffb454",
+        "secondary": "#b8cc52",
+        "accent": "#ff9940",
+        "warning": "#ffd580",
+        "alert": "#f07178",
+        "magenta": "#ff7fa8",
+        "purple": "#c792ea",
+        "border": "#ff9940",
+        "border_soft": "#7a5c44",
+        "border_dim": "#4a3b32",
+        "text": "#f5e6d8",
+        "muted": "#a08c7d",
     },
 }
 
-CYBERPUNK_THEME: Final[Theme] = Theme({
-    "mesh.cyan": "bold #00f3ff",
-    "mesh.green": "bold #00ff66",
-    "mesh.magenta": "bold #c084fc",
-    "mesh.yellow": "bold #ffb800",
-    "mesh.red": "bold #ff3366",
-    "mesh.purple": "bold #7c3aed",
-    "mesh.dim": "#94a3b8",
-    "mesh.border": "#00f3ff",
-    "mesh.border_dim": "#334155",
-    "mesh.title": "bold #00f3ff",
-    "mesh.local": "bold #00ff66",
-    "mesh.header": "bold #00f3ff",
-    "mesh.badge": "bold black on #00f3ff",
-    "mesh.warning": "bold #ffb800",
-    "mesh.error": "bold #ff3366",
-    "mesh.success": "bold #00ff66",
-    "mesh.text": "#f8fafc",
-})
+# The live palette. Mutated in place by set_theme(); never rebound.
+THEME_COLORS: dict[str, str] = dict(THEMES[DEFAULT_THEME])
 
 
-import math
+def theme_names() -> list[str]:
+    """Return the selectable theme identifiers, default first."""
+    return [DEFAULT_THEME] + [name for name in THEMES if name != DEFAULT_THEME]
+
+
+def set_theme(name: str | None) -> str:
+    """Activate a palette by name, falling back to the default when unknown.
+
+    Returns:
+        The name of the theme that is now active.
+    """
+    resolved = name if name in THEMES else DEFAULT_THEME
+    THEME_COLORS.clear()
+    THEME_COLORS.update(THEMES[resolved])
+    return resolved
+
+
+def css_variables() -> dict[str, str]:
+    """Expose the active palette to Textual stylesheets as ``$mesh-*``."""
+    return {f"mesh-{key.replace('_', '-')}": value for key, value in THEME_COLORS.items()}
+
+
+class ThemedApp:
+    """Mixin adding the ``$mesh-*`` CSS variables to a Textual ``App``."""
+
+    def get_css_variables(self) -> dict[str, str]:
+        return {**super().get_css_variables(), **css_variables()}
 
 
 def format_snr(snr: float | None) -> str:
     """Format Signal-to-Noise Ratio (SNR) in dB with color coding.
 
-    - >= 5 dB: Bright Green (strong signal)
-    - 0..5 dB: Bright Cyan (good signal)
-    - -10..0 dB: Yellow / Amber (marginal signal)
-    - < -10 dB: Red (weak / critical signal)
+    - >= 5 dB: secondary (strong signal)
+    - 0..5 dB: primary (good signal)
+    - -10..0 dB: warning (marginal signal)
+    - < -10 dB: alert (weak / critical signal)
     - None or NaN: Dim placeholder
     """
     if snr is None:
@@ -113,26 +152,30 @@ def format_snr(snr: float | None) -> str:
 
     if math.isinf(val):
         if val > 0:
-            return "[bold #00ff66]+inf dB[/bold #00ff66]"
-        else:
-            return "[bold #ff3366]-inf dB[/bold #ff3366]"
+            return f"[bold {THEME_COLORS['secondary']}]+inf dB[/bold {THEME_COLORS['secondary']}]"
+        return f"[bold {THEME_COLORS['alert']}]-inf dB[/bold {THEME_COLORS['alert']}]"
 
     if val >= 5.0:
-        return f"[bold #00ff66]+{val:.1f} dB[/bold #00ff66]"
+        color = THEME_COLORS["secondary"]
+        sign = "+"
     elif val >= 0.0:
-        return f"[bold #00f3ff]+{val:.1f} dB[/bold #00f3ff]"
+        color = THEME_COLORS["primary"]
+        sign = "+"
     elif val >= -10.0:
-        return f"[bold #ffb800]{val:.1f} dB[/bold #ffb800]"
+        color = THEME_COLORS["warning"]
+        sign = ""
     else:
-        return f"[bold #ff3366]{val:.1f} dB[/bold #ff3366]"
+        color = THEME_COLORS["alert"]
+        sign = ""
+    return f"[bold {color}]{sign}{val:.1f} dB[/bold {color}]"
 
 
 def format_battery(level: int | None, voltage: float | None) -> str:
     """Format battery percentage and voltage with state indicator.
 
-    - > 70%: Green
-    - 30-70%: Yellow
-    - < 30%: Red
+    - > 70%: secondary
+    - 30-70%: warning
+    - < 30%: alert
     - Powered/Charging (> 100% or high voltage without battery): ⚡ icon
     """
     if level is None and voltage is None:
@@ -148,10 +191,12 @@ def format_battery(level: int | None, voltage: float | None) -> str:
         except (ValueError, TypeError):
             valid_voltage = None
 
+    volt_str = f" ({valid_voltage:.2f}V)" if valid_voltage is not None else ""
+    good = THEME_COLORS["secondary"]
+
     # External USB power indicator
     if level is not None and level > 100:
-        volt_str = f" ({valid_voltage:.2f}V)" if valid_voltage is not None else ""
-        return f"[bold #00ff66]⚡ USB{volt_str}[/bold #00ff66]"
+        return f"[bold {good}]⚡ USB{volt_str}[/bold {good}]"
 
     if level is not None:
         try:
@@ -159,24 +204,25 @@ def format_battery(level: int | None, voltage: float | None) -> str:
         except (ValueError, TypeError):
             lvl = 0
 
-        volt_str = f" ({valid_voltage:.2f}V)" if valid_voltage is not None else ""
         if lvl > 70:
-            return f"[bold #00ff66]{lvl}%{volt_str}[/bold #00ff66]"
+            color = good
         elif lvl >= 30:
-            return f"[bold #ffb800]{lvl}%{volt_str}[/bold #ffb800]"
+            color = THEME_COLORS["warning"]
         else:
-            return f"[bold #ff3366]{lvl}%{volt_str}[/bold #ff3366]"
+            color = THEME_COLORS["alert"]
+        return f"[bold {color}]{lvl}%{volt_str}[/bold {color}]"
 
     # Only voltage available
     if valid_voltage is not None:
         if valid_voltage >= 4.20:
-            return f"[bold #00ff66]⚡ {valid_voltage:.2f}V[/bold #00ff66]"
-        elif valid_voltage >= 3.85:
-            return f"[bold #00ff66]{valid_voltage:.2f}V[/bold #00ff66]"
+            return f"[bold {good}]⚡ {valid_voltage:.2f}V[/bold {good}]"
+        if valid_voltage >= 3.85:
+            color = good
         elif valid_voltage >= 3.65:
-            return f"[bold #ffb800]{valid_voltage:.2f}V[/bold #ffb800]"
+            color = THEME_COLORS["warning"]
         else:
-            return f"[bold #ff3366]{valid_voltage:.2f}V[/bold #ff3366]"
+            color = THEME_COLORS["alert"]
+        return f"[bold {color}]{valid_voltage:.2f}V[/bold {color}]"
 
     return "[dim]--[/dim]"
 
@@ -190,23 +236,23 @@ def format_role(role: str | None) -> str:
     if not role_clean:
         role_clean = "CLIENT"
 
+    def badge(label: str, background: str, foreground: str = "black") -> str:
+        return f"[bold {foreground} on {background}] {label} [/bold {foreground} on {background}]"
+
     badge_map = {
-        "ROUTER": "[bold white on #7c3aed] ROUTER [/bold white on #7c3aed]",
-        "ROUTER_CLIENT": "[bold white on #6366f1] ROUTER_CLI [/bold white on #6366f1]",
-        "REPEATER": "[bold black on #ffb800] REPEATER [/bold black on #ffb800]",
-        "CLIENT": "[bold black on #00ff66] CLIENT [/bold black on #00ff66]",
-        "CLIENT_MUTE": "[bold white on #64748b] CLIENT_MUTE [/bold white on #64748b]",
-        "TRACKER": "[bold black on #00f3ff] TRACKER [/bold black on #00f3ff]",
-        "SENSOR": "[bold black on #38bdf8] SENSOR [/bold black on #38bdf8]",
-        "TAK": "[bold black on #f97316] TAK [/bold black on #f97316]",
-        "TAK_TRACKER": "[bold black on #f97316] TAK_TRACK [/bold black on #f97316]",
-        "LOST_AND_FOUND": "[bold white on #0284c7] LOST&FOUND [/bold white on #0284c7]",
+        "ROUTER": badge("ROUTER", THEME_COLORS["purple"], "white"),
+        "ROUTER_CLIENT": badge("ROUTER_CLI", THEME_COLORS["magenta"], "white"),
+        "REPEATER": badge("REPEATER", THEME_COLORS["accent"]),
+        "CLIENT": badge("CLIENT", THEME_COLORS["secondary"]),
+        "CLIENT_MUTE": badge("CLIENT_MUTE", THEME_COLORS["muted"], "white"),
+        "TRACKER": badge("TRACKER", THEME_COLORS["primary"]),
+        "SENSOR": badge("SENSOR", THEME_COLORS["primary"]),
+        "TAK": badge("TAK", THEME_COLORS["accent"]),
+        "TAK_TRACKER": badge("TAK_TRACK", THEME_COLORS["accent"]),
+        "LOST_AND_FOUND": badge("LOST&FOUND", THEME_COLORS["magenta"], "white"),
     }
 
-    return badge_map.get(
-        role_clean,
-        f"[bold white on #475569] {role_clean} [/bold white on #475569]",
-    )
+    return badge_map.get(role_clean, badge(role_clean, THEME_COLORS["border_dim"], "white"))
 
 
 def format_time_ago(dt: datetime | None, lang: str = "it") -> str:
@@ -221,13 +267,15 @@ def format_time_ago(dt: datetime | None, lang: str = "it") -> str:
         diff = 0
 
     if diff < 60:
-        return f"[bold #00ff66]{int(diff)}{t('TIME_AGO_SUFFIX_SEC', lang)}[/bold #00ff66]"
-    elif diff < 3600:
-        return f"[bold #00f3ff]{int(diff // 60)}{t('TIME_AGO_SUFFIX_MIN', lang)}[/bold #00f3ff]"
-    elif diff < 86400:
-        return f"[#ffb800]{int(diff // 3600)}{t('TIME_AGO_SUFFIX_HOUR', lang)}[/#ffb800]"
-    else:
-        return f"[dim]{int(diff // 86400)}{t('TIME_AGO_SUFFIX_DAY', lang)}[/dim]"
+        color = THEME_COLORS["secondary"]
+        return f"[bold {color}]{int(diff)}{t('TIME_AGO_SUFFIX_SEC', lang)}[/bold {color}]"
+    if diff < 3600:
+        color = THEME_COLORS["primary"]
+        return f"[bold {color}]{int(diff // 60)}{t('TIME_AGO_SUFFIX_MIN', lang)}[/bold {color}]"
+    if diff < 86400:
+        color = THEME_COLORS["accent"]
+        return f"[{color}]{int(diff // 3600)}{t('TIME_AGO_SUFFIX_HOUR', lang)}[/{color}]"
+    return f"[dim]{int(diff // 86400)}{t('TIME_AGO_SUFFIX_DAY', lang)}[/dim]"
 
 
 def format_hops(hops: int | None, lang: str = "it") -> str:
@@ -236,11 +284,13 @@ def format_hops(hops: int | None, lang: str = "it") -> str:
         return "[dim]--[/dim]"
 
     if hops == 0:
-        return f"[bold #00ff66]{t('HOPS_DIRECT', lang)} (0)[/bold #00ff66]"
-    elif hops == 1:
-        return "[bold #00f3ff]1 hop[/bold #00f3ff]"
-    else:
-        return f"[#ffb800]{hops} hops[/#ffb800]"
+        color = THEME_COLORS["secondary"]
+        return f"[bold {color}]{t('HOPS_DIRECT', lang)} (0)[/bold {color}]"
+    if hops == 1:
+        color = THEME_COLORS["primary"]
+        return f"[bold {color}]1 hop[/bold {color}]"
+    color = THEME_COLORS["accent"]
+    return f"[{color}]{hops} hops[/{color}]"
 
 
 def format_distance(dist_km: float | None) -> str:
@@ -258,7 +308,6 @@ def format_distance(dist_km: float | None) -> str:
 
     if val < 1.0:
         return f"{int(val * 1000)} m"
-    elif val < 10.0:
+    if val < 10.0:
         return f"{val:.2f} km"
-    else:
-        return f"{val:.1f} km"
+    return f"{val:.1f} km"

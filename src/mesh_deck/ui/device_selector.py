@@ -8,12 +8,13 @@ from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Vertical
 from textual.screen import Screen
-from textual.widgets import Footer, Header, Label, OptionList, Static
+from textual.widgets import Footer, Label, OptionList, Static
 from textual.widgets.option_list import Option
 
 from mesh_deck.core.events import DeviceConnectionInfo
 from mesh_deck.core.scanner import scan_meshtastic_ports
 from mesh_deck.i18n import t
+from mesh_deck.ui.theme import ThemedApp
 
 
 class DeviceSelectorScreen(Screen[str | None]):
@@ -27,12 +28,12 @@ class DeviceSelectorScreen(Screen[str | None]):
         Binding("escape", "cancel", "Annulla", show=False),
     ]
     CSS = """
-    Screen { align: center middle; background: #081018; color: #e8f1f5; }
-    #device-dialog { width: 76; height: auto; max-height: 22; padding: 1 2; border: round #00f3ff; background: #10212b; }
-    #device-heading { width: 100%; height: 3; background: #063b46; color: #00f3ff; content-align: center middle; text-align: center; text-style: bold; }
-    #device-help { width: 100%; height: 3; margin: 1 0; background: #0b1720; color: #9aa9b4; content-align: center middle; text-align: center; }
-    #devices { height: auto; max-height: 12; background: #0b1720; color: #e8f1f5; }
-    Footer { background: #10212b; color: #9aa9b4; }
+    Screen { align: center middle; background: $mesh-bg; color: $mesh-text; }
+    #device-dialog { width: 76; height: auto; max-height: 22; padding: 1 2; border: round $mesh-primary; background: $mesh-bg-elevated; }
+    #device-heading { width: 100%; height: 3; background: $mesh-bg-header; color: $mesh-primary; content-align: center middle; text-align: center; text-style: bold; }
+    #device-help { width: 100%; height: 3; margin: 1 0; background: $mesh-bg-panel; color: $mesh-muted; content-align: center middle; text-align: center; }
+    #devices { height: auto; max-height: 12; background: $mesh-bg-panel; color: $mesh-text; }
+    Footer { background: $mesh-bg-elevated; color: $mesh-muted; }
     """
 
     def __init__(
@@ -88,7 +89,7 @@ class DeviceSelectorScreen(Screen[str | None]):
             options.highlighted = selected_index
 
 
-class DeviceSelectorApp(App[str | None]):
+class DeviceSelectorApp(ThemedApp, App[str | None]):
     """Standalone wrapper for the reusable device selector screen."""
 
     def __init__(

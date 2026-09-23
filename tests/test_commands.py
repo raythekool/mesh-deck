@@ -5,6 +5,8 @@ from __future__ import annotations
 import io
 import json
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock, patch
 
 from rich.console import Console
@@ -15,12 +17,26 @@ from mesh_deck.cli import run_agent_command
 from mesh_deck.commands.dispatcher import CommandDispatcher
 from mesh_deck.core.events import DeviceConnectionInfo, NodeData
 from mesh_deck.core.settings import Settings
+from mesh_deck.ui.theme import DEFAULT_THEME, THEME_COLORS, THEMES, set_theme, theme_names
 
 
 class TestCommandDispatcher(unittest.TestCase):
     """Test suite for command dispatching, execution, and robust error handling."""
 
     def setUp(self) -> None:
+        # Keep /settings out of the real ~/.config/mesh-deck/settings.json.
+        self._settings_tmp = TemporaryDirectory()
+        self.addCleanup(self._settings_tmp.cleanup)
+        config_dir = Path(self._settings_tmp.name)
+        for target in ("CONFIG_DIR", "CONFIG_FILE"):
+            patcher = patch(
+                f"mesh_deck.core.settings.{target}",
+                config_dir if target == "CONFIG_DIR" else config_dir / "settings.json",
+            )
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        self.addCleanup(set_theme, DEFAULT_THEME)
+
         self.mock_client = MagicMock()
         self.mock_store = MagicMock()
         self.mock_client.store = self.mock_store
@@ -250,10 +266,40 @@ class TestCommandDispatcher(unittest.TestCase):
     def test_dispatch_settings_update(self) -> None:
         self.assertTrue(self.dispatcher.dispatch("/settings lang en"))
         self.assertTrue(self.dispatcher.dispatch("/settings lang it"))
-        self.assertTrue(self.dispatcher.dispatch("/settings theme high_contrast"))
+        self.assertTrue(self.dispatcher.dispatch("/settings theme midnight"))
         self.assertTrue(self.dispatcher.dispatch("/settings theme cyberpunk"))
         self.assertTrue(self.dispatcher.dispatch("/settings sort snr"))
         self.assertTrue(self.dispatcher.dispatch("/settings port /dev/ttyACM0"))
+
+    def test_dispatch_settings_theme_applies_palette(self) -> None:
+        for name in theme_names():
+            self.assertTrue(self.dispatcher.dispatch(f"/settings theme {name}"))
+            self.assertEqual(Settings.load().theme, name)
+            self.assertEqual(THEME_COLORS, THEMES[name])
+
+    def test_dispatch_settings_theme_rejects_unknown(self) -> None:
+        self.dispatcher.dispatch("/settings theme nord")
+        self.assertTrue(self.dispatcher.dispatch("/settings theme not_a_theme"))
+        # Rejected values must neither persist nor repaint.
+        self.assertEqual(Settings.load().theme, "nord")
+
+    def test_dispatch_settings_theme_notifies_console(self) -> None:
+        console = MagicMock()
+        dispatcher = CommandDispatcher(self.mock_client, console=console, settings=Settings())
+        dispatcher.dispatch("/settings theme ember")
+        console.apply_theme.assert_called_once_with("ember")
+
+    def test_send_reports_radio_failure_instead_of_raising(self) -> None:
+        self.mock_client.send_broadcast.side_effect = ConnectionError("radio unplugged")
+        self.assertTrue(self.dispatcher.dispatch("/send hello"))
+
+        self.mock_client.send_dm.side_effect = ConnectionError("radio unplugged")
+        self.assertTrue(self.dispatcher.dispatch("/dm TRIN hello"))
+
+    def test_dispatch_reports_unexpected_handler_error(self) -> None:
+        self.mock_client.get_channels.side_effect = RuntimeError("boom")
+        self.assertTrue(self.dispatcher.dispatch("/channels"))
+        self.assertTrue(self.dispatcher.running)
 
     def test_dispatch_settings_notifications_and_history_toggle(self) -> None:
         from mesh_deck.core.settings import Settings

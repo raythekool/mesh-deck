@@ -457,12 +457,27 @@ riavvii.
     ordinamento dei nodi, porta seriale predefinita, notifiche messaggi e
     storico locale su file.
   - Con argomenti aggiorna direttamente l'impostazione, ad esempio
-    `/settings lang en`, `/settings sort snr`, `/settings notifications off`
-    o `/settings history off`.
+    `/settings lang en`, `/settings theme nord`, `/settings sort snr`,
+    `/settings notifications off` o `/settings history off`.
 - **Descrizione**: Le preferenze vengono salvate in
   `~/.config/mesh-deck/settings.json`. La lingua aggiorna subito etichette,
-  placeholder e descrizioni dell'autocomplete nella console attiva. Le
-  notifiche e lo storico locale sono descritti in dettaglio al § 4.
+  placeholder e descrizioni dell'autocomplete nella console attiva. Il tema
+  viene applicato immediatamente a tutte le superfici (banner, tabelle,
+  schede nodo, barra laterale, schermate `/view` e `/chat`) senza riavviare.
+  Le notifiche e lo storico locale sono descritti in dettaglio al § 4.
+
+#### Temi disponibili
+
+| Tema        | Estetica                                            |
+| :---------- | :-------------------------------------------------- |
+| `cyberpunk` | Neon ciano/verde su nero profondo *(predefinito)*.  |
+| `midnight`  | Indaco notturno con blu e viola tenui, poco abbagliante. |
+| `nord`      | Palette artica fredda, pensata per sessioni lunghe. |
+| `ember`     | Ambra e corallo caldi su carbone.                   |
+
+Un valore di tema non riconosciuto (ad esempio dopo una modifica manuale del
+file impostazioni) viene rifiutato dal comando e, all'avvio, ricade
+automaticamente su `cyberpunk`.
 
 ---
 

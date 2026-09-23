@@ -16,7 +16,7 @@ from rich.text import Text
 
 from mesh_deck.i18n import t
 from mesh_deck.models import NodeData
-from mesh_deck.ui.theme import format_battery, format_role
+from mesh_deck.ui.theme import THEME_COLORS as c, format_battery, format_role
 
 
 def render_banner(
@@ -50,8 +50,8 @@ def render_banner(
         short_safe = escape(str(local_node.short_name or "????"))
         id_safe = escape(str(local_node.id or "!unknown"))
         hw_safe = escape(str(local_node.hardware or "UNSET"))
-        name_display = f"[bold #00ff66]{long_safe}[/bold #00ff66] [dim]({id_safe})[/dim]"
-        aka_display = f"[bold #00f3ff]{short_safe}[/bold #00f3ff]"
+        name_display = f"[bold {c['secondary']}]{long_safe}[/bold {c['secondary']}] [dim]({id_safe})[/dim]"
+        aka_display = f"[bold {c['primary']}]{short_safe}[/bold {c['primary']}]"
         hw_display = f"[white]{hw_safe}[/white] {format_role(local_node.role)}"
         batt_display = format_battery(local_node.battery_level, local_node.voltage)
         region = escape(str(local_node.region or "EU_868"))
@@ -64,7 +64,7 @@ def render_banner(
             else local_node.channel_utilization
         )
     else:
-        name_display = f"[bold #ffb800]{t('BANNER_CONNECTING', lang)}[/bold #ffb800]"
+        name_display = f"[bold {c['accent']}]{t('BANNER_CONNECTING', lang)}[/bold {c['accent']}]"
         aka_display = "[dim]--[/dim]"
         hw_display = f"[dim]{t('BANNER_UNKNOWN', lang)}[/dim]"
         batt_display = "[dim]--[/dim]"
@@ -75,29 +75,29 @@ def render_banner(
     # Format channel utilization
     if eff_ch_util is not None:
         if eff_ch_util < 25.0:
-            util_color = "#00ff66"
+            util_color = c["secondary"]
         elif eff_ch_util < 50.0:
-            util_color = "#00f3ff"
+            util_color = c["primary"]
         elif eff_ch_util < 75.0:
-            util_color = "#ffb800"
+            util_color = c["accent"]
         else:
-            util_color = "#ff3366"
+            util_color = c["alert"]
         util_display = f"[bold {util_color}]{eff_ch_util:.1f}%[/bold {util_color}]"
     else:
         util_display = "[dim]--[/dim]"
 
     # Left Column: Node identity & power
     left_content = (
-        f"[dim #64748b]◈ {t('LOCAL_NODE', lang)}:[/dim #64748b] {name_display}\n"
-        f"  [dim #64748b]{t('BANNER_ALIAS', lang)}:[/dim #64748b] {aka_display} [dim #64748b]| {t('BANNER_HW_LABEL', lang)}:[/dim #64748b] {hw_display}\n"
-        f"  [dim #64748b]{t('BATTERY', lang)}:[/dim #64748b]    {batt_display}"
+        f"[dim {c['muted']}]◈ {t('LOCAL_NODE', lang)}:[/dim {c['muted']}] {name_display}\n"
+        f"  [dim {c['muted']}]{t('BANNER_ALIAS', lang)}:[/dim {c['muted']}] {aka_display} [dim {c['muted']}]| {t('BANNER_HW_LABEL', lang)}:[/dim {c['muted']}] {hw_display}\n"
+        f"  [dim {c['muted']}]{t('BATTERY', lang)}:[/dim {c['muted']}]    {batt_display}"
     )
 
     # Right Column: RF & Radio connection
     right_content = (
-        f"[dim #64748b]⚡ {t('RADIO_PORT', lang)}:[/dim #64748b] [bold #00f3ff]{port_safe}[/bold #00f3ff]\n"
-        f"  [dim #64748b]{t('REGION', lang)}:[/dim #64748b]    [white]{region}[/white] [dim #64748b]• {t('PRESET', lang)}:[/dim #64748b] [white]{preset}[/white]\n"
-        f"  [dim #64748b]{t('CH_UTIL', lang)}:[/dim #64748b]   {util_display}"
+        f"[dim {c['muted']}]⚡ {t('RADIO_PORT', lang)}:[/dim {c['muted']}] [bold {c['primary']}]{port_safe}[/bold {c['primary']}]\n"
+        f"  [dim {c['muted']}]{t('REGION', lang)}:[/dim {c['muted']}]    [white]{region}[/white] [dim {c['muted']}]• {t('PRESET', lang)}:[/dim {c['muted']}] [white]{preset}[/white]\n"
+        f"  [dim {c['muted']}]{t('CH_UTIL', lang)}:[/dim {c['muted']}]   {util_display}"
     )
 
     grid.add_row(left_content, right_content)
@@ -106,32 +106,32 @@ def render_banner(
 
     # Optional channel list row
     if channels:
-        elements.append(Rule(style="#334155"))
+        elements.append(Rule(style=c["border_dim"]))
         chan_parts: list[str] = []
         for ch in channels:
             idx = ch.get("index", 0)
             name = ch.get("name") or ("Primary" if idx == 0 else f"Ch_{idx}")
             modem = ch.get("modem")
             modem_suffix = f" [dim]({escape(str(modem))})[/dim]" if modem else ""
-            chan_parts.append(f"[bold #00f3ff]#{escape(str(name))}[/bold #00f3ff][dim][{idx}][/dim]{modem_suffix}")
-        elements.append(Text.from_markup(f"[dim #64748b]◈ {t('ACTIVE_CHANNELS', lang)}:[/dim #64748b] {'  [dim]•[/dim]  '.join(chan_parts)}"))
+            chan_parts.append(f"[bold {c['primary']}]#{escape(str(name))}[/bold {c['primary']}][dim][{idx}][/dim]{modem_suffix}")
+        elements.append(Text.from_markup(f"[dim {c['muted']}]◈ {t('ACTIVE_CHANNELS', lang)}:[/dim {c['muted']}] {'  [dim]•[/dim]  '.join(chan_parts)}"))
 
     # Divider & quick commands
-    elements.append(Rule(style="#334155"))
+    elements.append(Rule(style=c["border_dim"]))
     cmd_names = ["/help", "/nodes", "/view", "/dm", "/switch", "/settings", "/quit"]
-    cmd_sep = " [dim #64748b]•[/dim #64748b] "
-    cmd_list = cmd_sep.join(f"[bold #00f3ff]{name}[/bold #00f3ff]" for name in cmd_names)
+    cmd_sep = f" [dim {c['muted']}]•[/dim {c['muted']}] "
+    cmd_list = cmd_sep.join(f"[bold {c['primary']}]{name}[/bold {c['primary']}]" for name in cmd_names)
     cmd_prefix = t("COMMANDS_SHORTCUTS", lang).split(":", 1)[0]
-    cmd_text = f"[dim #64748b]❯ {cmd_prefix}:[/dim #64748b] {cmd_list}"
+    cmd_text = f"[dim {c['muted']}]❯ {cmd_prefix}:[/dim {c['muted']}] {cmd_list}"
     elements.append(Text.from_markup(cmd_text))
 
     return Panel(
         Group(*elements),
-        title=f"[bold #00f3ff]{t('BANNER_TITLE', lang)}[/bold #00f3ff]",
+        title=f"[bold {c['primary']}]{t('BANNER_TITLE', lang)}[/bold {c['primary']}]",
         title_align="left",
-        subtitle=f"[dim #64748b]{t('BANNER_SUBTITLE', lang)}[/dim #64748b]",
+        subtitle=f"[dim {c['muted']}]{t('BANNER_SUBTITLE', lang)}[/dim {c['muted']}]",
         subtitle_align="right",
-        border_style="#00f3ff",
+        border_style=c["primary"],
         box=box.ROUNDED,
         padding=(0, 1),
     )

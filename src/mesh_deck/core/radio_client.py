@@ -1,4 +1,10 @@
-"""RadioClient encapsulating meshtastic SerialInterface and pubsub event routing."""
+"""RadioClient encapsulating meshtastic SerialInterface and pubsub event routing.
+
+Locking: ``RadioClient`` guards its own connection state with ``self._lock``
+and may call into ``NodeStore`` while holding it. The lock order is therefore
+``RadioClient`` → ``NodeStore``; never take the radio lock from code that
+already holds the store lock.
+"""
 
 from __future__ import annotations
 
@@ -6,7 +12,8 @@ import inspect
 import logging
 import threading
 from datetime import datetime
-from typing import Any, Callable
+from typing import Any
+from collections.abc import Callable
 
 from google.protobuf.json_format import MessageToDict
 from meshtastic import channel_pb2
@@ -70,7 +77,7 @@ class RadioClient:
                 return False
             # If interface exposes isConnected threading.Event, check it
             if hasattr(self._interface, "isConnected"):
-                event = getattr(self._interface, "isConnected")
+                event = self._interface.isConnected
                 if hasattr(event, "is_set"):
                     return event.is_set()
             return True
@@ -177,6 +184,16 @@ class RadioClient:
                 for n_dict in raw_nodes_by_num.values():
                     if isinstance(n_dict, dict):
                         self._node_store.update_from_node_dict(n_dict)
+
+                # RF profile lives on the interface, not in the node DB: copy it
+                # onto the local node so the banner can render region/preset.
+                local_node = self._node_store.get_local_node()
+                if local_node is not None:
+                    profile = self._radio_profile()
+                    local_node.region = profile.get("region") or local_node.region
+                    local_node.modem_preset = (
+                        profile.get("modem_preset") or local_node.modem_preset
+                    )
 
             logger.info("Connected successfully to %s. Nodes known: %d", port, len(self._node_store))
             self._notify_connection_change(True, port)
@@ -500,8 +517,43 @@ class RadioClient:
 
             return None
 
+    def _radio_profile(self) -> dict[str, Any]:
+        """Return firmware/region/modem preset, which live outside ``myInfo``.
+
+        ``MyNodeInfo`` carries neither the firmware version nor the LoRa
+        settings, so ``/info`` and the status banner have to read them from
+        ``interface.metadata`` and ``localNode.localConfig.lora``.
+        """
+        profile: dict[str, Any] = {}
+        iface = self._interface
+        if iface is None:
+            return profile
+
+        firmware = getattr(getattr(iface, "metadata", None), "firmware_version", None)
+        if firmware:
+            profile["firmware_version"] = str(firmware)
+
+        lora = getattr(
+            getattr(getattr(iface, "localNode", None), "localConfig", None), "lora", None
+        )
+        if lora is not None:
+            try:
+                # MessageToDict resolves protobuf enums to their symbolic names.
+                lora_dict = MessageToDict(lora)
+            except Exception:
+                lora_dict = {}
+            if lora_dict.get("region"):
+                profile["region"] = lora_dict["region"]
+            if lora_dict.get("modemPreset"):
+                profile["modem_preset"] = lora_dict["modemPreset"]
+        return profile
+
     def get_my_info(self) -> dict[str, Any]:
-        """Return hardware metadata and node info for the local device."""
+        """Return hardware metadata and node info for the local device.
+
+        Keys are normalized to snake_case (``my_node_num``, ``firmware_version``,
+        ``region``, ``modem_preset``) so every consumer reads one stable shape.
+        """
         with self._lock:
             if not self._interface or not self._interface.myInfo:
                 return {
@@ -512,14 +564,25 @@ class RadioClient:
             try:
                 info_dict = MessageToDict(self._interface.myInfo)
             except Exception:
-                info_dict = {"my_node_num": getattr(self._interface.myInfo, "my_node_num", 0)}
+                info_dict = {}
 
+            my_node_num = info_dict.pop("myNodeNum", None)
+            if my_node_num is None:
+                my_node_num = getattr(self._interface.myInfo, "my_node_num", 0)
+            info_dict["my_node_num"] = my_node_num
+
+            info_dict.update(self._radio_profile())
             info_dict["port"] = self._port
             info_dict["is_connected"] = self.is_connected
             return info_dict
 
     def get_channels(self) -> list[dict[str, Any]]:
-        """Return configured radio channels (primary and secondary)."""
+        """Return configured radio channels (primary and secondary).
+
+        Emits the normalized keys every consumer expects (``uplink_enabled``,
+        ``downlink_enabled``, ``has_psk``); the pre-shared key itself is never
+        exposed, only whether one is configured.
+        """
         result: list[dict[str, Any]] = []
 
         with self._lock:
@@ -548,15 +611,18 @@ class RadioClient:
                     except Exception:
                         role_str = str(role_val)
 
-                name = ""
-                if hasattr(ch, "settings") and ch.settings and hasattr(ch.settings, "name"):
-                    name = ch.settings.name
+                settings = getattr(ch, "settings", None)
+                name = getattr(settings, "name", "") or "" if settings is not None else ""
+                psk = getattr(settings, "psk", b"") if settings is not None else b""
 
                 index = getattr(ch, "index", 0)
                 result.append({
                     "index": index,
                     "name": name,
                     "role": role_str,
+                    "uplink_enabled": bool(getattr(settings, "uplink_enabled", False)) if settings is not None else False,
+                    "downlink_enabled": bool(getattr(settings, "downlink_enabled", False)) if settings is not None else False,
+                    "has_psk": bool(psk),
                     "raw": ch_dict,
                 })
 

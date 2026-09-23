@@ -12,21 +12,25 @@ from mesh_deck.ui.tables import (
     render_nodes_table,
 )
 from mesh_deck.ui.theme import (
-    CYBERPUNK_THEME,
     THEME_COLORS,
     THEMES,
+    css_variables,
     format_battery,
     format_distance,
     format_hops,
     format_role,
     format_snr,
     format_time_ago,
+    set_theme,
+    theme_names,
 )
 
 __all__ = [
-    "CYBERPUNK_THEME",
     "THEME_COLORS",
     "THEMES",
+    "css_variables",
+    "set_theme",
+    "theme_names",
     "SLASH_COMMANDS",
     "format_snr",
     "format_battery",

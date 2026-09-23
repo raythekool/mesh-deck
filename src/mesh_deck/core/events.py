@@ -6,6 +6,129 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
+from meshtastic import config_pb2, mesh_pb2
+
+
+def format_hw_model(val: Any) -> str:
+    """Format a hardware model value (protobuf enum or string) to a name."""
+    if isinstance(val, int):
+        try:
+            return mesh_pb2.HardwareModel.Name(val)
+        except Exception:
+            return f"HW_{val}"
+    return str(val) if val is not None else "UNSET"
+
+
+def format_role(val: Any) -> str:
+    """Format a node role value (protobuf enum or string) to a name."""
+    if isinstance(val, int):
+        try:
+            return config_pb2.Config.DeviceConfig.Role.Name(val)
+        except Exception:
+            return f"ROLE_{val}"
+    return str(val) if val is not None else "CLIENT"
+
+
+def _coordinate(pos: dict[str, Any], key: str) -> float | None:
+    """Read a coordinate, falling back to the integer 1e-7 encoding."""
+    value = pos.get(key)
+    if value is not None:
+        return float(value)
+    scaled = pos.get(f"{key}I")  # latitudeI / longitudeI
+    if scaled is not None:
+        return float(scaled * 1e-7)
+    return None
+
+
+def parse_node_fields(data: dict[str, Any]) -> dict[str, Any]:
+    """Normalize a raw Meshtastic node dictionary into NodeData field names.
+
+    Only keys actually present in ``data`` are returned, so callers can either
+    build a fresh :class:`NodeData` or merge into an existing one without
+    clobbering known values with absent ones. ``id`` and ``num`` are always
+    resolved.
+    """
+    user = data.get("user") or {}
+    pos = data.get("position") or {}
+    dev_metrics = data.get("deviceMetrics") or {}
+    env_metrics = data.get("environmentMetrics") or {}
+
+    num = data.get("num")
+    node_id = user.get("id")
+    if not node_id:
+        node_id = f"!{num:08x}" if num is not None else "!unknown"
+    if num is None and node_id.startswith("!"):
+        try:
+            num = int(node_id[1:], 16)
+        except ValueError:
+            num = 0
+
+    fields: dict[str, Any] = {"id": node_id, "num": int(num or 0)}
+
+    # Identity: names are only overwritten when non-empty, so a partial update
+    # never blanks out a name we already learned.
+    if user.get("longName"):
+        fields["long_name"] = user["longName"]
+    if user.get("shortName"):
+        fields["short_name"] = user["shortName"]
+    if user.get("hwModel") is not None:
+        fields["hw_model"] = format_hw_model(user["hwModel"])
+    if user.get("role") is not None:
+        fields["role"] = format_role(user["role"])
+    if user.get("publicKey") is not None:
+        fields["public_key"] = user["publicKey"]
+    if user.get("isLicensed") is not None:
+        fields["is_licensed"] = bool(user["isLicensed"])
+
+    # Link quality
+    if data.get("snr") is not None:
+        fields["snr"] = float(data["snr"])
+    if data.get("hopsAway") is not None:
+        fields["hops_away"] = int(data["hopsAway"])
+
+    # Device metrics
+    for source_key, target_key, caster in (
+        ("batteryLevel", "battery_level", int),
+        ("voltage", "voltage", float),
+        ("channelUtilization", "channel_util", float),
+        ("airUtilTx", "air_util_tx", float),
+    ):
+        if dev_metrics.get(source_key) is not None:
+            fields[target_key] = caster(dev_metrics[source_key])
+
+    # Environment metrics
+    for source_key, target_key in (
+        ("temperature", "temperature"),
+        ("relativeHumidity", "relative_humidity"),
+        ("barometricPressure", "barometric_pressure"),
+    ):
+        if env_metrics.get(source_key) is not None:
+            fields[target_key] = float(env_metrics[source_key])
+
+    # Position
+    latitude = _coordinate(pos, "latitude")
+    longitude = _coordinate(pos, "longitude")
+    if latitude is not None:
+        fields["latitude"] = latitude
+    if longitude is not None:
+        fields["longitude"] = longitude
+    if pos.get("altitude") is not None:
+        fields["altitude"] = float(pos["altitude"])
+
+    last_heard = data.get("lastHeard")
+    if isinstance(last_heard, datetime):
+        fields["last_heard"] = last_heard
+    elif isinstance(last_heard, (int, float)) and last_heard > 0:
+        try:
+            fields["last_heard"] = datetime.fromtimestamp(last_heard)
+        except (OverflowError, OSError, ValueError):
+            pass
+
+    if "isFavorite" in data:
+        fields["is_favorite"] = bool(data["isFavorite"])
+
+    return fields
+
 
 @dataclass
 class NodeData:
@@ -40,67 +163,6 @@ class NodeData:
     modem_preset: str | None = None
     is_licensed: bool = False
     raw: dict[str, Any] = field(default_factory=dict)
-
-    def __init__(
-        self,
-        id: str,
-        num: int = 0,
-        long_name: str = "",
-        short_name: str = "",
-        hw_model: str = "",
-        role: str = "CLIENT",
-        snr: float | None = None,
-        hops_away: int | None = None,
-        battery_level: int | None = None,
-        voltage: float | None = None,
-        channel_util: float | None = None,
-        air_util_tx: float | None = None,
-        latitude: float | None = None,
-        longitude: float | None = None,
-        altitude: float | None = None,
-        last_heard: datetime | None = None,
-        is_local: bool = False,
-        is_favorite: bool = False,
-        distance_km: float | None = None,
-        temperature: float | None = None,
-        relative_humidity: float | None = None,
-        barometric_pressure: float | None = None,
-        public_key: str | None = None,
-        region: str | None = None,
-        modem_preset: str | None = None,
-        is_licensed: bool = False,
-        raw: dict[str, Any] | None = None,
-        hardware: str | None = None,
-        channel_utilization: float | None = None,
-        **kwargs: Any,
-    ) -> None:
-        self.id = id
-        self.num = num
-        self.long_name = long_name
-        self.short_name = short_name
-        self.hw_model = hardware if hardware is not None else hw_model
-        self.role = role
-        self.snr = snr
-        self.hops_away = hops_away
-        self.battery_level = battery_level
-        self.voltage = voltage
-        self.channel_util = channel_utilization if channel_utilization is not None else channel_util
-        self.air_util_tx = air_util_tx
-        self.latitude = latitude
-        self.longitude = longitude
-        self.altitude = altitude
-        self.last_heard = last_heard
-        self.is_local = is_local
-        self.is_favorite = is_favorite
-        self.distance_km = distance_km
-        self.temperature = temperature
-        self.relative_humidity = relative_humidity
-        self.barometric_pressure = barometric_pressure
-        self.public_key = public_key
-        self.region = region
-        self.modem_preset = modem_preset
-        self.is_licensed = is_licensed
-        self.raw = raw or {}
 
     @property
     def aka(self) -> str:
@@ -191,59 +253,7 @@ class NodeData:
     @classmethod
     def from_meshtastic_dict(cls, data: dict[str, Any], is_local: bool = False) -> NodeData:
         """Instantiate NodeData from a raw Meshtastic node dictionary."""
-        user = data.get("user", {})
-        pos = data.get("position", {})
-        dev_metrics = data.get("deviceMetrics", {})
-        env_metrics = data.get("environmentMetrics", {})
-
-        num = data.get("num")
-        node_id = user.get("id") or (f"!{num:08x}" if num is not None else "!unknown")
-        if num is None and node_id.startswith("!"):
-            try:
-                num = int(node_id[1:], 16)
-            except ValueError:
-                num = 0
-
-        last_heard_ts = data.get("lastHeard")
-        last_heard_dt = (
-            datetime.fromtimestamp(last_heard_ts)
-            if isinstance(last_heard_ts, (int, float)) and last_heard_ts > 0
-            else None
-        )
-
-        lat = pos.get("latitude")
-        lon = pos.get("longitude")
-        if lat is None and "latitudeI" in pos and pos["latitudeI"] is not None:
-            lat = float(pos["latitudeI"] * 1e-7)
-        if lon is None and "longitudeI" in pos and pos["longitudeI"] is not None:
-            lon = float(pos["longitudeI"] * 1e-7)
-
-        return cls(
-            id=node_id,
-            num=int(num or 0),
-            long_name=user.get("longName", "") or "",
-            short_name=user.get("shortName", "") or "",
-            hw_model=str(user.get("hwModel", "UNSET")),
-            role=str(user.get("role", "CLIENT")),
-            snr=float(data["snr"]) if data.get("snr") is not None else None,
-            hops_away=int(data["hopsAway"]) if data.get("hopsAway") is not None else None,
-            battery_level=int(dev_metrics["batteryLevel"]) if dev_metrics.get("batteryLevel") is not None else None,
-            voltage=float(dev_metrics["voltage"]) if dev_metrics.get("voltage") is not None else None,
-            channel_util=float(dev_metrics["channelUtilization"]) if dev_metrics.get("channelUtilization") is not None else None,
-            air_util_tx=float(dev_metrics["airUtilTx"]) if dev_metrics.get("airUtilTx") is not None else None,
-            latitude=float(lat) if lat is not None else None,
-            longitude=float(lon) if lon is not None else None,
-            altitude=float(pos["altitude"]) if pos.get("altitude") is not None else None,
-            last_heard=last_heard_dt,
-            is_local=is_local,
-            is_favorite=bool(data.get("isFavorite", False)),
-            temperature=float(env_metrics["temperature"]) if env_metrics.get("temperature") is not None else None,
-            relative_humidity=float(env_metrics["relativeHumidity"]) if env_metrics.get("relativeHumidity") is not None else None,
-            barometric_pressure=float(env_metrics["barometricPressure"]) if env_metrics.get("barometricPressure") is not None else None,
-            public_key=user.get("publicKey"),
-            is_licensed=bool(user.get("isLicensed", False)),
-            raw=data,
-        )
+        return cls(**parse_node_fields(data), is_local=is_local, raw=data)
 
 
 @dataclass
@@ -264,40 +274,8 @@ class MeshMessage:
     channel_name: str | None = None
     raw: dict[str, Any] = field(default_factory=dict)
 
-    def __init__(
-        self,
-        sender_id: str = "",
-        sender_name: str = "",
-        receiver_id: str = "^all",
-        text: str = "",
-        channel: int | str = 0,
-        snr: float | None = None,
-        hops: int | None = None,
-        timestamp: datetime | None = None,
-        is_dm: bool = False,
-        sender_short_name: str | None = None,
-        recipient_name: str | None = None,
-        channel_name: str | None = None,
-        raw: dict[str, Any] | None = None,
-        recipient_id: str | None = None,
-        is_direct: bool | None = None,
-        hops_away: int | None = None,
-        **kwargs: Any,
-    ) -> None:
-        self.sender_id = sender_id
-        self.sender_name = sender_name
-        self.receiver_id = recipient_id if recipient_id is not None else receiver_id
-        self.text = text
-        self.channel = channel
-        self.snr = snr
-        self.hops = hops_away if hops_away is not None else hops
-        self.timestamp = timestamp if timestamp is not None else datetime.now()
-        self.is_dm = is_direct if is_direct is not None else is_dm
-        self.sender_short_name = sender_short_name
-        self.recipient_name = recipient_name
-        self.channel_name = channel_name
-        self.raw = raw or {}
-
+    # Legacy aliases kept as properties so existing call sites keep working;
+    # the canonical field names are receiver_id / is_dm / hops.
     @property
     def recipient_id(self) -> str:
         """Alias for receiver_id."""
@@ -326,24 +304,56 @@ class MeshMessage:
         self.hops = value
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert MeshMessage to a plain dictionary."""
+        """Convert MeshMessage to a plain dictionary using canonical key names."""
         return {
             "sender_id": self.sender_id,
             "sender_name": self.sender_name,
             "sender_short_name": self.sender_short_name,
             "receiver_id": self.receiver_id,
-            "recipient_id": self.receiver_id,
             "recipient_name": self.recipient_name,
             "text": self.text,
             "channel": self.channel,
             "channel_name": self.channel_name,
             "snr": self.snr,
             "hops": self.hops,
-            "hops_away": self.hops,
             "timestamp": self.timestamp.isoformat(),
             "is_dm": self.is_dm,
-            "is_direct": self.is_dm,
         }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> MeshMessage:
+        """Rebuild a MeshMessage from a ``to_dict()`` payload or a history record.
+
+        Unknown keys (e.g. the ``direction``/``recorded_at`` tags added by
+        HistoryStore) are ignored, and the legacy ``recipient_id`` /
+        ``is_direct`` / ``hops_away`` spellings written by older versions are
+        still accepted so existing ``messages.jsonl`` files keep loading.
+        """
+        timestamp = data.get("timestamp")
+        if isinstance(timestamp, str):
+            try:
+                timestamp = datetime.fromisoformat(timestamp)
+            except ValueError:
+                timestamp = None
+        elif not isinstance(timestamp, datetime):
+            timestamp = None
+
+        raw = data.get("raw")
+        return cls(
+            sender_id=data.get("sender_id", "") or "",
+            sender_name=data.get("sender_name", "") or "",
+            receiver_id=data.get("receiver_id") or data.get("recipient_id") or "^all",
+            text=data.get("text", "") or "",
+            channel=data.get("channel", 0),
+            snr=data.get("snr"),
+            hops=data.get("hops") if data.get("hops") is not None else data.get("hops_away"),
+            timestamp=timestamp if timestamp is not None else datetime.now(),
+            is_dm=bool(data["is_dm"] if "is_dm" in data else data.get("is_direct", False)),
+            sender_short_name=data.get("sender_short_name"),
+            recipient_name=data.get("recipient_name"),
+            channel_name=data.get("channel_name"),
+            raw=raw if isinstance(raw, dict) else {},
+        )
 
 
 @dataclass

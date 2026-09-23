@@ -9,7 +9,6 @@ channel.
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from textual.app import App, ComposeResult
@@ -22,26 +21,12 @@ from textual.widgets.option_list import Option
 from mesh_deck.core.events import MeshMessage
 from mesh_deck.i18n import t
 from mesh_deck.ui.tables import render_message
-from mesh_deck.ui.theme import THEME_COLORS
+from mesh_deck.ui.theme import THEME_COLORS, ThemedApp
 
 if TYPE_CHECKING:
     from mesh_deck.core.radio_client import RadioClient
 
 DM_KEY = "dm"
-
-
-def _message_from_history_entry(entry: dict[str, Any]) -> MeshMessage:
-    """Reconstruct a MeshMessage from a HistoryStore JSONL record."""
-    payload = dict(entry)
-    payload.pop("direction", None)
-    payload.pop("recorded_at", None)
-    timestamp = payload.get("timestamp")
-    if isinstance(timestamp, str):
-        try:
-            payload["timestamp"] = datetime.fromisoformat(timestamp)
-        except ValueError:
-            payload["timestamp"] = None
-    return MeshMessage(**payload)
 
 
 class ChannelChatScreen(Screen):
@@ -54,13 +39,13 @@ class ChannelChatScreen(Screen):
     ]
 
     CSS = """
-    Screen { background: #0a0e17; color: #f8fafc; }
+    Screen { background: $mesh-bg; color: $mesh-text; }
     #chat-body { height: 1fr; margin: 1; }
-    #channel-list { width: 30; border: round #1f8794; background: #10212b; }
-    #chat-panel { border: round #00f3ff; background: #0b1720; }
+    #channel-list { width: 30; border: round $mesh-border-soft; background: $mesh-bg-elevated; }
+    #chat-panel { border: round $mesh-primary; background: $mesh-bg-panel; }
     #chat-log { height: 1fr; padding: 0 1; }
-    #chat-input { margin: 0 1 1 1; border: round #00f3ff; }
-    #chat-hint { color: #64748b; padding: 0 1; height: 1; }
+    #chat-input { margin: 0 1 1 1; border: round $mesh-primary; }
+    #chat-hint { color: $mesh-muted; padding: 0 1; height: 1; }
     """
 
     def __init__(self, radio_client: RadioClient, lang: str = "it", **kwargs: Any) -> None:
@@ -117,7 +102,7 @@ class ChannelChatScreen(Screen):
             return
         for entry in history.iter_messages(limit=500):
             try:
-                msg = _message_from_history_entry(entry)
+                msg = MeshMessage.from_dict(entry)
             except Exception:
                 continue
             key = DM_KEY if msg.is_dm else msg.channel
@@ -190,7 +175,7 @@ class ChannelChatScreen(Screen):
         self._refresh_channel_list()
 
 
-class ChannelChatApp(App):
+class ChannelChatApp(ThemedApp, App):
     """Standalone wrapper for launching the reusable channel chat screen."""
 
     def __init__(self, radio_client: RadioClient, lang: str = "it", **kwargs: Any) -> None:

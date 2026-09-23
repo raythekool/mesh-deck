@@ -7,13 +7,22 @@ and live Meshtastic node names/IDs.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
+from collections.abc import Callable
 
 from mesh_deck.i18n import command_descriptions, t
 from mesh_deck.models import NodeData
 
 # Standard supported slash commands and their descriptions
 SLASH_COMMANDS = command_descriptions("it")
+
+# Theme identifier -> i18n key describing the palette.
+THEME_DESCRIPTIONS: dict[str, str] = {
+    "cyberpunk": "THEME_DESC_CYBERPUNK",
+    "midnight": "THEME_DESC_MIDNIGHT",
+    "nord": "THEME_DESC_NORD",
+    "ember": "THEME_DESC_EMBER",
+}
 
 
 @dataclass(frozen=True)
@@ -147,13 +156,13 @@ class MeshDeckCompleter:
                 sub = parts[0].lower()
                 sub_rem = remainder[len(parts[0]):].strip().lower()
                 if sub == "lang":
-                    for l, d in [("it", "Italiano"), ("en", "English")]:
-                        if not sub_rem or l.startswith(sub_rem):
-                            completions.append(Completion(l, -len(sub_rem), d))
+                    for code, label in [("it", "Italiano"), ("en", "English")]:
+                        if not sub_rem or code.startswith(sub_rem):
+                            completions.append(Completion(code, -len(sub_rem), label))
                 elif sub == "theme":
-                    for th, d in [("cyberpunk", "Cyberpunk Cyan/Amber"), ("high_contrast", "High Contrast"), ("amber", "Retro Amber"), ("matrix", "Phosphor Green")]:
+                    for th, d in THEME_DESCRIPTIONS.items():
                         if not sub_rem or th.startswith(sub_rem):
-                            completions.append(Completion(th, -len(sub_rem), d))
+                            completions.append(Completion(th, -len(sub_rem), t(d, self.lang)))
                 elif sub == "sort":
                     for s in ["last_heard", "snr", "hops", "name"]:
                         if not sub_rem or s.startswith(sub_rem):

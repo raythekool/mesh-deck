@@ -4,26 +4,25 @@ Covers theme formatters, banner, tables, detail dossiers, messages, and complete
 """
 
 import io
-import math
 import unittest
 import unittest.mock
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, UTC
 
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
-from textual.widgets import Input, OptionList, RichLog
+from textual.widgets import Input, OptionList
 
 from mesh_deck.i18n import command_descriptions
 from mesh_deck.models import DeviceConnectionInfo, MeshMessage, NodeData
 from mesh_deck.ui.device_selector import DeviceSelectorScreen
 from mesh_deck.ui.repl import ConnectionScreen, MeshDeckApp, MeshDeckREPL, SettingsScreen
 from mesh_deck.ui import (
-    CYBERPUNK_THEME,
     MeshDeckCompleter,
-    SLASH_COMMANDS,
     THEME_COLORS,
+    THEMES,
+    css_variables,
     format_battery,
     format_distance,
     format_hops,
@@ -34,6 +33,8 @@ from mesh_deck.ui import (
     render_message,
     render_node_detail,
     render_nodes_table,
+    set_theme,
+    theme_names,
 )
 
 
@@ -190,7 +191,7 @@ class TestThemeFormatters(unittest.TestCase):
         self.assertIn("150d fa", format_time_ago(now - timedelta(days=150)))
 
         # Timezone aware datetime
-        utc_now = datetime.now(timezone.utc)
+        utc_now = datetime.now(UTC)
         self.assertIn("s fa", format_time_ago(utc_now - timedelta(seconds=45)))
         self.assertIn("m fa", format_time_ago(utc_now - timedelta(minutes=10)))
 
@@ -231,11 +232,11 @@ class TestBanner(unittest.TestCase):
             num=1168467684,
             long_name="Heltec Master",
             short_name="HMST",
-            hardware="HELTEC_V3",
+            hw_model="HELTEC_V3",
             role="CLIENT",
             battery_level=90,
             voltage=4.12,
-            channel_utilization=8.5,
+            channel_util=8.5,
         )
         channels = [{"index": 0, "name": "Primary", "modem": "LongFast"}]
         panel = render_banner(node, port="/dev/ttyACM0", channels=channels)
@@ -257,13 +258,13 @@ class TestBanner(unittest.TestCase):
             id="!abcdef12",
             long_name="Tactical Rover 🏎️💨 [ALPHA_TEAM] (Special Ops) 🎯",
             short_name="RC01",
-            hardware="HELTEC_VISION_MASTER_E290_V3",
+            hw_model="HELTEC_VISION_MASTER_E290_V3",
             role="ROUTER",
             battery_level=18,
             voltage=3.45,
             region="US_915",
             modem_preset="SHORT_FAST",
-            channel_utilization=82.4,
+            channel_util=82.4,
         )
         channels = [
             {"index": 0, "name": "Main", "modem": "ShortFast"},
@@ -293,7 +294,7 @@ class TestTablesAndViews(unittest.TestCase):
                 id="!45a466e4",
                 long_name="Local Heltec",
                 short_name="HELT",
-                hardware="HELTEC_V3",
+                hw_model="HELTEC_V3",
                 role="CLIENT",
                 snr=6.2,
                 hops_away=0,
@@ -304,7 +305,7 @@ class TestTablesAndViews(unittest.TestCase):
                 id="!78b211a0",
                 long_name="Remote LilyGo",
                 short_name="LILY",
-                hardware="TLORA_V2",
+                hw_model="TLORA_V2",
                 role="ROUTER",
                 snr=-4.0,
                 hops_away=2,
@@ -345,7 +346,7 @@ class TestTablesAndViews(unittest.TestCase):
                 num=1000 + i,
                 long_name=f"Repeater Node {i:03d}",
                 short_name=f"R{i:03d}",
-                hardware="RAK4631",
+                hw_model="RAK4631",
                 role="REPEATER" if i % 2 == 0 else "CLIENT",
                 snr=float(10 - (i % 25)),
                 hops_away=i % 4,
@@ -367,21 +368,21 @@ class TestTablesAndViews(unittest.TestCase):
                 id="!11111111",
                 long_name="Banana Mode 🍌 Node [EXPERIMENTAL_STATION] High Mountain",
                 short_name="🍌BAN",
-                hardware="TBEAM_V1_2",
+                hw_model="TBEAM_V1_2",
                 role="ROUTER",
             ),
             NodeData(
                 id="!22222222",
                 long_name="TBeam Vaiano 🎯🇮🇹 [UPLINK] Station",
                 short_name="VAI🎯",
-                hardware="TLORA_T3S3",
+                hw_model="TLORA_T3S3",
                 role="CLIENT",
             ),
             NodeData(
                 id="!33333333",
                 long_name="Portofino 🏖️ 🚤 [SEASIDE_GATEWAY]",
                 short_name="PORT",
-                hardware="HELTEC_V3",
+                hw_model="HELTEC_V3",
                 role="SENSOR",
             ),
         ]
@@ -400,7 +401,7 @@ class TestTablesAndViews(unittest.TestCase):
             id="!00000001",
             long_name="Minimal Node",
             short_name="MINI",
-            hardware="UNSET",
+            hw_model="UNSET",
         )
         panel = render_node_detail(sparse_node)
         self.assertIsInstance(panel, Panel)
@@ -419,13 +420,13 @@ class TestTablesAndViews(unittest.TestCase):
             num=2024935840,
             long_name="Full Telemetry Base Station",
             short_name="BASE",
-            hardware="HELTEC_VISION_MASTER_E290",
+            hw_model="HELTEC_VISION_MASTER_E290",
             role="ROUTER",
             snr=9.5,
             hops_away=0,
             battery_level=98,
             voltage=4.18,
-            channel_utilization=12.5,
+            channel_util=12.5,
             air_util_tx=2.1,
             latitude=45.4642,
             longitude=9.1900,
@@ -471,9 +472,9 @@ class TestTablesAndViews(unittest.TestCase):
             text="Secret ping message",
             sender_id="!45a466e4",
             sender_name="Local Heltec",
-            recipient_id="!78b211a0",
+            receiver_id="!78b211a0",
             recipient_name="Remote LilyGo",
-            is_direct=True,
+            is_dm=True,
             snr=7.5,
         )
         rendered = render_message(msg)
@@ -500,7 +501,7 @@ class TestTablesAndViews(unittest.TestCase):
             text="Dangerous text: [/closing_tag] and [bold] unclosed [not_a_tag]",
             sender_id="!11223344",
             sender_name="Hacker [TAG]",
-            is_direct=True,
+            is_dm=True,
         )
         panel_markup = render_message(msg_markup)
         buf = io.StringIO()
@@ -508,7 +509,7 @@ class TestTablesAndViews(unittest.TestCase):
         self.assertIn("[/closing_tag]", buf.getvalue())
 
         # 4. Unknown sender and recipient
-        msg_unknown = MeshMessage(text="Ping", sender_id="", is_direct=True)
+        msg_unknown = MeshMessage(text="Ping", sender_id="", is_dm=True)
         panel_unknown = render_message(msg_unknown)
         buf_unk = io.StringIO()
         Console(file=buf_unk).print(panel_unknown)
@@ -1210,6 +1211,95 @@ class TestNotifyMessageWiring(unittest.IsolatedAsyncioTestCase):
                 mock_notify.assert_called_once()
                 _, kwargs = mock_notify.call_args
                 self.assertEqual(kwargs["severity"], "information")
+
+
+class TestThemeEngine(unittest.TestCase):
+    """Test that themes are complete, switchable, and actually drive the renderers."""
+
+    def setUp(self):
+        self.addCleanup(set_theme, "cyberpunk")
+
+    def test_all_themes_expose_the_same_keys(self):
+        key_sets = [set(palette) for palette in THEMES.values()]
+        self.assertTrue(all(keys == key_sets[0] for keys in key_sets))
+        self.assertGreaterEqual(len(THEMES), 3)
+        for palette in THEMES.values():
+            for value in palette.values():
+                self.assertRegex(value, r"^#[0-9a-f]{6}$")
+
+    def test_theme_names_lists_default_first(self):
+        self.assertEqual(theme_names()[0], "cyberpunk")
+        self.assertEqual(sorted(theme_names()), sorted(THEMES))
+
+    def test_set_theme_mutates_shared_palette_in_place(self):
+        palette = THEME_COLORS
+        set_theme("nord")
+        self.assertIs(palette, THEME_COLORS)
+        self.assertEqual(THEME_COLORS["primary"], THEMES["nord"]["primary"])
+
+    def test_set_theme_falls_back_to_default_for_unknown_names(self):
+        self.assertEqual(set_theme("matrix"), "cyberpunk")
+        self.assertEqual(set_theme(None), "cyberpunk")
+        self.assertEqual(THEME_COLORS, THEMES["cyberpunk"])
+
+    def test_formatters_follow_the_active_theme(self):
+        set_theme("ember")
+        self.assertIn(THEMES["ember"]["secondary"], format_snr(9.0))
+        self.assertIn(THEMES["ember"]["alert"], format_battery(12, None))
+        self.assertIn(THEMES["ember"]["purple"], format_role("ROUTER"))
+        self.assertNotIn(THEMES["cyberpunk"]["secondary"], format_snr(9.0))
+
+    def test_css_variables_are_namespaced_and_dash_separated(self):
+        set_theme("midnight")
+        variables = css_variables()
+        self.assertEqual(variables["mesh-primary"], THEMES["midnight"]["primary"])
+        self.assertIn("mesh-bg-panel", variables)
+        self.assertTrue(all(key.startswith("mesh-") for key in variables))
+
+
+class TestInteractiveNodesSorting(unittest.IsolatedAsyncioTestCase):
+    """Sorting must never crash on columns that mix values with '--' placeholders."""
+
+    def _store(self):
+        located = NodeData(id="!aaa", num=1, long_name="Alpha", short_name="ALFA", snr=7.5, hops_away=2)
+        far = NodeData(id="!bbb", num=2, long_name="Bravo", short_name="BRVO", snr=-3.0, hops_away=0)
+        unknown = NodeData(id="!ccc", num=3, long_name="Charlie Room", short_name="CHRL")
+        store = unittest.mock.MagicMock()
+        store.get_all_nodes.return_value = [located, far, unknown]
+        distances = {"!aaa": 0.82, "!bbb": 14.3, "!ccc": None}
+        store.calculate_distance.side_effect = lambda _local, node_id: distances[node_id]
+        return store, NodeData(id="!local", num=9, long_name="Base")
+
+    async def test_every_column_sorts_both_directions_with_missing_values(self):
+        from mesh_deck.ui.interactive_table import InteractiveNodesApp
+
+        store, local = self._store()
+        app = InteractiveNodesApp(store, local_node=local, lang="it")
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            screen = app.screen
+            column_count = len(screen.column_keys)
+            self.assertGreater(column_count, 0)
+            for col_idx in range(column_count):
+                for reverse in (False, True):
+                    screen._sort_and_repopulate(col_idx, reverse)
+                    await pilot.pause()
+
+    async def test_distance_column_orders_numerically_with_missing_last(self):
+        from mesh_deck.ui.interactive_table import InteractiveNodesApp
+
+        store, local = self._store()
+        app = InteractiveNodesApp(store, local_node=local, lang="it")
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            screen = app.screen
+            distance_idx = screen.column_keys.index("distance")
+            screen._sort_and_repopulate(distance_idx, False)
+            await pilot.pause()
+            ordered = [row[distance_idx] for row in screen._raw_rows]
+            # 820 m < 14.3 km, and the node without a fix sorts last.
+            self.assertEqual(ordered[0], "820 m")
+            self.assertEqual(ordered[-1], "--")
 
 
 if __name__ == "__main__":

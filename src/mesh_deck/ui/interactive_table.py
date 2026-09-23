@@ -13,9 +13,10 @@ from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.screen import Screen
-from textual.widgets import DataTable, Footer, Header, Input, Label, Static
+from textual.widgets import DataTable, Footer, Header, Input, Label
 
 from mesh_deck.i18n import t
+from mesh_deck.ui.theme import ThemedApp, format_time_ago
 
 if TYPE_CHECKING:
     from mesh_deck.core.events import NodeData
@@ -39,29 +40,29 @@ class InteractiveNodesScreen(Screen):
 
     CSS = """
     Screen {
-        background: #0a0e17;
-        color: #f8fafc;
+        background: $mesh-bg;
+        color: $mesh-text;
     }
 
     #filter-bar {
         height: 3;
         margin: 1 1 0 1;
-        background: #111827;
-        border: round #00f3ff;
+        background: $mesh-bg-elevated;
+        border: round $mesh-primary;
         padding: 0 1;
     }
 
     #filter-label {
         width: 12;
-        color: #00f3ff;
+        color: $mesh-primary;
         text-style: bold;
         padding-top: 1;
     }
 
     #filter-input {
         width: 1fr;
-        background: #0f172a;
-        color: #00ff66;
+        background: $mesh-bg-panel;
+        color: $mesh-secondary;
         border: none;
     }
 
@@ -71,26 +72,26 @@ class InteractiveNodesScreen(Screen):
     }
 
     DataTable {
-        background: #0a0e17;
-        border: round #38bdf8;
-        color: #f8fafc;
+        background: $mesh-bg;
+        border: round $mesh-primary;
+        color: $mesh-text;
     }
 
     DataTable > .datatable--header {
-        background: #1e293b;
-        color: #00f3ff;
+        background: $mesh-bg-elevated;
+        color: $mesh-primary;
         text-style: bold;
     }
 
     DataTable > .datatable--cursor {
-        background: #0369a1;
-        color: #ffffff;
+        background: $mesh-border-soft;
+        color: $mesh-text;
         text-style: bold;
     }
 
     Footer {
-        background: #0f172a;
-        color: #94a3b8;
+        background: $mesh-bg-panel;
+        color: $mesh-muted;
     }
     """
 
@@ -146,8 +147,8 @@ class InteractiveNodesScreen(Screen):
 
         self.column_keys = []
         for title, key in columns:
-            col_key = table.add_column(title, key=key)
-            self.column_keys.append(str(col_key))
+            table.add_column(title, key=key)
+            self.column_keys.append(key)
 
         self.refresh_table()
 
@@ -204,7 +205,6 @@ class InteractiveNodesScreen(Screen):
                 dist_str = "--"
 
             # Last heard
-            from mesh_deck.ui.theme import format_time_ago
             last_heard_str = _clean_text(format_time_ago(node.last_heard, self.lang))
 
             # Filter check
@@ -245,48 +245,42 @@ class InteractiveNodesScreen(Screen):
         """Sort rows by column index and repopulate table."""
         table = self.query_one(DataTable)
 
-        def _sort_key(row: list[Any]) -> Any:
-            val = row[col_idx]
+        def _parse_cell(val: Any) -> float | str | None:
+            """Return a comparable value, or None when the cell has no data."""
             if isinstance(val, (int, float)):
-                return val
+                return float(val)
             val_str = str(val).strip()
+            if not val_str or val_str == "--":
+                return None
 
-            # Attempt numeric conversion for SNR
-            if "dB" in val_str:
-                clean = val_str.replace("dB", "").strip()
-                try:
-                    return float(clean)
-                except ValueError:
-                    return float("-inf")
+            # SNR, e.g. "+8.5 dB"
+            snr = re.fullmatch(r"([+-]?\d+(?:\.\d+)?)\s*dB", val_str)
+            if snr:
+                return float(snr.group(1))
 
-            # Attempt numeric conversion for Hops
+            # Hops, e.g. "Diretto (0)" / "Direct (0)" or "3 hops"
             if val_str.endswith("(0)"):
-                return 0
-            if "hops" in val_str:
-                clean = val_str.replace("hops", "").strip()
-                try:
-                    return int(clean)
-                except ValueError:
-                    return 999
+                return 0.0
+            hops = re.fullmatch(r"(\d+)\s*hops?", val_str)
+            if hops:
+                return float(hops.group(1))
 
-            # Attempt numeric conversion for Distance
-            if val_str.endswith("km"):
-                clean = val_str.replace("km", "").strip()
-                try:
-                    return float(clean) * 1000
-                except ValueError:
-                    return float("inf")
-            if val_str.endswith("m"):
-                clean = val_str.replace("m", "").strip()
-                try:
-                    return float(clean)
-                except ValueError:
-                    return float("inf")
-
-            if val_str == "--":
-                return ""
+            # Distance, e.g. "1.4 km" or "820 m" (normalized to meters)
+            dist = re.fullmatch(r"(\d+(?:\.\d+)?)\s*(km|m)", val_str)
+            if dist:
+                return float(dist.group(1)) * (1000.0 if dist.group(2) == "km" else 1.0)
 
             return val_str.lower()
+
+        def _sort_key(row: list[Any]) -> tuple[int, float, str]:
+            # Uniform (missing, number, text) shape: a column mixing numbers and
+            # "--" placeholders must never compare float against str.
+            parsed = _parse_cell(row[col_idx])
+            if parsed is None:
+                return (1, 0.0, "")
+            if isinstance(parsed, float):
+                return (0, parsed, "")
+            return (0, 0.0, parsed)
 
         self._raw_rows.sort(key=_sort_key, reverse=reverse)
 
@@ -296,7 +290,7 @@ class InteractiveNodesScreen(Screen):
             table.add_row(*row)
 
         arrow = "▼" if reverse else "▲"
-        col_name = table.columns[event_col_key_or_idx(table, col_idx)].label
+        col_name = table.columns[_column_key(table, col_idx)].label
         clean_name = re.sub(r"[▲▼]", "", str(col_name)).strip()
         self.sub_title = t("VIEW_SORTED_BY", self.lang, column=clean_name, arrow=arrow)
 
@@ -318,13 +312,13 @@ class InteractiveNodesScreen(Screen):
         self.dismiss()
 
 
-def event_col_key_or_idx(table: DataTable, col_idx: int) -> Any:
-    """Helper to get column key by index."""
+def _column_key(table: DataTable, col_idx: int) -> Any:
+    """Return the column key at a positional index, or the index as fallback."""
     keys = list(table.columns.keys())
     return keys[col_idx] if 0 <= col_idx < len(keys) else col_idx
 
 
-class InteractiveNodesApp(App):
+class InteractiveNodesApp(ThemedApp, App):
     """Standalone wrapper for launching the reusable node explorer screen."""
 
     def __init__(

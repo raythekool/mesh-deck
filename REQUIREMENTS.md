@@ -18,23 +18,23 @@ Questo documento definisce i requisiti funzionali, non funzionali, di architettu
 * **RF-1.1 Rilevamento Automatico (Auto-Discovery)**: All'avvio, l'applicazione deve scansionare le porte seriali disponibili (`/dev/ttyACM*`, `/dev/ttyUSB*`, `/dev/serial/by-id/*`) per identificare i dispositivi Meshtastic compatibili senza richiedere all'utente di specificare manualmente la porta.
 * **RF-1.2 Selezione Iniziale**: Se sono presenti più dispositivi connessi (es. Heltec e LilyGo simultaneamente), l'applicazione deve mostrare un menu di selezione o agganciarsi al dispositivo primario/preferito configurato.
 * **RF-1.3 Hot-Switching (`/switch`)**: Possibilità di commutare il dispositivo attivo trasmittente a runtime con un comando (es. `/switch 1` o `/switch /dev/ttyACM1`), mantenendo le informazioni di stato o riconnettendosi in modo trasparente.
-* **RF-1.4 Monitoraggio Stato Connessione**: Riconnessione automatica in caso di disconnessione accidentale del cavo USB o reboot del nodo.
+* **RF-1.4 Monitoraggio Stato Connessione** *(parziale — vedi § 6)*: La perdita di connessione viene rilevata e notificata; la riconnessione automatica dopo scollegamento USB o reboot del nodo è pianificata.
 
 ### 2.2 Esplorazione Nodi & Rete (Node Explorer)
 * **RF-2.1 Tabella Nodi Attivi (`/nodes`)**:
-  * Visualizzazione tabellare con: N. Progressivo, Nome Nodo (Long Name), Alias (Short/AKA), Node ID (es. `!45a466e4`), Hardware, Ruolo (CLIENT, ROUTER, REPEATER), SNR (dB), Hops away, Batteria/Alimentazione, Coordinate (Lat/Lon/Alt) e Ultimo Contatto (Last Heard).
-  * Filtri e ordinamento rapido: per SNR decrescente, Hops crescente, attività recente o solo nodi con coordinate.
+  * Visualizzazione tabellare con: N. Progressivo, Nome Nodo (Long Name), Alias (Short/AKA), Node ID (es. `!45a466e4`), Hardware, Ruolo (CLIENT, ROUTER, REPEATER), SNR (dB), Hops away, Batteria/Alimentazione, Distanza stimata e Ultimo Contatto (Last Heard). Le coordinate complete (Lat/Lon/Alt) sono nella scheda di dettaglio `/node`.
+  * Filtri e ordinamento rapido: per SNR decrescente, Hops crescente, attività recente o nome.
 * **RF-2.2 Scheda Dettaglio Nodo (`/node <id|aka>`)**:
-  * Dettagli completi del nodo selezionato: chiavi pubbliche, metriche di canale (Tx Air Utilization, Channel Utilization), storico telemetrico (tensione batteria, temperatura/sensori se disponibili).
-  * Calcolo distanza in km e bearing rispetto alla posizione fissa del nodo locale (formula dell'emisenoverso).
-* **RF-2.3 Analisi della Rete & Vicini (`/neighbors`, `/mesh`)**:
+  * Dettagli completi del nodo selezionato: chiavi pubbliche, metriche di canale (Tx Air Utilization, Channel Utilization), telemetria (tensione batteria, temperatura, umidità, pressione se disponibili).
+  * Calcolo distanza in km rispetto alla posizione del nodo locale (formula dell'emisenoverso). Il bearing è pianificato (§ 6).
+* **RF-2.3 Analisi della Rete & Vicini (`/neighbors`, `/mesh`)** *(pianificato — vedi § 6)*:
   * Visualizzazione delle informazioni sui vicini (Neighbor Info) e propagazione dei pacchetti.
 
 ### 2.3 Diagnostica & Strumenti Radio
-* **RF-3.1 Traceroute (`/trace <id|aka>`)**:
+* **RF-3.1 Traceroute (`/trace <id|aka>`)** *(pianificato — vedi § 6)*:
   * Invio di richieste traceroute verso un nodo specifico e visualizzazione del percorso a salti (hops) e dei tempi di risposta.
-* **RF-3.2 Info & Configurazione Radio (`/info`, `/config`)**:
-  * Visualizzazione frequenza, preset modem (es. `MEDIUM_FAST`, `LONG_FAST`), potenza TX, offset frequenza e stato crittografia dei canali (Primary e canali secondari configurati).
+* **RF-3.2 Info & Configurazione Radio (`/info`, `/channels`)**:
+  * Visualizzazione regione RF, preset modem (es. `MEDIUM_FAST`, `LONG_FAST`), versione firmware e stato di uplink/downlink e crittografia dei canali (Primary e canali secondari configurati). Le chiavi PSK non vengono mai mostrate: solo la presenza o assenza di una chiave.
 
 ### 2.4 Comunicazione & Messaggistica
 * **RF-4.1 Messaggi Broadcast (`/send <canale> <testo>` o testo diretto)**:
@@ -75,6 +75,10 @@ Questo documento definisce i requisiti funzionali, non funzionali, di architettu
   * La console Textual apre `/view` come schermata interna, con filtro e ordinamento al click, senza avviare un secondo ciclo eventi.
 * **RUI-5 Chat Canali Integrata**:
   * La console Textual apre `/chat` come schermata interna, con selezione a click dei canali/DM nella barra laterale e invio broadcast dal campo di input, senza avviare un secondo ciclo eventi.
+* **RUI-6 Temi Commutabili a Runtime**:
+  * Sono disponibili almeno tre palette (`cyberpunk`, `midnight`, `nord`, `ember`) selezionabili con `/settings theme <nome>`.
+  * Il cambio tema si applica immediatamente sia alle renderable **Rich** (banner, tabelle, schede nodo, messaggi) sia ai fogli di stile **Textual** (console, sidebar, `/view`, `/chat`, dialoghi), senza riavviare l'applicazione.
+  * Ogni palette definisce il medesimo insieme di chiavi semantiche; un valore non riconosciuto ricade sul tema predefinito senza generare errori.
 
 ---
 
@@ -88,3 +92,25 @@ Questo documento definisce i requisiti funzionali, non funzionali, di architettu
 * **RNF-6 Integrità stdio**: In modalità MCP nessun output applicativo o log deve essere scritto su stdout al di fuori del protocollo; i log devono usare stderr.
 * **RNF-7 Riutilizzo della Logica**: CLI, MCP e interfacce interattive devono riutilizzare il medesimo service layer per selezione porta, validazione e accesso alla radio.
 * **RNF-8 Concorrenza MCP**: Gli accessi alla sessione radio persistente del server MCP devono essere serializzati e la connessione deve essere chiusa all'arresto.
+* **RNF-9 Robustezza dei Comandi**: Un errore della radio (cavo scollegato, timeout, invio fallito) deve produrre un messaggio diagnostico nella console e non deve mai propagarsi fino a terminare il worker della UI o la sessione interattiva.
+* **RNF-10 Contratto Dati Unico**: I dati provenienti dai protobuf Meshtastic devono essere normalizzati in un unico punto (`RadioClient`) e consumati in `snake_case` da CLI, MCP, TUI e banner, così da evitare divergenze fra i diversi adapter.
+
+---
+
+## 5. Portata dei Test
+
+* La suite `tests/` usa `unittest` della libreria standard e non richiede hardware radio: seriale e PubSub sono simulati.
+* I test non devono produrre effetti collaterali sul file system dell'utente: impostazioni e storico vanno isolati in directory temporanee.
+
+---
+
+## 6. Roadmap (non ancora implementato)
+
+Requisiti già approvati ma rinviati a iterazioni successive:
+
+| Requisito | Descrizione | Stato |
+| :-------- | :---------- | :---- |
+| RF-1.4 | Riconnessione automatica dopo scollegamento USB o reboot del nodo | Rilevamento presente, riconnessione da implementare |
+| RF-2.2 | Bearing (azimut) verso il nodo remoto oltre alla distanza | Da implementare |
+| RF-2.3 | `/neighbors` e `/mesh`: Neighbor Info e propagazione pacchetti | Da implementare |
+| RF-3.1 | `/trace`: traceroute verso un nodo con percorso a salti | Da implementare |

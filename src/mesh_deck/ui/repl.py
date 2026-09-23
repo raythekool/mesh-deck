@@ -11,7 +11,7 @@ from textual import events, work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
-from textual.screen import ModalScreen, Screen
+from textual.screen import ModalScreen
 from textual.widgets import Button, Footer, Header, Input, Label, OptionList, RichLog, Select, Static
 from textual.widgets.option_list import Option
 
@@ -21,7 +21,16 @@ from mesh_deck.core.events import DeviceConnectionInfo, MeshMessage
 from mesh_deck.ui.device_selector import DeviceSelectorScreen
 from mesh_deck.ui.completer import Completion, MeshDeckCompleter
 from mesh_deck.ui.tables import render_message, render_node_detail
-from mesh_deck.ui.theme import format_role, format_snr, format_time_ago
+from mesh_deck.ui.theme import (
+    DEFAULT_THEME,
+    THEME_COLORS,
+    ThemedApp,
+    format_role,
+    format_snr,
+    format_time_ago,
+    set_theme,
+    theme_names,
+)
 
 if TYPE_CHECKING:
     from mesh_deck.commands.dispatcher import CommandDispatcher
@@ -53,6 +62,9 @@ class TextualConsole:
     def update_language(self, language: str) -> None:
         self._invoke(self.app.update_language, language)
 
+    def apply_theme(self, theme: str) -> None:
+        self._invoke(self.app.apply_theme, theme)
+
     def restart_console(self) -> None:
         self._invoke(self.app.restart_console)
 
@@ -60,7 +72,7 @@ class TextualConsole:
         self._invoke(self.app.notify_message, msg)
 
     def _invoke(self, callback: Any, *args: Any) -> None:
-        if self.app._thread_id == threading.get_ident():
+        if threading.get_ident() == getattr(self.app, "ui_thread_id", None):
             callback(*args)
         else:
             self.app.call_from_thread(callback, *args)
@@ -71,8 +83,8 @@ class SettingsScreen(ModalScreen[None]):
 
     CSS = """
     SettingsScreen { align: center middle; background: #000000aa; }
-    #settings-dialog { width: 64; height: auto; padding: 1 2; background: #10212b; border: round #00f3ff; }
-    #settings-dialog Label { margin-top: 1; color: #9fffd0; }
+    #settings-dialog { width: 64; height: auto; padding: 1 2; background: $mesh-bg-elevated; border: round $mesh-primary; }
+    #settings-dialog Label { margin-top: 1; color: $mesh-secondary; }
     #settings-actions { height: auto; margin-top: 2; align-horizontal: right; }
     #settings-actions Button { margin-left: 1; }
     """
@@ -87,7 +99,11 @@ class SettingsScreen(ModalScreen[None]):
             yield Label(t("SETTINGS_LANGUAGE", self.settings.language))
             yield Select([("Italiano", "it"), ("English", "en")], value=self.settings.language, id="language")
             yield Label(t("SETTINGS_THEME", self.settings.language))
-            yield Select([(theme, theme) for theme in ("cyberpunk", "high_contrast", "amber", "matrix")], value=self.settings.theme, id="theme")
+            yield Select(
+                [(t(f"THEME_DESC_{name.upper()}", self.settings.language), name) for name in theme_names()],
+                value=self.settings.theme if self.settings.theme in theme_names() else DEFAULT_THEME,
+                id="theme",
+            )
             yield Label(t("SETTINGS_SORT", self.settings.language))
             yield Select([(sort, sort) for sort in ("last_heard", "snr", "hops", "name")], value=self.settings.default_sort, id="sort")
             yield Label(t("SETTINGS_PORT", self.settings.language))
@@ -121,6 +137,7 @@ class SettingsScreen(ModalScreen[None]):
             history_enabled=str(self.query_one("#history", Select).value) == "on",
         )
         self.app.update_language(self.settings.language)
+        self.app.apply_theme(self.settings.theme)
         self.dismiss()
 
 
@@ -129,9 +146,9 @@ class ConnectionScreen(ModalScreen[None]):
 
     CSS = """
     ConnectionScreen { align: center middle; background: #000000aa; }
-    #connection-dialog { width: 64; height: auto; padding: 1 2; border: round #00f3ff; background: #10212b; }
-    #connection-heading { width: 100%; height: 3; background: #063b46; color: #00f3ff; content-align: center middle; text-align: center; text-style: bold; }
-    #connection-status { width: 100%; height: 3; margin-top: 1; color: #e8f1f5; content-align: center middle; text-align: center; }
+    #connection-dialog { width: 64; height: auto; padding: 1 2; border: round $mesh-primary; background: $mesh-bg-elevated; }
+    #connection-heading { width: 100%; height: 3; background: $mesh-bg-header; color: $mesh-primary; content-align: center middle; text-align: center; text-style: bold; }
+    #connection-status { width: 100%; height: 3; margin-top: 1; color: $mesh-text; content-align: center middle; text-align: center; }
     #connection-back { width: 100%; margin-top: 1; display: none; }
     """
 
@@ -207,7 +224,7 @@ class SidebarControlButton(Static, can_focus=True):
             self.app.action_cycle_sidebar_filter()
 
 
-class MeshDeckApp(App):
+class MeshDeckApp(ThemedApp, App):
     """Full-screen Textual command console with live radio output."""
 
     TITLE = "MESH-DECK"
@@ -219,23 +236,23 @@ class MeshDeckApp(App):
         Binding("ctrl+b", "toggle_sidebar", "Toggle sidebar", show=True),
     ]
     CSS = """
-    Screen { background: #081018; color: #e8f1f5; }
-    Header { background: #10212b; color: #00f3ff; }
+    Screen { background: $mesh-bg; color: $mesh-text; }
+    Header { background: $mesh-bg-elevated; color: $mesh-primary; }
     #body { height: 1fr; }
-    #sidebar { width: 32; min-width: 18; border: round #1f8794; background: #0b1720; }
-    #sidebar-title { width: 100%; height: 1; background: #063b46; color: #00f3ff; content-align: center middle; text-style: bold; }
-    #sidebar-controls { height: 1; background: #0b1720; }
-    #sidebar-controls > SidebarControlButton { width: 1fr; height: 1; content-align: center middle; background: #10212b; color: #9fffd0; text-style: bold; }
-    #sidebar-controls > SidebarControlButton:hover { background: #1f8794; color: #00131a; }
-    #sidebar-nodes { height: 1fr; background: #0b1720; color: #e8f1f5; }
-    #sidebar-resizer { width: 1; height: 1fr; background: #1f8794; }
-    #sidebar-resizer:hover { background: #00f3ff; }
+    #sidebar { width: 32; min-width: 18; border: round $mesh-border-soft; background: $mesh-bg-panel; }
+    #sidebar-title { width: 100%; height: 1; background: $mesh-bg-header; color: $mesh-primary; content-align: center middle; text-style: bold; }
+    #sidebar-controls { height: 1; background: $mesh-bg-panel; }
+    #sidebar-controls > SidebarControlButton { width: 1fr; height: 1; content-align: center middle; background: $mesh-bg-elevated; color: $mesh-secondary; text-style: bold; }
+    #sidebar-controls > SidebarControlButton:hover { background: $mesh-border-soft; color: $mesh-bg; }
+    #sidebar-nodes { height: 1fr; background: $mesh-bg-panel; color: $mesh-text; }
+    #sidebar-resizer { width: 1; height: 1fr; background: $mesh-border-soft; }
+    #sidebar-resizer:hover { background: $mesh-primary; }
     #main { height: 1fr; }
-    #node-detail { height: auto; max-height: 20; margin: 0 1; border: round #7c3aed; background: #0b1720; display: none; }
-    #output { height: 1fr; margin: 0 1; border: round #1f8794; background: #0b1720; }
-    #suggestions { height: auto; max-height: 5; margin: 0 1; color: #9fffd0; background: #10212b; }
-    #command { margin: 0 1 1 1; border: round #00f3ff; background: #0b1720; color: #f8fafc; }
-    Footer { background: #10212b; color: #9aa9b4; }
+    #node-detail { height: auto; max-height: 20; margin: 0 1; border: round $mesh-purple; background: $mesh-bg-panel; display: none; }
+    #output { height: 1fr; margin: 0 1; border: round $mesh-border-soft; background: $mesh-bg-panel; }
+    #suggestions { height: auto; max-height: 5; margin: 0 1; color: $mesh-secondary; background: $mesh-bg-elevated; }
+    #command { margin: 0 1 1 1; border: round $mesh-primary; background: $mesh-bg-panel; color: $mesh-text; }
+    Footer { background: $mesh-bg-elevated; color: $mesh-muted; }
     """
 
     def __init__(
@@ -274,6 +291,10 @@ class MeshDeckApp(App):
         yield Footer()
 
     def on_mount(self) -> None:
+        # Captured before anything can post from a radio thread, so
+        # TextualConsole can tell "already on the UI thread" from
+        # "must marshal via call_from_thread" without private Textual state.
+        self.ui_thread_id = threading.get_ident()
         console = TextualConsole(self)
         self.repl.console = console
         self.repl.dispatcher.console = console
@@ -356,8 +377,8 @@ class MeshDeckApp(App):
             long_name = node.long_name or node.display_name or node.id
             marker = "★ " if node.id == local_id else ""
             sidebar.add_option(Option(
-                f"{marker}[bold cyan]{label}[/] {format_role(node.role)}\n"
-                f"[italic #7fa8b8]{long_name}[/] · {format_snr(node.snr)} · {format_time_ago(node.last_heard, lang)}"
+                f"{marker}[bold {THEME_COLORS['primary']}]{label}[/] {format_role(node.role)}\n"
+                f"[italic {THEME_COLORS['muted']}]{long_name}[/] · {format_snr(node.snr)} · {format_time_ago(node.last_heard, lang)}"
             ))
         sidebar.highlighted = 0
 
@@ -404,6 +425,13 @@ class MeshDeckApp(App):
     def open_settings(self) -> None:
         self.push_screen(SettingsScreen(self.repl.settings))
 
+    def apply_theme(self, name: str | None = None) -> None:
+        """Activate a palette and repaint every Rich and Textual surface."""
+        set_theme(name if name is not None else self.repl.settings.theme)
+        self.refresh_css()
+        if self.repl.settings.sidebar_enabled:
+            self.refresh_sidebar()
+
     def update_language(self, language: str) -> None:
         self.repl.settings.language = language
         self.sub_title = t("APP_SUBTITLE", language)
@@ -418,6 +446,7 @@ class MeshDeckApp(App):
         """Apply saved settings and redraw the connected command console."""
         self.repl.settings = Settings.load()
         self.update_language(self.repl.settings.language)
+        self.apply_theme(self.repl.settings.theme)
         self.query_one("#sidebar").display = self.repl.settings.sidebar_enabled
         self.query_one("#sidebar").styles.width = self.repl.settings.sidebar_width
         self.close_node_detail()
@@ -600,10 +629,14 @@ class MeshDeckREPL:
         radio_client: RadioClient,
         console: Console | None = None,
         dispatcher: CommandDispatcher | None = None,
+        settings: Settings | None = None,
     ) -> None:
         self.client = radio_client
         self.console = console or Console()
-        self.settings = Settings.load()
+        # One shared Settings instance for REPL, app and dispatcher: two
+        # independent Settings.load() calls would silently diverge on save.
+        self.settings = settings if settings is not None else Settings.load()
+        set_theme(self.settings.theme)
         if dispatcher is not None:
             self.dispatcher = dispatcher
         else:

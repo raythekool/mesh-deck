@@ -5,7 +5,6 @@ Inspired by Hermes TUI, Claude CLI, and Aider aesthetics.
 
 from __future__ import annotations
 
-from typing import Union
 from rich import box
 from rich.console import Group
 from rich.markup import escape
@@ -17,6 +16,7 @@ from rich.text import Text
 from mesh_deck.i18n import t
 from mesh_deck.models import MeshMessage, NodeData
 from mesh_deck.ui.theme import (
+    THEME_COLORS as c,
     format_battery,
     format_distance,
     format_hops,
@@ -41,11 +41,11 @@ def render_nodes_table(
         Rich Table configured with rounded borders and cyberpunk color scheme.
     """
     table = Table(
-        title=f"[bold #00f3ff]{t('NODES_TABLE_TITLE', lang, count=len(nodes))}[/bold #00f3ff]",
+        title=f"[bold {c['primary']}]{t('NODES_TABLE_TITLE', lang, count=len(nodes))}[/bold {c['primary']}]",
         title_justify="left",
         box=box.ROUNDED,
-        header_style="bold #00f3ff",
-        border_style="#334155",
+        header_style=f"bold {c['primary']}",
+        border_style=c["border_dim"],
         collapse_padding=True,
         pad_edge=False,
         show_lines=False,
@@ -79,13 +79,13 @@ def render_nodes_table(
         hw_safe = escape(str(node.hardware or "UNSET"))
 
         if is_local:
-            node_name = f"[bold #00ff66]★ [/bold #00ff66][bold #00f3ff]{long_name_safe}[/bold #00f3ff] [dim]({t('LOCAL_BADGE', lang)})[/dim]"
-            aka = f"[bold #00ff66]{short_name_safe}[/bold #00ff66]"
-            node_id_str = f"[bold #00f3ff]{node_id_safe}[/bold #00f3ff]"
+            node_name = f"[bold {c['secondary']}]★ [/bold {c['secondary']}][bold {c['primary']}]{long_name_safe}[/bold {c['primary']}] [dim]({t('LOCAL_BADGE', lang)})[/dim]"
+            aka = f"[bold {c['secondary']}]{short_name_safe}[/bold {c['secondary']}]"
+            node_id_str = f"[bold {c['primary']}]{node_id_safe}[/bold {c['primary']}]"
             row_style = "bold"
         else:
-            node_name = f"[bold #f8fafc]{long_name_safe}[/bold #f8fafc]"
-            aka = f"[#00f3ff]{short_name_safe}[/#00f3ff]"
+            node_name = f"[bold {c['text']}]{long_name_safe}[/bold {c['text']}]"
+            aka = f"[{c['primary']}]{short_name_safe}[/{c['primary']}]"
             node_id_str = f"[dim]{node_id_safe}[/dim]"
             row_style = None
 
@@ -146,18 +146,18 @@ def render_node_detail(
     id_grid.add_column(ratio=6)
 
     licensed_str = (
-        f"[bold #00ff66]{t('LICENSED_YES', lang)}[/bold #00ff66]"
+        f"[bold {c['secondary']}]{t('LICENSED_YES', lang)}[/bold {c['secondary']}]"
         if node.is_licensed
         else f"[dim]{t('LICENSED_NO', lang)}[/dim]"
     )
     id_grid.add_row(
-        f"[dim #64748b]{t('LABEL_FULL_NAME', lang)}:[/dim #64748b]   [bold #00ff66]{long_name_safe}[/bold #00ff66]\n"
-        f"[dim #64748b]{t('LABEL_AKA', lang)}:[/dim #64748b]      [bold #00f3ff]{short_name_safe}[/bold #00f3ff]\n"
-        f"[dim #64748b]{t('LABEL_NODE_ID', lang)}:[/dim #64748b]          [white]{node_id_safe}[/white] "
+        f"[dim {c['muted']}]{t('LABEL_FULL_NAME', lang)}:[/dim {c['muted']}]   [bold {c['secondary']}]{long_name_safe}[/bold {c['secondary']}]\n"
+        f"[dim {c['muted']}]{t('LABEL_AKA', lang)}:[/dim {c['muted']}]      [bold {c['primary']}]{short_name_safe}[/bold {c['primary']}]\n"
+        f"[dim {c['muted']}]{t('LABEL_NODE_ID', lang)}:[/dim {c['muted']}]          [white]{node_id_safe}[/white] "
         f"[dim]{t('LABEL_DEC', lang, num=node.num or '--')}[/dim]",
-        f"[dim #64748b]{t('LABEL_HW_MODEL', lang)}:[/dim #64748b]       [white]{hw_safe}[/white]\n"
-        f"[dim #64748b]{t('LABEL_DEVICE_ROLE', lang)}:[/dim #64748b] {format_role(node.role)}\n"
-        f"[dim #64748b]{t('LABEL_RADIO_LICENSE', lang)}:[/dim #64748b]    {licensed_str}",
+        f"[dim {c['muted']}]{t('LABEL_HW_MODEL', lang)}:[/dim {c['muted']}]       [white]{hw_safe}[/white]\n"
+        f"[dim {c['muted']}]{t('LABEL_DEVICE_ROLE', lang)}:[/dim {c['muted']}] {format_role(node.role)}\n"
+        f"[dim {c['muted']}]{t('LABEL_RADIO_LICENSE', lang)}:[/dim {c['muted']}]    {licensed_str}",
     )
 
     # Section 2: Radio Metrics & Propagation
@@ -176,12 +176,12 @@ def render_node_detail(
     radio_grid.add_column(ratio=6)
 
     radio_grid.add_row(
-        f"[dim #64748b]{t('LABEL_SNR', lang)}:[/dim #64748b]    {format_snr(node.snr)}\n"
-        f"[dim #64748b]{t('LABEL_HOPS_AWAY', lang)}:[/dim #64748b]        {format_hops(node.hops_away, lang)}\n"
-        f"[dim #64748b]{t('LABEL_LAST_HEARD', lang)}:[/dim #64748b]  {last_heard_display}",
-        f"[dim #64748b]{t('LABEL_CH_UTIL', lang)}:[/dim #64748b]  [white]{ch_util_str}[/white]\n"
-        f"[dim #64748b]{t('LABEL_AIR_UTIL', lang)}:[/dim #64748b]      [white]{air_util_str}[/white]\n"
-        f"[dim #64748b]{t('LABEL_MODEM_PRESET', lang)}:[/dim #64748b]     [white]{node.modem_preset or 'LONG_FAST'}[/white]",
+        f"[dim {c['muted']}]{t('LABEL_SNR', lang)}:[/dim {c['muted']}]    {format_snr(node.snr)}\n"
+        f"[dim {c['muted']}]{t('LABEL_HOPS_AWAY', lang)}:[/dim {c['muted']}]        {format_hops(node.hops_away, lang)}\n"
+        f"[dim {c['muted']}]{t('LABEL_LAST_HEARD', lang)}:[/dim {c['muted']}]  {last_heard_display}",
+        f"[dim {c['muted']}]{t('LABEL_CH_UTIL', lang)}:[/dim {c['muted']}]  [white]{ch_util_str}[/white]\n"
+        f"[dim {c['muted']}]{t('LABEL_AIR_UTIL', lang)}:[/dim {c['muted']}]      [white]{air_util_str}[/white]\n"
+        f"[dim {c['muted']}]{t('LABEL_MODEM_PRESET', lang)}:[/dim {c['muted']}]     [white]{node.modem_preset or 'LONG_FAST'}[/white]",
     )
 
     # Section 3: Power & Environmental Telemetry
@@ -196,11 +196,11 @@ def render_node_detail(
     power_grid.add_column(ratio=6)
 
     power_grid.add_row(
-        f"[dim #64748b]{t('LABEL_BATTERY_FULL', lang)}:[/dim #64748b]         {batt_str}\n"
-        f"[dim #64748b]{t('LABEL_CELL_VOLTAGE', lang)}:[/dim #64748b]   [white]{volt_str}[/white]",
-        f"[dim #64748b]{t('LABEL_TEMPERATURE', lang)}:[/dim #64748b]      [white]{temp_str}[/white]\n"
-        f"[dim #64748b]{t('LABEL_HUMIDITY', lang)}:[/dim #64748b] [white]{hum_str}[/white] "
-        f"[dim #64748b]| {t('LABEL_PRESSURE', lang)}:[/dim #64748b] [white]{press_str}[/white]",
+        f"[dim {c['muted']}]{t('LABEL_BATTERY_FULL', lang)}:[/dim {c['muted']}]         {batt_str}\n"
+        f"[dim {c['muted']}]{t('LABEL_CELL_VOLTAGE', lang)}:[/dim {c['muted']}]   [white]{volt_str}[/white]",
+        f"[dim {c['muted']}]{t('LABEL_TEMPERATURE', lang)}:[/dim {c['muted']}]      [white]{temp_str}[/white]\n"
+        f"[dim {c['muted']}]{t('LABEL_HUMIDITY', lang)}:[/dim {c['muted']}] [white]{hum_str}[/white] "
+        f"[dim {c['muted']}]| {t('LABEL_PRESSURE', lang)}:[/dim {c['muted']}] [white]{press_str}[/white]",
     )
 
     # Section 4: Geographic Position & OpenStreetMap
@@ -209,11 +209,11 @@ def render_node_detail(
     geo_grid.add_column(ratio=6)
 
     if node.has_coords:
-        coords_val = f"[bold #00f3ff]{node.latitude:.5f}, {node.longitude:.5f}[/bold #00f3ff]"
+        coords_val = f"[bold {c['primary']}]{node.latitude:.5f}, {node.longitude:.5f}[/bold {c['primary']}]"
         alt_val = f"{node.altitude:.0f} {t('ALTITUDE_SUFFIX', lang)}" if node.altitude is not None else "[dim]--[/dim]"
         osm_link = (
-            f"[link={node.osm_url}][bold #00ff66]{t('OSM_LINK_TEXT', lang)}[/bold #00ff66][/link] "
-            f"[dim #64748b]({node.osm_url})[/dim #64748b]"
+            f"[link={node.osm_url}][bold {c['secondary']}]{t('OSM_LINK_TEXT', lang)}[/bold {c['secondary']}][/link] "
+            f"[dim {c['muted']}]({node.osm_url})[/dim {c['muted']}]"
         )
     else:
         coords_val = f"[dim]{t('NO_COORDS', lang)}[/dim]"
@@ -223,42 +223,42 @@ def render_node_detail(
     dist_str = format_distance(effective_dist)
 
     geo_grid.add_row(
-        f"[dim #64748b]{t('LABEL_GPS_COORDS', lang)}:[/dim #64748b]   {coords_val}\n"
-        f"[dim #64748b]{t('LABEL_ALTITUDE', lang)}:[/dim #64748b]       [white]{alt_val}[/white]\n"
-        f"[dim #64748b]{t('LABEL_DISTANCE_EST', lang)}:[/dim #64748b]   [bold #ffb800]{dist_str}[/bold #ffb800]",
-        f"[dim #64748b]{t('LABEL_OSM', lang)}:[/dim #64748b]\n{osm_link}",
+        f"[dim {c['muted']}]{t('LABEL_GPS_COORDS', lang)}:[/dim {c['muted']}]   {coords_val}\n"
+        f"[dim {c['muted']}]{t('LABEL_ALTITUDE', lang)}:[/dim {c['muted']}]       [white]{alt_val}[/white]\n"
+        f"[dim {c['muted']}]{t('LABEL_DISTANCE_EST', lang)}:[/dim {c['muted']}]   [bold {c['accent']}]{dist_str}[/bold {c['accent']}]",
+        f"[dim {c['muted']}]{t('LABEL_OSM', lang)}:[/dim {c['muted']}]\n{osm_link}",
     )
 
     # Section 5: Security / Public Key (if available)
     pubkey_str = (
-        f"[dim #64748b]{escape(str(node.public_key))}[/dim #64748b]"
+        f"[dim {c['muted']}]{escape(str(node.public_key))}[/dim {c['muted']}]"
         if node.public_key
         else f"[dim]{t('PUBKEY_NONE', lang)}[/dim]"
     )
 
     elements = [
-        Text.from_markup(f"[bold #00f3ff]{t('SECTION_IDENTITY', lang)}[/bold #00f3ff]"),
+        Text.from_markup(f"[bold {c['primary']}]{t('SECTION_IDENTITY', lang)}[/bold {c['primary']}]"),
         id_grid,
-        Rule(style="#334155"),
-        Text.from_markup(f"[bold #00f3ff]{t('SECTION_RADIO', lang)}[/bold #00f3ff]"),
+        Rule(style=c["border_dim"]),
+        Text.from_markup(f"[bold {c['primary']}]{t('SECTION_RADIO', lang)}[/bold {c['primary']}]"),
         radio_grid,
-        Rule(style="#334155"),
-        Text.from_markup(f"[bold #00f3ff]{t('SECTION_POWER', lang)}[/bold #00f3ff]"),
+        Rule(style=c["border_dim"]),
+        Text.from_markup(f"[bold {c['primary']}]{t('SECTION_POWER', lang)}[/bold {c['primary']}]"),
         power_grid,
-        Rule(style="#334155"),
-        Text.from_markup(f"[bold #00f3ff]{t('SECTION_GEO', lang)}[/bold #00f3ff]"),
+        Rule(style=c["border_dim"]),
+        Text.from_markup(f"[bold {c['primary']}]{t('SECTION_GEO', lang)}[/bold {c['primary']}]"),
         geo_grid,
-        Rule(style="#334155"),
-        Text.from_markup(f"[dim #64748b]{t('LABEL_PUBKEY', lang)}:[/dim #64748b] {pubkey_str}"),
+        Rule(style=c["border_dim"]),
+        Text.from_markup(f"[dim {c['muted']}]{t('LABEL_PUBKEY', lang)}:[/dim {c['muted']}] {pubkey_str}"),
     ]
 
     return Panel(
         Group(*elements),
-        title=f"[bold #00f3ff]{t('NODE_DETAIL_TITLE', lang, name=short_name_safe, id=node_id_safe)}[/bold #00f3ff]",
+        title=f"[bold {c['primary']}]{t('NODE_DETAIL_TITLE', lang, name=short_name_safe, id=node_id_safe)}[/bold {c['primary']}]",
         title_align="left",
-        subtitle=f"[dim #64748b]{t('NODE_DETAIL_SUBTITLE', lang)}[/dim #64748b]",
+        subtitle=f"[dim {c['muted']}]{t('NODE_DETAIL_SUBTITLE', lang)}[/dim {c['muted']}]",
         subtitle_align="right",
-        border_style="#00f3ff",
+        border_style=c["primary"],
         box=box.ROUNDED,
         padding=(1, 2),
     )
@@ -268,7 +268,7 @@ def render_message(
     msg: MeshMessage,
     as_panel: bool | None = None,
     lang: str = "it",
-) -> Union[Text, Panel]:
+) -> Text | Panel:
     """Format an incoming or transmitted mesh message.
 
     Direct messages (DM) are styled inside a tactical alert Panel by default,
@@ -295,33 +295,33 @@ def render_message(
         recipient_raw = msg.recipient_name or msg.recipient_id or "^all"
         recipient_display = escape(str(recipient_raw))
         content = (
-            f"[dim #64748b]{timestamp_str}[/dim #64748b] "
-            f"[bold #00ff66]{sender_display}[/bold #00ff66] [dim]({sender_id_safe})[/dim]{snr_display} "
-            f"[bold #ff007f]➔[/bold #ff007f] [bold #00f3ff]{recipient_display}[/bold #00f3ff]\n\n"
-            f"[bold #f8fafc]{text_safe}[/bold #f8fafc]"
+            f"[dim {c['muted']}]{timestamp_str}[/dim {c['muted']}] "
+            f"[bold {c['secondary']}]{sender_display}[/bold {c['secondary']}] [dim]({sender_id_safe})[/dim]{snr_display} "
+            f"[bold {c['magenta']}]➔[/bold {c['magenta']}] [bold {c['primary']}]{recipient_display}[/bold {c['primary']}]\n\n"
+            f"[bold {c['text']}]{text_safe}[/bold {c['text']}]"
         )
         return Panel(
             Text.from_markup(content),
-            title=f"[bold #ff007f]{t('MSG_DM_TITLE', lang)}[/bold #ff007f]",
+            title=f"[bold {c['magenta']}]{t('MSG_DM_TITLE', lang)}[/bold {c['magenta']}]",
             title_align="left",
-            border_style="#ff007f",
+            border_style=c["magenta"],
             box=box.ROUNDED,
             padding=(0, 1),
         )
     else:
         # Broadcast / channel chatter
         if msg.channel_name:
-            chan_tag = f"[bold #00f3ff]#{escape(str(msg.channel_name))}[/bold #00f3ff]"
+            chan_tag = f"[bold {c['primary']}]#{escape(str(msg.channel_name))}[/bold {c['primary']}]"
         elif msg.channel == 0:
-            chan_tag = "[bold #00f3ff]#Primary[/bold #00f3ff]"
+            chan_tag = f"[bold {c['primary']}]#Primary[/bold {c['primary']}]"
         else:
-            chan_tag = f"[bold #00f3ff]#Ch_{escape(str(msg.channel))}[/bold #00f3ff]"
+            chan_tag = f"[bold {c['primary']}]#Ch_{escape(str(msg.channel))}[/bold {c['primary']}]"
 
         formatted = (
-            f"[dim #64748b]{timestamp_str}[/dim #64748b] "
+            f"[dim {c['muted']}]{timestamp_str}[/dim {c['muted']}] "
             f"{chan_tag} "
-            f"[bold #00ff66]{sender_display}[/bold #00ff66]{snr_display} "
-            f"[dim #64748b]❯[/dim #64748b] "
-            f"[#f8fafc]{text_safe}[/#f8fafc]"
+            f"[bold {c['secondary']}]{sender_display}[/bold {c['secondary']}]{snr_display} "
+            f"[dim {c['muted']}]❯[/dim {c['muted']}] "
+            f"[{c['text']}]{text_safe}[/{c['text']}]"
         )
         return Text.from_markup(formatted)
