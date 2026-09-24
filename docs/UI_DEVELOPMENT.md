@@ -22,12 +22,8 @@ The recommended implementation order is:
 `/view` already filters and sorts nodes but a selected row has no action. Selection should open the existing node detail in a right-side pane on wide terminals, with explicit actions:
 
 - `Enter`: open or focus details.
-- `d`: direct message the selected node.
-- `t`: traceroute the selected node.
-- `m`: open the OpenStreetMap link when coordinates exist.
-- `c`: copy the node ID.
 
-The action row should disable unavailable actions rather than failing after a keypress.
+Unavailable actions should stay hidden until they are implemented.
 
 ## ✅ 2. Responsive Compact Layout — Implemented
 

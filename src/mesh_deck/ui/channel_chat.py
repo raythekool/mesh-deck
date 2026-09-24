@@ -12,6 +12,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
+from rich.markup import escape
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
@@ -115,17 +116,26 @@ class ChannelChatScreen(Screen):
     def _dm_peer_id_from_key(key: int | str) -> str:
         return str(key).removeprefix(DM_KEY)
 
-    def _dm_key_for(self, msg: MeshMessage) -> str:
+    def _dm_key_for(self, msg: MeshMessage, *, direction: str | None = None) -> str:
+        if direction == "out":
+            return f"{DM_KEY}{msg.receiver_id}"
+        if direction == "in":
+            return f"{DM_KEY}{msg.sender_id}"
         local = self.client.get_local_node()
         local_id = getattr(local, "id", None)
         peer_id = msg.receiver_id if local_id and msg.sender_id == local_id else msg.sender_id
         return f"{DM_KEY}{peer_id}"
 
-    def _record_dm_name(self, key: str, msg: MeshMessage) -> None:
+    def _record_dm_name(self, key: str, msg: MeshMessage, *, direction: str | None = None) -> None:
         peer_id = self._dm_peer_id_from_key(key)
-        local = self.client.get_local_node()
-        local_id = getattr(local, "id", None)
-        name = msg.recipient_name if local_id and msg.sender_id == local_id else msg.sender_name
+        if direction == "out":
+            name = msg.recipient_name
+        elif direction == "in":
+            name = msg.sender_name
+        else:
+            local = self.client.get_local_node()
+            local_id = getattr(local, "id", None)
+            name = msg.recipient_name if local_id and msg.sender_id == local_id else msg.sender_name
         if not name:
             node = self.client.store.get_node(peer_id)
             name = node.display_name if node else peer_id
@@ -140,9 +150,10 @@ class ChannelChatScreen(Screen):
                 msg = MeshMessage.from_dict(entry)
             except Exception:
                 continue
-            key = self._dm_key_for(msg) if msg.is_dm else msg.channel
+            direction = entry.get("direction") if isinstance(entry.get("direction"), str) else None
+            key = self._dm_key_for(msg, direction=direction) if msg.is_dm else msg.channel
             if msg.is_dm:
-                self._record_dm_name(key, msg)
+                self._record_dm_name(key, msg, direction=direction)
             self._buffers.setdefault(key, []).append(msg)
 
     def _refresh_channel_list(self) -> None:
@@ -156,7 +167,7 @@ class ChannelChatScreen(Screen):
             unread = self._unread.get(key, 0)
             badge = f" [bold {THEME_COLORS['alert']}]({unread})[/]" if unread else ""
             prefix = "🔒 " if self._is_dm_key(key) else "# "
-            option_list.add_option(Option(f"{prefix}{name}{badge}"))
+            option_list.add_option(Option(f"{prefix}{escape(name)}{badge}"))
 
     def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
         if event.option_list.id != "channel-list":
@@ -196,10 +207,16 @@ class ChannelChatScreen(Screen):
         """Callback registered on RadioClient; invoked from the pubsub background thread."""
         self.app.call_from_thread(self._handle_message, msg)
 
-    def _handle_message(self, msg: MeshMessage) -> None:
-        key = self._dm_key_for(msg) if msg.is_dm else msg.channel
+    def _handle_message(
+        self,
+        msg: MeshMessage,
+        *,
+        key_override: int | str | None = None,
+        direction: str | None = None,
+    ) -> None:
+        key = key_override if key_override is not None else (self._dm_key_for(msg, direction=direction) if msg.is_dm else msg.channel)
         if msg.is_dm:
-            self._record_dm_name(key, msg)
+            self._record_dm_name(str(key), msg, direction=direction)
         self._buffers.setdefault(key, []).append(msg)
         if key == self._selected_key:
             self.query_one("#chat-log", RichLog).write(render_message(msg, lang=self.lang))
@@ -228,7 +245,9 @@ class ChannelChatScreen(Screen):
                         recipient_name=peer_name,
                         text=text,
                         is_dm=True,
-                    )
+                    ),
+                    key_override=self._selected_key,
+                    direction="out",
                 )
             else:
                 self.client.send_broadcast(text, channel_index=int(self._selected_key))

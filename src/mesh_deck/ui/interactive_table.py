@@ -314,7 +314,7 @@ class InteractiveNodesScreen(Screen):
         detail.display = not compact
         self._configure_columns(compact)
         self._update_view_mode_label()
-        self.refresh_table()
+        self.refresh_table(filter_text=self.query_one("#filter-input", Input).value)
         if self._selected_node_id and not compact:
             self._render_detail(self._selected_node_id)
 

@@ -846,6 +846,15 @@ class TestRadioClient(unittest.TestCase):
 
         self.assertEqual(received, [("radio ready\n", "COM6")])
 
+    def test_device_log_line_is_ignored_while_disconnected(self):
+        client = RadioClient()
+        received = []
+        client.on_device_log(lambda line, port: received.append((line, port)))
+
+        client._on_pubsub_log_line("radio ready\n", interface=object())
+
+        self.assertEqual(received, [])
+
     def test_device_identity_snapshot_and_update_use_local_node_owner_api(self):
         store = NodeStore()
         local = NodeData(
@@ -860,6 +869,15 @@ class TestRadioClient(unittest.TestCase):
         client = RadioClient(node_store=store)
         interface = MagicMock()
         interface.localNode = MagicMock()
+        interface.getMyNodeInfo.return_value = {
+            "num": 1,
+            "user": {
+                "id": "!00000001",
+                "longName": "Normalized Name",
+                "shortName": "NORM",
+                "role": "CLIENT",
+            },
+        }
         client._interface = interface
         client._is_connected = True
 
@@ -875,9 +893,10 @@ class TestRadioClient(unittest.TestCase):
         )
         updated = client.update_device_identity(long_name="New Name", short_name="NEW")
         interface.localNode.setOwner.assert_called_once_with(long_name="New Name", short_name="NEW")
-        self.assertEqual(updated["long_name"], "New Name")
-        self.assertEqual(updated["short_name"], "NEW")
-        self.assertEqual(store.get_local_node().long_name, "New Name")
+        self.assertEqual(updated["long_name"], "Normalized Name")
+        self.assertEqual(updated["short_name"], "NORM")
+        self.assertEqual(store.get_local_node().long_name, "Normalized Name")
+        self.assertEqual(store.get_local_node().short_name, "NORM")
 
     def test_device_identity_validation_prevents_radio_write(self):
         client = RadioClient()
@@ -955,6 +974,23 @@ class TestRadioClient(unittest.TestCase):
         self.assertIsNone(client.interface)
         mock_iface.close.assert_called_once()
         self.assertEqual(connection_events, [(False, "/dev/ttyACM0")])
+
+    def test_expected_old_disconnect_does_not_hide_new_connection_loss(self):
+        client = RadioClient()
+        old_iface = MagicMock()
+        new_iface = MagicMock()
+        client._expected_disconnect_interface = old_iface
+        client._interface = new_iface
+        client._port = "/dev/ttyACM1"
+        client._is_connected = True
+
+        connection_events = []
+        client.on_connection_change(lambda connected, port: connection_events.append((connected, port)))
+
+        client._on_pubsub_connection_lost(interface=new_iface)
+
+        self.assertEqual(connection_events, [(False, "/dev/ttyACM1")])
+        self.assertFalse(client.is_connected)
 
     def test_radio_client_crosstalk_protection(self):
         client = RadioClient()
@@ -1406,6 +1442,17 @@ class TestHistoryStore(unittest.TestCase):
         self.assertEqual(len(history), 2)
         self.assertEqual(history[0]["long_name"], "Heltec Milan")
         self.assertIn("observed_at", history[0])
+
+    def test_record_node_treats_temperature_and_channel_util_as_material(self):
+        node = NodeData(id="!45a466e4", long_name="Heltec Milan", battery_level=80)
+        self.assertTrue(self.store.record_node(node))
+        node.temperature = 21.5
+        self.assertTrue(self.store.record_node(node))
+        node.channel_util = 12.0
+        self.assertTrue(self.store.record_node(node))
+
+        history = self.store.iter_node_history("!45a466e4")
+        self.assertEqual(len(history), 3)
 
     def test_record_node_writes_to_disk(self):
         node = NodeData(id="!45a466e4", long_name="Heltec Milan")

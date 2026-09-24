@@ -565,6 +565,10 @@ class TestCompleter(unittest.TestCase):
     def test_localized_command_descriptions(self):
         self.assertIn("List", command_descriptions("en")["/nodes"])
         self.assertIn("Elenca", command_descriptions("it")["/nodes"])
+        self.assertIn("/history", command_descriptions("en"))
+        self.assertIn("/topology", command_descriptions("en"))
+        self.assertIn("/logs", command_descriptions("en"))
+        self.assertIn("/device-settings", command_descriptions("en"))
 
     def test_completer_empty_or_whitespace_input(self):
         # Empty text yields no completions
@@ -848,6 +852,7 @@ class TestDeviceSelectorKeyboard(_IsolatedSettingsTestCase):
         client.store.get_all_nodes.return_value = []
         client.get_local_node.return_value = None
         client.get_channels.return_value = []
+        client.last_connection_error = "Access denied"
         repl = MeshDeckREPL(client)
         repl.settings.language = "en"
         app = MeshDeckApp(
@@ -866,7 +871,33 @@ class TestDeviceSelectorKeyboard(_IsolatedSettingsTestCase):
             self.assertIsInstance(app.screen, DeviceSelectorScreen)
             error = app.screen.query_one("#device-error", Static)
             self.assertTrue(error.display)
-            self.assertIn("COM6", str(error.content))
+            self.assertIn("Access denied", str(error.content))
+
+    async def test_activate_console_opens_explorer_with_saved_mode_and_history(self):
+        from unittest.mock import MagicMock
+
+        client = MagicMock()
+        client.store.get_all_nodes.return_value = []
+        client.get_local_node.return_value = None
+        client.get_channels.return_value = []
+        client.history = object()
+        repl = MeshDeckREPL(client)
+        repl.settings.language = "en"
+        repl.settings.explorer_view_mode = "compact"
+        app = MeshDeckApp(repl)
+        app.open_explorer_on_connect = True
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            with unittest.mock.patch.object(app, "open_node_explorer") as open_node_explorer:
+                app.activate_console()
+                open_node_explorer.assert_called_once_with(
+                    client.store,
+                    None,
+                    "en",
+                    "compact",
+                    client.history,
+                )
 
 
 class TestNodeSidebar(_IsolatedSettingsTestCase):
@@ -896,6 +927,41 @@ class TestNodeSidebar(_IsolatedSettingsTestCase):
             await pilot.pause()
             app.show_node_detail.assert_called_once_with("!45a466e4")
             self.assertTrue(app.query_one("#node-detail").display)
+
+    async def test_node_explorer_preserves_filter_when_layout_rebuilds(self):
+        from mesh_deck.core.node_store import NodeStore
+        from mesh_deck.ui.interactive_table import InteractiveNodesScreen
+        from textual.widgets import DataTable
+
+        store = NodeStore()
+        store.update_node(NodeData(id="!aaa", short_name="ALPHA", long_name="Alpha Node"))
+        store.update_node(NodeData(id="!bbb", short_name="BRAVO", long_name="Bravo Node"))
+
+        client = unittest.mock.MagicMock()
+        client.store = store
+        client.get_local_node.return_value = None
+        client.get_channels.return_value = []
+        repl = MeshDeckREPL(client)
+        repl.settings.language = "en"
+        app = MeshDeckApp(repl)
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.open_node_explorer(store, None, "en", "full")
+            await pilot.pause()
+            screen = app.screen
+            self.assertIsInstance(screen, InteractiveNodesScreen)
+            filter_input = screen.query_one("#filter-input", Input)
+            filter_input.value = "bravo"
+            await pilot.pause()
+            table = screen.query_one(DataTable)
+            self.assertEqual(table.row_count, 1)
+
+            screen.view_mode = "compact"
+            screen._configure_layout(force=True)
+            await pilot.pause()
+
+            self.assertEqual(table.row_count, 1)
 
     async def test_ctrl_b_toggles_sidebar_visibility(self):
         from unittest.mock import MagicMock
@@ -1432,6 +1498,56 @@ class TestChannelChatScreen(unittest.IsolatedAsyncioTestCase):
             self.assertIn(f"{DM_KEY}!bbb", screen._buffers)
             self.assertIn(f"{DM_KEY}!ccc", screen._buffers)
             self.assertEqual(screen.query_one("#channel-list", OptionList).option_count, 4)
+
+    async def test_history_uses_recorded_outbound_direction_for_dm_threads(self):
+        from mesh_deck.ui.channel_chat import ChannelChatApp, DM_KEY
+
+        client = self._make_client()
+        client.history = unittest.mock.MagicMock()
+        client.history.iter_messages.return_value = [
+            {
+                "sender_id": "^local",
+                "sender_name": "Local",
+                "receiver_id": "!bbb",
+                "recipient_name": "Trinity",
+                "text": "reply",
+                "channel": 0,
+                "is_dm": True,
+                "direction": "out",
+                "timestamp": "2024-01-01T10:00:00",
+            }
+        ]
+        app = ChannelChatApp(client)
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            self.assertIn(f"{DM_KEY}!bbb", app.screen._buffers)
+            self.assertNotIn(f"{DM_KEY}^local", app.screen._buffers)
+
+    async def test_local_dm_echo_stays_in_selected_peer_when_local_identity_is_missing(self):
+        from mesh_deck.ui.channel_chat import ChannelChatApp, DM_KEY
+
+        client = self._make_client()
+        client.get_local_node.return_value = None
+        app = ChannelChatApp(client)
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            screen = app.screen
+            dm_key = f"{DM_KEY}!bbb"
+            screen._buffers[dm_key] = []
+            screen._dm_names[dm_key] = "Trinity"
+            screen._selected_key = dm_key
+            screen._render_selected()
+            chat_input = screen.query_one("#chat-input", Input)
+            chat_input.focus()
+            await pilot.press(*"pong")
+            await pilot.press("enter")
+            await pilot.pause()
+
+            self.assertIn(dm_key, screen._buffers)
+            self.assertNotIn(f"{DM_KEY}^local", screen._buffers)
+            self.assertEqual([msg.text for msg in screen._buffers[dm_key]], ["pong"])
 
 
 class TestLogViewerScreen(unittest.IsolatedAsyncioTestCase):

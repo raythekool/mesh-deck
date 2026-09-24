@@ -401,9 +401,16 @@ class MeshDeckApp(ThemedApp, App):
             self.activate_console()
             return
         if isinstance(self.screen, ConnectionScreen):
+            failure_reason = getattr(self.repl.client, "last_connection_error", None)
+            if not isinstance(failure_reason, str) or not failure_reason:
+                failure_reason = t(
+                    "CONNECTION_FAILED",
+                    self.repl.settings.language,
+                    port=self.screen.port,
+                )
             self._last_connection_failure = (
                 self.screen.port,
-                t("CONNECTION_FAILED", self.repl.settings.language, port=self.screen.port),
+                failure_reason,
             )
             self.screen.show_error()
 
@@ -418,7 +425,13 @@ class MeshDeckApp(ThemedApp, App):
         self.query_one(Input).focus()
         self.refresh_sidebar()
         if self.open_explorer_on_connect:
-            self.open_node_explorer(self.repl.client.store, self.repl.client.get_local_node(), self.repl.settings.language)
+            self.open_node_explorer(
+                self.repl.client.store,
+                self.repl.client.get_local_node(),
+                self.repl.settings.language,
+                self.repl.settings.explorer_view_mode,
+                self.repl.client.history,
+            )
 
     def refresh_sidebar(self) -> None:
         """Populate the node sidebar from the current NodeStore snapshot."""

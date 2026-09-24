@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Any
 
+from textual import work
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
@@ -105,8 +106,7 @@ class NodeHistoryScreen(Screen[None]):
         if event.select.id == "history-range":
             self.refresh_history()
 
-    def _entries(self) -> list[dict[str, Any]]:
-        range_key = str(self.query_one("#history-range", Select).value)
+    def _entries(self, range_key: str) -> list[dict[str, Any]]:
         window = HISTORY_RANGES[range_key]
         entries = self.history.iter_node_history(self.node.id)
         if window is None:
@@ -115,7 +115,13 @@ class NodeHistoryScreen(Screen[None]):
         return [entry for entry in entries if (_parse_observed_at(entry) or datetime.min) >= cutoff]
 
     def refresh_history(self) -> None:
-        entries = self._entries()
+        self._load_history(str(self.query_one("#history-range", Select).value))
+
+    @work(thread=True, exclusive=True)
+    def _load_history(self, range_key: str) -> None:
+        self.app.call_from_thread(self._render_history, self._entries(range_key))
+
+    def _render_history(self, entries: list[dict[str, Any]]) -> None:
         self.query_one("#history-summary", Static).update(
             t("HISTORY_SUMMARY", self.lang, count=len(entries), node=self.node.display_name)
             if entries

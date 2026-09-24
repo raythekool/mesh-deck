@@ -101,7 +101,8 @@ class RadioClient:
         self._reconnect_thread: threading.Thread | None = None
         self._reconnect_stop = threading.Event()
         self._reconnect_callbacks: list[Callable[[str, int], Any]] = []
-        self._expect_disconnect = threading.Event()
+        self._expected_disconnect_interface: SerialInterface | None = None
+        self._last_connection_error: str | None = None
 
         # Mesh topology state (RF-2.3) and traceroute plumbing (RF-3.1)
         self._neighbor_reports: dict[str, NeighborReport] = {}
@@ -149,6 +150,12 @@ class RadioClient:
         """Underlying SerialInterface instance, or None if disconnected."""
         with self._lock:
             return self._interface
+
+    @property
+    def last_connection_error(self) -> str | None:
+        """Sanitized description of the most recent connection failure."""
+        with self._lock:
+            return self._last_connection_error
 
     def on_message_received(self, callback: Callable[[MeshMessage], Any]) -> None:
         """Register a callback for incoming text and direct messages."""
@@ -206,6 +213,7 @@ class RadioClient:
                 self._do_connect(port, timeout)
                 return self.is_connected
             except Exception as exc:
+                self._set_last_connection_error(exc)
                 logger.error("Failed to connect to %s: %s", port, exc)
                 return False
         else:
@@ -238,6 +246,7 @@ class RadioClient:
                 self._interface = iface
                 self._port = port
                 self._is_connected = True
+                self._last_connection_error = None
 
                 # Determine local node number / ID
                 if iface.myInfo and iface.myInfo.my_node_num:
@@ -274,6 +283,7 @@ class RadioClient:
                 self._is_connected = False
                 self._port = None
                 self._interface = None
+            self._set_last_connection_error(exc)
             self._notify_connection_change(False, port)
             raise
 
@@ -309,7 +319,7 @@ class RadioClient:
         if iface is not None:
             # Closing publishes meshtastic.connection.lost; flag it so the echo
             # of our own shutdown is not reported to the user as a failure.
-            self._expect_disconnect.set()
+            self._expected_disconnect_interface = iface
             close_thread = threading.Thread(
                 target=self._close_interface_worker,
                 args=(iface,),
@@ -390,7 +400,10 @@ class RadioClient:
 
     def _on_pubsub_log_line(self, line: str, interface=None, **kwargs) -> None:
         """Forward a line published by the connected Meshtastic device."""
-        if self._interface is not None and interface is not None and interface != self._interface:
+        active_interface = self.interface
+        if active_interface is None:
+            return
+        if interface is not None and interface != active_interface:
             return
         port = self.port
         for callback in list(self._device_log_callbacks):
@@ -711,19 +724,27 @@ class RadioClient:
 
     def _on_pubsub_connection_lost(self, interface=None, **kwargs) -> None:
         """Handle connection lost event from pubsub."""
-        if self._interface is not None and interface is not None and interface != self._interface:
-            return
+        with self._lock:
+            active_interface = self._interface
+            expected_interface = self._expected_disconnect_interface
 
-        if self._expect_disconnect.is_set():
-            # Echo of a disconnect() or a port switch we initiated ourselves.
-            self._expect_disconnect.clear()
-            logger.debug("Ignoring connection.lost echo from our own shutdown")
-            return
+            if expected_interface is not None and interface == expected_interface:
+                self._expected_disconnect_interface = None
+                logger.debug("Ignoring connection.lost echo from our own shutdown")
+                return
+            if active_interface is None:
+                if expected_interface is not None and interface is None:
+                    self._expected_disconnect_interface = None
+                    logger.debug("Ignoring unscoped connection.lost echo from our own shutdown")
+                return
+            if interface is not None and interface != active_interface:
+                return
 
         logger.warning("Pubsub signaled connection lost on %s", self._port)
         lost_port = self._port
         with self._lock:
             self._is_connected = False
+            self._expected_disconnect_interface = None
             if self._interface is not None:
                 try:
                     self._interface.close()
@@ -963,12 +984,46 @@ class RadioClient:
             short_name=normalized_short_name,
         )
 
-        local = self.get_local_node()
-        if local is not None:
-            local.long_name = normalized_long_name
-            local.short_name = normalized_short_name
-            self._notify_node_updated(local)
+        local = self._refresh_local_identity()
+        if local is None:
+            raise ConnectionError("The updated local node identity could not be read back from the radio.")
+        self._notify_node_updated(local)
         return self.get_device_identity()
+
+    def _refresh_local_identity(self) -> NodeData | None:
+        """Re-read the authoritative local-node identity from the active radio."""
+        with self._lock:
+            iface = self._interface
+            local_node_id = self._node_store.local_node_id
+        if iface is None:
+            return None
+
+        node_info: dict[str, Any] | None = None
+        get_my_node_info = getattr(iface, "getMyNodeInfo", None)
+        if callable(get_my_node_info):
+            result = get_my_node_info()
+            if isinstance(result, dict):
+                node_info = result
+        if node_info is None:
+            my_info = getattr(iface, "myInfo", None)
+            node_num = getattr(my_info, "my_node_num", None)
+            nodes_by_num = getattr(iface, "nodesByNum", None) or {}
+            if node_num is not None:
+                candidate = nodes_by_num.get(node_num)
+                if isinstance(candidate, dict):
+                    node_info = candidate
+
+        if node_info is not None:
+            return self._node_store.update_from_node_dict(node_info, is_local=True)
+
+        if local_node_id is None:
+            return None
+        return self._node_store.get_node_by_id(local_node_id)
+
+    def _set_last_connection_error(self, exc: BaseException) -> None:
+        message = str(exc).strip() or exc.__class__.__name__
+        with self._lock:
+            self._last_connection_error = message
 
     def _radio_profile(self) -> dict[str, Any]:
         """Return firmware/region/modem preset, which live outside ``myInfo``.

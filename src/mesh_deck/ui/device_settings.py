@@ -193,6 +193,8 @@ class DeviceSettingsScreen(Screen[None]):
         )
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
+        if self._busy:
+            return
         if event.button.id == "revert":
             self._load_snapshot(self._snapshot)
             return
@@ -211,8 +213,9 @@ class DeviceSettingsScreen(Screen[None]):
             )
 
     def _on_identity_confirmed(self, apply: bool | None) -> None:
-        if not apply:
+        if not apply or self._busy:
             return
+        self._set_busy(True)
         self._apply_identity(self._draft())
 
     @work(thread=True, exclusive=True)
@@ -225,18 +228,34 @@ class DeviceSettingsScreen(Screen[None]):
         self.app.call_from_thread(self._show_applied, updated)
 
     def _show_applied(self, snapshot: dict[str, str]) -> None:
+        self._set_busy(False)
         self._load_snapshot(snapshot)
         self.query_one("#device-settings-status", Static).update(
             t("DEVICE_SETTINGS_APPLIED", self.lang)
         )
 
     def _show_error(self, exc: Exception) -> None:
+        self._set_busy(False)
         self.query_one("#device-settings-status", Static).update(
             t("DEVICE_SETTINGS_ERROR", self.lang, error=exc)
         )
 
     def action_reload_identity(self) -> None:
+        if self._busy:
+            return
         self.reload_identity()
 
     def action_close(self) -> None:
+        if self._busy:
+            return
         self.dismiss()
+
+    def _set_busy(self, busy: bool) -> None:
+        self._busy = busy
+        for widget_id in (
+            "#device-settings-long-name",
+            "#device-settings-short-name",
+            "#revert",
+            "#review",
+        ):
+            self.query_one(widget_id).disabled = busy
