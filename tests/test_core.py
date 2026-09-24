@@ -846,6 +846,54 @@ class TestRadioClient(unittest.TestCase):
 
         self.assertEqual(received, [("radio ready\n", "COM6")])
 
+    def test_device_identity_snapshot_and_update_use_local_node_owner_api(self):
+        store = NodeStore()
+        local = NodeData(
+            id="!00000001",
+            num=1,
+            long_name="Old Name",
+            short_name="OLD",
+            is_local=True,
+        )
+        store.update_node(local)
+        store.set_local_node_id(local.id)
+        client = RadioClient(node_store=store)
+        interface = MagicMock()
+        interface.localNode = MagicMock()
+        client._interface = interface
+        client._is_connected = True
+
+        self.assertEqual(
+            client.get_device_identity(),
+            {
+                "id": "!00000001",
+                "long_name": "Old Name",
+                "short_name": "OLD",
+                "role": "CLIENT",
+                "hardware": "",
+            },
+        )
+        updated = client.update_device_identity(long_name="New Name", short_name="NEW")
+        interface.localNode.setOwner.assert_called_once_with(long_name="New Name", short_name="NEW")
+        self.assertEqual(updated["long_name"], "New Name")
+        self.assertEqual(updated["short_name"], "NEW")
+        self.assertEqual(store.get_local_node().long_name, "New Name")
+
+    def test_device_identity_validation_prevents_radio_write(self):
+        client = RadioClient()
+        client._interface = MagicMock()
+        client._is_connected = True
+
+        for long_name, short_name in (
+            ("", "BASE"),
+            ("x" * 40, "BASE"),
+            ("Base", ""),
+            ("Base", "ABCDE"),
+        ):
+            with self.assertRaises(ValueError):
+                client.update_device_identity(long_name=long_name, short_name=short_name)
+        client._interface.localNode.setOwner.assert_not_called()
+
     def test_radio_client_telemetry_and_position_routing(self):
         store = NodeStore()
         client = RadioClient(node_store=store)

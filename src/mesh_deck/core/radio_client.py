@@ -867,6 +867,58 @@ class RadioClient:
 
             return None
 
+    def get_device_identity(self) -> dict[str, Any]:
+        """Return the editable, non-secret identity snapshot of the local radio."""
+        local = self.get_local_node()
+        if local is None:
+            raise ConnectionError("The local node identity is not available.")
+        return {
+            "id": local.id,
+            "long_name": local.long_name,
+            "short_name": local.short_name,
+            "role": local.role,
+            "hardware": local.hardware,
+        }
+
+    def update_device_identity(self, *, long_name: str, short_name: str) -> dict[str, Any]:
+        """Apply a validated owner-name change to the connected local radio.
+
+        Meshtastic's ``setOwner`` is the official API for identity changes.
+        The library truncates a long short-name while printing to stdout, so
+        validation occurs here to preserve the MCP stdio contract.
+        """
+        normalized_long_name = long_name.strip()
+        normalized_short_name = short_name.strip()
+        if not normalized_long_name:
+            raise ValueError("Long name must not be empty.")
+        if len(normalized_long_name) > 39:
+            raise ValueError("Long name must be at most 39 characters.")
+        if not normalized_short_name:
+            raise ValueError("Short name must not be empty.")
+        if len(normalized_short_name) > 4:
+            raise ValueError("Short name must be at most 4 characters.")
+
+        with self._lock:
+            if not self._is_connected or self._interface is None:
+                raise ConnectionError("RadioClient is not connected to any radio.")
+            local_node = getattr(self._interface, "localNode", None)
+            if local_node is None:
+                raise ConnectionError("The connected radio has no local node configuration.")
+
+        _guard_library_exit(
+            "Identity update",
+            local_node.setOwner,
+            long_name=normalized_long_name,
+            short_name=normalized_short_name,
+        )
+
+        local = self.get_local_node()
+        if local is not None:
+            local.long_name = normalized_long_name
+            local.short_name = normalized_short_name
+            self._notify_node_updated(local)
+        return self.get_device_identity()
+
     def _radio_profile(self) -> dict[str, Any]:
         """Return firmware/region/modem preset, which live outside ``myInfo``.
 

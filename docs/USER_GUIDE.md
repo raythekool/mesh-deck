@@ -306,6 +306,15 @@ The screen reads existing `nodes.jsonl` snapshots only when opened. It offers 6-
 
 When local history is disabled or no snapshots exist, Mesh-Deck explains the condition without fabricating measurements. From the compact node detail screen, press `h` for the same history view when history is enabled.
 
+### `/device-settings`
+
+- **Syntax:** `/device-settings`
+- **Purpose:** Open the safe, transaction-style identity editor for the connected local radio.
+
+The screen reads a device snapshot, lets you edit long and short names in a local draft, validates both values, shows a semantic diff, and requires an explicit confirmation before sending anything to the radio. After a successful owner update, Mesh-Deck refreshes its local snapshot.
+
+The first implementation intentionally exposes only identity. Radio parameters, position sharing, and channels remain visible as future groups but are not writable. PSKs, region changes, factory reset, firmware operations, and raw protobuf editing are not exposed.
+
 ### `/send`
 
 - **Syntax:** `/send <message>` or plain text at the prompt

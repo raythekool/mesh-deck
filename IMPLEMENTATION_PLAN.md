@@ -212,11 +212,15 @@ mesh-deck/
   1. `/history <id|aka|nome>` legge on-demand gli snapshot `nodes.jsonl` già presenti.
   2. Range 6 ore, 24 ore, 7 giorni e completo mostrano sparkline per batteria, SNR, temperatura e utilizzo canale.
   3. Il dettaglio nodo compatto espone la stessa screen con binding `h`; assenza di snapshot o storico disattivato viene mostrata esplicitamente.
+* **Incremento 9 — completato sul branch `feat/ui-node-explorer-foundation`**:
+  1. `/device-settings` implementa il primo gruppo scrivibile sicuro: identità locale (long/short name).
+  2. Il flusso è snapshot → draft validato → diff semantico → conferma modale → `setOwner` ufficiale → snapshot aggiornato.
+  3. Limiti nome sono validati prima dell'API per evitare truncation/output della libreria; PSK, regione, reset, firmware, canali, posizione e configurazioni radio restano non modificabili fino a validazione hardware dedicata.
 * **Semplificazione avvio CLI — completata sul branch `feat/ui-node-explorer-foundation`**:
   1. `scan` e `nodes` sono i comandi canonici non interattivi; offrono JSON, timeout, ordinamento e filtri che i flag legacy non supportano.
   2. `--list` e `--nodes` restano compatibili con warning su stderr fino alla rimozione pianificata in v0.4.0.
   3. L'impostazione persistita `ui_mode` e `/settings mode` sono rimossi; `--tui` resta la scelta one-shot esplicita per aprire direttamente l'esploratore.
 * **Incrementi successivi — ordinati per valore operativo**:
-  1. Screen `/device-settings` transazionale: snapshot, draft locale, validazione, diff semantico, conferma esplicita e rilettura dell'ack; PSK, regione, reset e firmware restano fuori ambito.
+  1. Estendere `/device-settings` a radio, posizione e metadati canale solo dopo API, side effect e acknowledgement verificati su hardware; PSK, regione, reset e firmware restano fuori ambito.
   2. Topologia visuale soltanto dopo che i dati NeighborInfo reali dimostrano frequenza e qualità sufficienti.
 * **Criterio di Accettazione Incremento 1**: la suite `unittest` copre dettaglio, densità automatica, persistenza, localizzazione e strip radio; il linter `ruff` è pulito; la nuova UI preserva tutte le funzionalità `/view` esistenti.

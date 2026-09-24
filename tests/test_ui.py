@@ -1644,6 +1644,77 @@ class TestNodeHistoryScreen(unittest.IsolatedAsyncioTestCase):
             self.assertIn("No local snapshots", str(host.screen.query_one("#history-summary", Static).content))
 
 
+class TestDeviceSettingsScreen(unittest.IsolatedAsyncioTestCase):
+    """Connected-device identity settings are draft-first and confirmation-gated."""
+
+    def _app(self):
+        from unittest.mock import MagicMock
+
+        client = MagicMock()
+        client.is_connected = True
+        client.port = "COM6"
+        client.get_device_identity.return_value = {
+            "id": "!local",
+            "long_name": "Old Name",
+            "short_name": "OLD",
+            "role": "CLIENT",
+            "hardware": "TBEAM",
+        }
+        client.store.get_all_nodes.return_value = []
+        client.get_local_node.return_value = NodeData(
+            id="!local", long_name="Old Name", short_name="OLD"
+        )
+        client.get_channels.return_value = []
+        repl = MeshDeckREPL(client)
+        repl.settings.language = "en"
+        return MeshDeckApp(repl), client
+
+    async def test_draft_shows_diff_and_validation_before_confirm(self):
+        from mesh_deck.ui.device_settings import DeviceSettingsScreen
+
+        app, _client = self._app()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.open_device_settings()
+            await pilot.pause()
+            self.assertIsInstance(app.screen, DeviceSettingsScreen)
+            screen = app.screen
+            long_name = screen.query_one("#device-settings-long-name", Input)
+            short_name = screen.query_one("#device-settings-short-name", Input)
+            long_name.value = "New Name"
+            short_name.value = "NEW"
+            await pilot.pause()
+            diff = str(screen.query_one("#device-settings-diff", Static).content)
+            self.assertIn("Old Name", diff)
+            self.assertIn("New Name", diff)
+
+            short_name.value = "TOO-LONG"
+            await pilot.pause()
+            self.assertIn("at most 4 characters", str(screen.query_one("#device-settings-diff", Static).content))
+
+    async def test_confirmed_draft_applies_then_refreshes_snapshot(self):
+        app, client = self._app()
+        client.update_device_identity.return_value = {
+            "id": "!local",
+            "long_name": "New Name",
+            "short_name": "NEW",
+            "role": "CLIENT",
+            "hardware": "TBEAM",
+        }
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.open_device_settings()
+            await pilot.pause()
+            screen = app.screen
+            screen.query_one("#device-settings-long-name", Input).value = "New Name"
+            screen.query_one("#device-settings-short-name", Input).value = "NEW"
+            screen._on_identity_confirmed(True)
+            await pilot.pause()
+            await pilot.pause()
+            client.update_device_identity.assert_called_once_with(long_name="New Name", short_name="NEW")
+            self.assertIn("Identity sent", str(screen.query_one("#device-settings-status", Static).content))
+
+
 class TestNotifyMessageWiring(unittest.IsolatedAsyncioTestCase):
     """Test that MeshDeckApp.notify_message builds the expected toast for DMs/broadcasts."""
 

@@ -1,6 +1,6 @@
 # UI Development Proposals
 
-> **Status:** sections 1–10 and 12 are implemented on `feat/ui-node-explorer-foundation`; sections 11 and 13 remain proposals. Each SVG is a wireframe that makes the intended interaction and information hierarchy reviewable before code is written.
+> **Status:** sections 1–10 and 12–13 are implemented on `feat/ui-node-explorer-foundation`; section 11 remains a proposal. Each SVG is a wireframe that makes the intended interaction and information hierarchy reviewable before code is written.
 
 ## Goals
 
@@ -129,13 +129,13 @@ The operator filters by source and severity, pauses auto-scroll, searches, copie
 
 This is a viewer, not a new persistent logging subsystem: it subscribes to existing Python logging and Meshtastic `meshtastic.log.line` events, retains a bounded in-memory buffer, and leaves standard MCP stdout untouched.
 
-## 13. Connected Device Settings
+## 13. Connected Device Settings — Identity Slice Implemented
 
 ![Connected device settings proposal](ui-development/images/13-device-settings.svg)
 
-Add a separate `/device-settings` screen for the principal radio settings of the **currently connected** device. It must be clearly distinct from `/settings`, which controls Mesh-Deck's local user preferences.
+`/device-settings` is separate from `/settings`, which controls Mesh-Deck's local user preferences. The delivered identity slice reads the connected local node snapshot, validates long and short names in a local draft, shows a semantic diff in a modal confirmation, invokes the official Meshtastic `setOwner` API only after confirmation, and refreshes the local snapshot.
 
-The first version should expose only settings with a safe, well-understood effect:
+Identity is the only writable group in this increment. The remaining groups stay documented but non-editable until their radio-side effects have dedicated hardware validation:
 
 | Group | Examples | Guardrail |
 | :---- | :------- | :-------- |
@@ -152,7 +152,7 @@ The UI follows a transaction rather than mutating controls immediately:
 4. Require explicit **Apply to device** confirmation.
 5. Show the radio acknowledgement, then re-read the snapshot.
 
-Region changes, factory reset, firmware operations, and raw protobuf editing are deliberately excluded from this first screen. They are high-risk actions that require a separate, explicit maintenance workflow.
+Region changes, factory reset, firmware operations, and raw protobuf editing are deliberately excluded. They are high-risk actions that require a separate, explicit maintenance workflow.
 
 ## Explicit Non-goals
 

@@ -73,6 +73,7 @@ class CommandDispatcher:
             "/logs": self.cmd_logs,
             "/settings": self.cmd_settings,
             "/config": self.cmd_settings,
+            "/device-settings": self.cmd_device_settings,
             "/switch": self.cmd_switch,
             "/scan": self.cmd_scan,
             "/clear": self.cmd_clear,
@@ -177,6 +178,7 @@ class CommandDispatcher:
             ("/trace", "<id|aka>", t("CMD_DESC_TRACE", lang)),
             ("/info", "", t("CMD_DESC_INFO", lang)),
             ("/settings", "[lang|theme|sort|port|notifications|history]", t("CMD_DESC_SETTINGS", lang)),
+            ("/device-settings", "", t("CMD_DESC_DEVICE_SETTINGS", lang)),
             ("/switch", "[porta|indice]", t("CMD_DESC_SWITCH", lang)),
             ("/scan", "", t("CMD_DESC_SCAN", lang)),
             ("/banner", "", t("CMD_DESC_BANNER", lang)),
@@ -752,6 +754,17 @@ class CommandDispatcher:
                 self.console.print(f"[{THEME_COLORS['alert']}]{t('SETTINGS_INVALID_VALUE', lang)}[/]")
         else:
             self.console.print(f"[{THEME_COLORS['warning']}]{t('SETTINGS_USAGE', lang)}[/]")
+
+    def cmd_device_settings(self, args: list[str]) -> None:
+        """Open the transaction-style settings UI for the connected local radio."""
+        if not self.client.is_connected:
+            self.console.print(f"[{THEME_COLORS['alert']}]{t('DEVICE_SETTINGS_NOT_CONNECTED', self.lang)}[/]")
+            return
+        opener = getattr(self.console, "open_device_settings", None)
+        if callable(opener):
+            opener()
+            return
+        self.console.print(f"[{THEME_COLORS['warning']}]{t('DEVICE_SETTINGS_TUI_ONLY', self.lang)}[/]")
 
     def cmd_clear(self, args: list[str]) -> None:
         """Clear terminal screen."""

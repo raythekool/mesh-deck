@@ -249,6 +249,18 @@ class TestCommandDispatcher(unittest.TestCase):
         self.assertTrue(self.dispatcher.dispatch("/history TRIN"))
         self.assertTrue(self.dispatcher.dispatch("/history"))
 
+    def test_dispatch_device_settings_requires_connection_and_uses_tui(self) -> None:
+        console = MagicMock()
+        console.open_device_settings = MagicMock()
+        self.mock_client.is_connected = False
+        dispatcher = CommandDispatcher(self.mock_client, console=console, settings=self.settings)
+        self.assertTrue(dispatcher.dispatch("/device-settings"))
+        console.open_device_settings.assert_not_called()
+
+        self.mock_client.is_connected = True
+        self.assertTrue(dispatcher.dispatch("/device-settings"))
+        console.open_device_settings.assert_called_once_with()
+
     def test_dispatch_trace_requires_a_target(self) -> None:
         self.assertTrue(self.dispatcher.dispatch("/trace"))
         self.mock_client.trace_route.assert_not_called()
