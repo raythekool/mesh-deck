@@ -4,7 +4,7 @@
   <rect width="1200" height="700" fill="#081018"/>
   <rect x="25" y="20" width="1150" height="54" rx="10" fill="#10212b" stroke="#00f3ff"/>
   <text x="52" y="54" fill="#00f3ff" font-family="monospace" font-size="24" font-weight="bold">MESH-DECK / VIEW</text>
-  <text x="900" y="54" fill="#94a3b8" font-family="monospace" font-size="17">/ filter   r refresh   q back</text>
+  <text x="900" y="54" fill="#94a3b8" font-family="monospace" font-size="17">/ filter   r refresh   v view   h history   q close</text>
   <rect x="25" y="94" width="495" height="570" rx="10" fill="#0b1720" stroke="#1f8794"/>
   <text x="48" y="128" fill="#00f3ff" font-family="monospace" font-size="20" font-weight="bold">NODES  [ compact ]</text>
   <rect x="45" y="146" width="455" height="42" rx="6" fill="#10212b"/>
@@ -27,13 +27,9 @@
   <text x="575" y="332" fill="#e8f1f5" font-family="monospace" font-size="18">45.47510, 9.20880     2.1 km     127 deg SE</text>
   <text x="575" y="382" fill="#94a3b8" font-family="monospace" font-size="16">POWER</text>
   <text x="575" y="412" fill="#e8f1f5" font-family="monospace" font-size="18">87% (4.02 V)</text>
-  <rect x="575" y="478" width="120" height="46" rx="7" fill="#00f3ff"/>
-  <text x="601" y="508" fill="#081018" font-family="monospace" font-size="17" font-weight="bold">d DM</text>
-  <rect x="712" y="478" width="140" height="46" rx="7" fill="#ffb800"/>
-  <text x="738" y="508" fill="#081018" font-family="monospace" font-size="17" font-weight="bold">t TRACE</text>
-  <rect x="869" y="478" width="120" height="46" rx="7" fill="#1f8794"/>
-  <text x="894" y="508" fill="#e8f1f5" font-family="monospace" font-size="17" font-weight="bold">m MAP</text>
-  <rect x="1006" y="478" width="120" height="46" rx="7" fill="#334155"/>
-  <text x="1031" y="508" fill="#e8f1f5" font-family="monospace" font-size="17" font-weight="bold">c COPY</text>
-  <text x="575" y="590" fill="#94a3b8" font-family="monospace" font-size="15">Enter opens details. Unavailable actions render disabled.</text>
+  <rect x="575" y="478" width="150" height="46" rx="7" fill="#0b1720" stroke="#00f3ff" stroke-width="2"/>
+  <text x="601" y="508" fill="#00f3ff" font-family="monospace" font-size="17" font-weight="bold">h HISTORY</text>
+  <rect x="745" y="478" width="150" height="46" rx="7" fill="#0b1720" stroke="#00f3ff" stroke-width="2"/>
+  <text x="771" y="508" fill="#00f3ff" font-family="monospace" font-size="17" font-weight="bold">v VIEW MODE</text>
+  <text x="575" y="590" fill="#94a3b8" font-family="monospace" font-size="15">Enter opens/focuses details. DM and traceroute stay explicit console commands, not row buttons.</text>
 </svg>
