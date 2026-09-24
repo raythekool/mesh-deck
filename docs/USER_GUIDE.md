@@ -101,6 +101,10 @@ The connection handshake and NodeDB synchronization run in the background. The c
 
 The selector marks the preferred port, currently active port when relevant, and the port whose most recent connection failed. It displays that error with an explicit retry action. If no device is found, it shows cable, power, serial-driver, and port-ownership recovery guidance before offering `r` to rescan.
 
+### Console navigation
+
+Commands that open a view replace the current view instead of stacking screens. Press `q` or `Esc` to return to the console. The node detail card at the top right can be collapsed with its `×` control, and the **Esci**/**Quit** button at the top right follows the same clean shutdown path as `/quit`.
+
 ### CLI flags
 
 | Flag | Argument | Description |

@@ -90,6 +90,20 @@ class TestCommandDispatcher(unittest.TestCase):
         res_q = self.dispatcher.dispatch("/?")
         self.assertTrue(res_q)
 
+    def test_help_lists_operational_ui_commands_and_quit_alias(self) -> None:
+        output = io.StringIO()
+        dispatcher = CommandDispatcher(
+            self.mock_client,
+            console=Console(file=output, force_terminal=False),
+            settings=self.settings,
+        )
+
+        dispatcher.dispatch("/help")
+
+        help_text = output.getvalue()
+        for command in ("/chat", "/logs", "/topology", "/history", "/device-settings", "/quit, /exit, /q"):
+            self.assertIn(command, help_text)
+
     def test_dispatch_nodes(self) -> None:
         res = self.dispatcher.dispatch("/nodes")
         self.assertTrue(res)

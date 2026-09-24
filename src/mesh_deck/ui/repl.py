@@ -13,7 +13,7 @@ from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.css.query import NoMatches
-from textual.screen import ModalScreen
+from textual.screen import ModalScreen, Screen
 from textual.widgets import Button, Footer, Header, Input, Label, OptionList, RichLog, Select, Static
 from textual.widgets.option_list import Option
 
@@ -265,6 +265,28 @@ SIDEBAR_FILTER_LABELS = {
     "active": "SIDEBAR_FILTER_ACTIVE",
     "favorites": "SIDEBAR_FILTER_FAVORITES",
 }
+OUTPUT_REPLACEMENT_COMMANDS = {
+    "/?",
+    "/banner",
+    "/channels",
+    "/chat",
+    "/device-settings",
+    "/help",
+    "/history",
+    "/info",
+    "/logs",
+    "/mesh",
+    "/neighbors",
+    "/node",
+    "/nodes",
+    "/scan",
+    "/settings",
+    "/topology",
+    "/trace",
+    "/traceroute",
+    "/tui",
+    "/view",
+}
 
 
 class SidebarResizeHandle(Static):
@@ -314,6 +336,10 @@ class MeshDeckApp(ThemedApp, App):
     CSS = """
     Screen { background: $mesh-bg; color: $mesh-text; }
     Header { background: $mesh-bg-elevated; color: $mesh-primary; }
+    #app-header { height: 3; background: $mesh-bg-elevated; }
+    #app-header Header { width: 1fr; }
+    #quit-button { width: 10; height: 3; border: none; background: $mesh-bg-elevated; color: $mesh-alert; }
+    #quit-button:hover { background: $mesh-alert; color: $mesh-bg; }
     #radio-status { height: 1; padding: 0 1; background: $mesh-bg-panel; color: $mesh-muted; }
     #body { height: 1fr; }
     #sidebar { width: 32; min-width: 18; border: round $mesh-border-soft; background: $mesh-bg-panel; }
@@ -325,7 +351,10 @@ class MeshDeckApp(ThemedApp, App):
     #sidebar-resizer { width: 1; height: 1fr; background: $mesh-border-soft; }
     #sidebar-resizer:hover { background: $mesh-primary; }
     #main { height: 1fr; }
-    #node-detail { height: auto; max-height: 20; margin: 0 1; border: round $mesh-purple; background: $mesh-bg-panel; display: none; }
+    #node-detail { width: 1fr; height: auto; max-height: 20; border: round $mesh-purple; background: $mesh-bg-panel; display: none; }
+    #node-detail-collapse { width: 3; height: 1; margin-top: 1; background: $mesh-bg-elevated; color: $mesh-secondary; border: none; display: none; }
+    #node-detail-collapse:hover { background: $mesh-border-soft; color: $mesh-bg; }
+    #node-detail-row { height: auto; max-height: 20; margin: 0 1; }
     #output { height: 1fr; margin: 0 1; border: round $mesh-border-soft; background: $mesh-bg-panel; }
     #suggestions { height: auto; max-height: 5; margin: 0 1; color: $mesh-secondary; background: $mesh-bg-elevated; }
     #command-progress { height: 1; margin: 0 1; color: $mesh-warning; display: none; }
@@ -360,7 +389,9 @@ class MeshDeckApp(ThemedApp, App):
         self._last_connection_failure: tuple[str, str] | None = None
 
     def compose(self) -> ComposeResult:
-        yield Header(show_clock=True)
+        with Horizontal(id="app-header"):
+            yield Header(show_clock=True)
+            yield Button(t("QUIT_BUTTON", self.repl.settings.language), id="quit-button")
         yield Static(id="radio-status")
         with Horizontal(id="body"):
             with Vertical(id="sidebar"):
@@ -371,7 +402,9 @@ class MeshDeckApp(ThemedApp, App):
                 yield OptionList(id="sidebar-nodes", compact=True)
             yield SidebarResizeHandle(id="sidebar-resizer")
             with Vertical(id="main"):
-                yield Static(id="node-detail")
+                with Horizontal(id="node-detail-row"):
+                    yield Static(id="node-detail")
+                    yield Button("×", id="node-detail-collapse")
                 yield RichLog(id="output", markup=True, wrap=True, highlight=True)
                 yield OptionList(id="suggestions", compact=True)
                 yield Static(id="command-progress")
@@ -558,6 +591,12 @@ class MeshDeckApp(ThemedApp, App):
     def clear_output(self) -> None:
         self.query_one(RichLog).clear()
 
+    def _replace_workflow_screen(self, screen: Screen[Any]) -> None:
+        """Keep one operator workflow screen on the stack at a time."""
+        while len(self.screen_stack) > 1:
+            self.pop_screen()
+        self.push_screen(screen)
+
     def open_node_explorer(
         self,
         node_store: Any,
@@ -567,7 +606,7 @@ class MeshDeckApp(ThemedApp, App):
         history: Any = None,
     ) -> None:
         from mesh_deck.ui.interactive_table import InteractiveNodesScreen
-        self.push_screen(
+        self._replace_workflow_screen(
             InteractiveNodesScreen(
                 node_store,
                 local_node=local_node,
@@ -583,15 +622,15 @@ class MeshDeckApp(ThemedApp, App):
 
     def open_channel_chat(self, radio_client: Any, lang: str = "it") -> None:
         from mesh_deck.ui.channel_chat import ChannelChatScreen
-        self.push_screen(ChannelChatScreen(radio_client, lang=lang))
+        self._replace_workflow_screen(ChannelChatScreen(radio_client, lang=lang))
 
     def open_settings(self) -> None:
-        self.push_screen(SettingsScreen(self.repl.settings))
+        self._replace_workflow_screen(SettingsScreen(self.repl.settings))
 
     def open_logs(self) -> None:
         from mesh_deck.ui.log_viewer import LogViewerScreen
 
-        self.push_screen(LogViewerScreen(self.repl.log_buffer, lang=self.repl.settings.language))
+        self._replace_workflow_screen(LogViewerScreen(self.repl.log_buffer, lang=self.repl.settings.language))
 
     def open_node_history(self, node: NodeData) -> None:
         history = self.repl.client.history
@@ -600,17 +639,17 @@ class MeshDeckApp(ThemedApp, App):
             return
         from mesh_deck.ui.node_history import NodeHistoryScreen
 
-        self.push_screen(NodeHistoryScreen(node, history, lang=self.repl.settings.language))
+        self._replace_workflow_screen(NodeHistoryScreen(node, history, lang=self.repl.settings.language))
 
     def open_topology(self, radio_client: Any, lang: str = "it") -> None:
         from mesh_deck.ui.topology import TopologyScreen
 
-        self.push_screen(TopologyScreen(radio_client, lang=lang))
+        self._replace_workflow_screen(TopologyScreen(radio_client, lang=lang))
 
     def open_device_settings(self) -> None:
         from mesh_deck.ui.device_settings import DeviceSettingsScreen
 
-        self.push_screen(DeviceSettingsScreen(self.repl.client, lang=self.repl.settings.language))
+        self._replace_workflow_screen(DeviceSettingsScreen(self.repl.client, lang=self.repl.settings.language))
 
     def apply_theme(self, name: str | None = None) -> None:
         """Activate a palette and repaint every Rich and Textual surface."""
@@ -624,6 +663,7 @@ class MeshDeckApp(ThemedApp, App):
         self.sub_title = t("APP_SUBTITLE", language)
         self.repl.completer.commands = command_descriptions(language)
         self.repl.completer.lang = language
+        self.query_one("#quit-button", Button).label = t("QUIT_BUTTON", language)
         self.query_one(Input).placeholder = self.repl._get_prompt()
         self._bindings.key_to_bindings["ctrl+b"] = [
             Binding("ctrl+b", "toggle_sidebar", t("SIDEBAR_TOGGLE", language), show=True)
@@ -724,9 +764,14 @@ class MeshDeckApp(ThemedApp, App):
         if self._active_command is not None:
             self.notify(t("COMMAND_BUSY", self.repl.settings.language), severity="warning")
             return
+        command_parts = command.strip().split(maxsplit=1)
+        if not command_parts:
+            return
         input_widget = self.query_one(Input)
         input_widget.value = ""
         self.clear_suggestions()
+        if command_parts[0].lower() in OUTPUT_REPLACEMENT_COMMANDS:
+            self.clear_output()
         self.history_position = len(self.repl.settings.command_history)
         self.repl.settings.add_command(command)
         self._start_command_progress(command)
@@ -885,9 +930,17 @@ class MeshDeckApp(ThemedApp, App):
         detail = self.query_one("#node-detail", Static)
         detail.update(panel)
         detail.display = True
+        self.query_one("#node-detail-collapse", Button).display = True
 
     def close_node_detail(self) -> None:
         self.query_one("#node-detail", Static).display = False
+        self.query_one("#node-detail-collapse", Button).display = False
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "quit-button":
+            self._submit_command("/quit")
+        elif event.button.id == "node-detail-collapse":
+            self.close_node_detail()
 
     def on_unmount(self) -> None:
         self.repl.stop_logging()

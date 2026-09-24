@@ -929,6 +929,88 @@ class TestNodeSidebar(_IsolatedSettingsTestCase):
             app.show_node_detail.assert_called_once_with("!45a466e4")
             self.assertTrue(app.query_one("#node-detail").display)
 
+    async def test_node_detail_can_be_collapsed_from_its_control(self):
+        from unittest.mock import MagicMock
+
+        node = NodeData(id="!45a466e4", short_name="ALPHA", long_name="Alpha Node")
+        client = MagicMock()
+        client.store.get_all_nodes.return_value = [node]
+        client.store.get_node.return_value = node
+        client.get_local_node.return_value = None
+        client.get_channels.return_value = []
+        app = MeshDeckApp(MeshDeckREPL(client))
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.show_node_detail(node.id)
+            await pilot.pause()
+            self.assertTrue(app.query_one("#node-detail").display)
+            self.assertTrue(app.query_one("#node-detail-collapse").display)
+
+            await pilot.click("#node-detail-collapse")
+            await pilot.pause()
+            self.assertFalse(app.query_one("#node-detail").display)
+            self.assertFalse(app.query_one("#node-detail-collapse").display)
+
+    async def test_workflow_screen_replaces_the_previous_one(self):
+        from unittest.mock import MagicMock
+
+        from mesh_deck.core.node_store import NodeStore
+        from mesh_deck.ui.channel_chat import ChannelChatScreen
+        from mesh_deck.ui.interactive_table import InteractiveNodesScreen
+
+        client = MagicMock()
+        client.store = NodeStore()
+        client.get_local_node.return_value = None
+        client.get_channels.return_value = []
+        app = MeshDeckApp(MeshDeckREPL(client))
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.open_node_explorer(client.store, None, "en", "full")
+            await pilot.pause()
+            self.assertIsInstance(app.screen, InteractiveNodesScreen)
+            self.assertEqual(len(app.screen_stack), 2)
+
+            app.open_channel_chat(client, "en")
+            await pilot.pause()
+            self.assertIsInstance(app.screen, ChannelChatScreen)
+            self.assertEqual(len(app.screen_stack), 2)
+
+            app.pop_screen()
+            await pilot.pause()
+            self.assertEqual(len(app.screen_stack), 1)
+
+    async def test_quit_button_uses_quit_command(self):
+        from unittest.mock import MagicMock, patch
+
+        client = MagicMock()
+        client.store.get_all_nodes.return_value = []
+        client.get_local_node.return_value = None
+        client.get_channels.return_value = []
+        app = MeshDeckApp(MeshDeckREPL(client))
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            with patch.object(app, "_submit_command") as submit_command:
+                await pilot.click("#quit-button")
+                submit_command.assert_called_once_with("/quit")
+
+    async def test_display_command_replaces_console_output(self):
+        from unittest.mock import MagicMock, patch
+
+        client = MagicMock()
+        client.store.get_all_nodes.return_value = []
+        client.get_local_node.return_value = None
+        client.get_channels.return_value = []
+        app = MeshDeckApp(MeshDeckREPL(client))
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            with patch.object(app, "clear_output") as clear_output:
+                app._submit_command("/nodes")
+                clear_output.assert_called_once()
+
     async def test_node_explorer_preserves_filter_when_layout_rebuilds(self):
         from mesh_deck.core.node_store import NodeStore
         from mesh_deck.ui.interactive_table import InteractiveNodesScreen
