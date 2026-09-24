@@ -604,23 +604,25 @@ class MeshDeckApp(ThemedApp, App):
         """Render the durable radio-state strip above scrolling output."""
         lang = self.repl.settings.language
         local = self.repl.client.get_local_node()
-        node_name = (local.short_name or local.display_name) if local else t("NODE_UNKNOWN_NAME", lang)
-        port = self.repl.client.port or t("RADIO_STATUS_NO_PORT", lang)
-        content = Text()
+        raw_node_name = (local.short_name or local.display_name) if local else t("NODE_UNKNOWN_NAME", lang)
+        node_name = escape(str(raw_node_name))
+        raw_port = self.repl.client.port or t("RADIO_STATUS_NO_PORT", lang)
+        port = escape(str(raw_port))
 
         if self.repl.connection_state == "connected":
-            content.append("●", style=THEME_COLORS["secondary"])
-            content.append(
-                f" {t('RADIO_STATUS_CONNECTED', lang, node=node_name, port=port)}"
+            content = Text.from_markup(
+                f"[{THEME_COLORS['secondary']}]●[/] "
+                f"{t('RADIO_STATUS_CONNECTED', lang, node=node_name, port=port)}"
             )
         elif self.repl.connection_state == "reconnecting":
-            content.append("↻", style=THEME_COLORS["warning"])
-            content.append(
-                f" {t('RADIO_STATUS_RECONNECTING', lang, port=port, attempt=self.repl.reconnect_attempt)}"
+            content = Text.from_markup(
+                f"[{THEME_COLORS['warning']}]↻[/] "
+                f"{t('RADIO_STATUS_RECONNECTING', lang, port=port, attempt=self.repl.reconnect_attempt)}"
             )
         else:
-            content.append("○", style=THEME_COLORS["alert"])
-            content.append(f" {t('RADIO_STATUS_DISCONNECTED', lang)}")
+            content = Text.from_markup(
+                f"[{THEME_COLORS['alert']}]○[/] {t('RADIO_STATUS_DISCONNECTED', lang)}"
+            )
 
         self.query_one("#radio-status", Static).update(content)
 
