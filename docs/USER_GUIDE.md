@@ -97,7 +97,7 @@ Interactive startup opens a Textual device selector before connecting. The saved
 
 Use `--port COM6` on Windows or `--port /dev/ttyACM0` on Linux/macOS to bypass the selector for a known device.
 
-The connection handshake and NodeDB synchronization run in the background. If a connection fails, the selector remains available to choose a different device.
+The connection handshake and NodeDB synchronization run in the background. The connection dialog shows an indeterminate loader and the actual number of nodes received; it deliberately does not show a percentage because the radio does not provide a reliable total in advance. If a connection fails, the selector remains available to choose a different device.
 
 The selector marks the preferred port, currently active port when relevant, and the port whose most recent connection failed. It displays that error with an explicit retry action. If no device is found, it shows cable, power, serial-driver, and port-ownership recovery guidance before offering `r` to rescan.
 

@@ -616,6 +616,15 @@ STRINGS: dict[str, dict[str, str]] = {
     "BINDING_CANCEL": {"it": "Annulla", "en": "Cancel"},
     "BINDING_RETRY": {"it": "Riprova", "en": "Retry"},
     "CONNECTION_HEADING": {"it": "Connessione alla periferica", "en": "Connecting to device"},
+    "CONNECTION_OPENING": {"it": "Apertura di {port}...", "en": "Opening {port}..."},
+    "CONNECTION_SYNCING": {
+        "it": "Sincronizzazione NodeDB... {count} nodi ricevuti",
+        "en": "Synchronizing NodeDB... {count} nodes received",
+    },
+    "CONNECTION_COMPLETE": {
+        "it": "NodeDB pronto: {count} nodi",
+        "en": "NodeDB ready: {count} nodes",
+    },
     "CONNECTION_STATUS": {
         "it": "Apertura di {port} e sincronizzazione del NodeDB...",
         "en": "Opening {port} and syncing the NodeDB...",
