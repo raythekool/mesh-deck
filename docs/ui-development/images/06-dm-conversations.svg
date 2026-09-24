@@ -26,9 +26,7 @@
   <rect x="625" y="300" width="500" height="70" rx="8" fill="#063b46"/>
   <text x="645" y="330" fill="#00ff66" font-family="monospace" font-size="17">YOU  18:03</text>
   <text x="645" y="355" fill="#e8f1f5" font-family="monospace" font-size="16">Received. I am moving to the relay.</text>
-  <rect x="380" y="570" width="560" height="48" rx="7" fill="#10212b" stroke="#00f3ff"/>
-  <text x="402" y="600" fill="#9fffd0" font-family="monospace" font-size="16">Reply to TRIN...</text>
-  <rect x="960" y="570" width="155" height="48" rx="7" fill="#00ff66"/>
-  <text x="998" y="600" fill="#081018" font-family="monospace" font-size="17" font-weight="bold">Send DM</text>
+  <rect x="380" y="570" width="735" height="48" rx="7" fill="#10212b" stroke="#00f3ff"/>
+  <text x="402" y="600" fill="#9fffd0" font-family="monospace" font-size="16">Reply to TRIN... (Enter to send)</text>
   <text x="385" y="650" fill="#94a3b8" font-family="monospace" font-size="15">Recipient stays visible at send time; broadcasts retain their channel composer.</text>
 </svg>

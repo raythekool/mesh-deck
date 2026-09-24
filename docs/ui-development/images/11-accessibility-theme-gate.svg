@@ -14,7 +14,7 @@
   <rect x="595" y="90" width="245" height="145" rx="10" fill="#2e3440" stroke="#88c0d0" stroke-width="3"/>
   <text x="620" y="125" fill="#88c0d0" font-family="monospace" font-size="19" font-weight="bold">NORD</text>
   <text x="620" y="160" fill="#a3be8c" font-family="monospace" font-size="17">CONNECTED [OK]</text>
-  <text x="620" y="195" fill="#bf616a" font-family="monospace" font-size="17">LOST [!]</text>
+  <text x="620" y="195" fill="#ff9ba4" font-family="monospace" font-size="17">LOST [!]</text>
   <rect x="870" y="90" width="245" height="145" rx="10" fill="#14100e" stroke="#ffb454" stroke-width="3"/>
   <text x="895" y="125" fill="#ffb454" font-family="monospace" font-size="19" font-weight="bold">EMBER</text>
   <text x="895" y="160" fill="#b8cc52" font-family="monospace" font-size="17">CONNECTED [OK]</text>

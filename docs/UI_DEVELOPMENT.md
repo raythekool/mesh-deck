@@ -22,8 +22,10 @@ The recommended implementation order is:
 `/view` already filters and sorts nodes but a selected row has no action. Selection should open the existing node detail in a right-side pane on wide terminals, with explicit actions:
 
 - `Enter`: open or focus details.
+- `h`: open node history (when history persistence is enabled).
+- `v`: cycle the view mode (auto/full/compact).
 
-Unavailable actions should stay hidden until they are implemented.
+DM and traceroute remain deliberate slash commands typed in the console rather than row buttons, so an operator never fires a transmission with a stray click. Unavailable actions should stay hidden until they are implemented.
 
 ## ✅ 2. Responsive Compact Layout — Implemented
 
@@ -137,7 +139,7 @@ Identity is the only writable group in this increment. The remaining groups stay
 
 | Group | Examples | Guardrail |
 | :---- | :------- | :-------- |
-| Identity | long name, short name, device role | Validate required names and show the node affected. |
+| Identity | long name, short name | Validate required names and show the node affected. |
 | Radio | modem preset, TX power, position broadcast interval | Show regulatory/coverage warning and expected reconnect or reboot. |
 | Position | fixed coordinates, altitude, position precision | Validate coordinate bounds and make position sharing explicit. |
 | Channels | channel name, enabled role, uplink/downlink flags | Never display or edit PSK material in the UI. |
