@@ -205,6 +205,10 @@ class InteractiveNodesScreen(Screen):
         color: $mesh-muted;
     }
 
+    Input:focus, DataTable:focus {
+        border: double $mesh-primary;
+    }
+
     #detail-container {
         display: none;
         width: 2fr;

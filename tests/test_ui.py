@@ -1798,6 +1798,38 @@ class TestThemeEngine(unittest.TestCase):
         self.assertIn("mesh-bg-panel", variables)
         self.assertTrue(all(key.startswith("mesh-") for key in variables))
 
+    def test_every_theme_meets_semantic_text_contrast_gate(self):
+        from mesh_deck.ui.accessibility import palette_contrast_failures
+
+        failures = {
+            name: palette_contrast_failures(palette)
+            for name, palette in THEMES.items()
+        }
+        self.assertEqual({name: issues for name, issues in failures.items() if issues}, {})
+
+    def test_contrast_helper_rejects_invalid_colour_values(self):
+        from mesh_deck.ui.accessibility import contrast_ratio
+
+        with self.assertRaises(ValueError):
+            contrast_ratio("not-a-colour", "#000000")
+
+    def test_primary_ui_screens_declare_visible_focus_treatment(self):
+        from mesh_deck.ui.channel_chat import ChannelChatScreen
+        from mesh_deck.ui.device_selector import DeviceSelectorScreen
+        from mesh_deck.ui.device_settings import DeviceSettingsScreen
+        from mesh_deck.ui.interactive_table import InteractiveNodesScreen
+        from mesh_deck.ui.repl import MeshDeckApp
+
+        for screen in (
+            MeshDeckApp,
+            InteractiveNodesScreen,
+            ChannelChatScreen,
+            DeviceSelectorScreen,
+            DeviceSettingsScreen,
+        ):
+            self.assertIn(":focus", screen.CSS)
+            self.assertIn("double $mesh-primary", screen.CSS)
+
 
 class TestNodePresentation(unittest.TestCase):
     """Node values must agree across every UI surface."""
@@ -2105,6 +2137,21 @@ class TestScreenshotGenerator(unittest.TestCase):
         exported = console.export_svg(title="test")
         self.assertIn("MRPH", exported)
         self.assertIn("ZION", exported)
+
+    def test_sample_rendering_is_exercised_for_every_theme(self):
+        module = self._module()
+        store = module._sample_store()
+        local = store.get_local_node()
+        try:
+            for theme_name in THEMES:
+                set_theme(theme_name)
+                console = module._console()
+                console.print(render_banner(local, port="/dev/ttyACM0", channels=module._sample_channels()))
+                console.print(render_nodes_table(store.get_all_nodes(), local_node_id=local.id))
+                exported = console.export_svg(title=theme_name)
+                self.assertIn("MRPH", exported)
+        finally:
+            set_theme("cyberpunk")
 
 
 class TestConsoleBridgeTeardown(unittest.IsolatedAsyncioTestCase):

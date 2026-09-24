@@ -423,6 +423,8 @@ Preferences are saved in `~/.config/mesh-deck/settings.json`. Language, theme, s
 
 An unknown theme value is rejected by `/settings` and falls back to `cyberpunk` during startup.
 
+Focused inputs, lists, tables, and buttons use a visible double primary border. Connection and warning states use icons and text in addition to colour.
+
 ### `/restart`
 
 - **Syntax:** `/restart`

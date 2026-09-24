@@ -1,6 +1,6 @@
 # UI Development Proposals
 
-> **Status:** sections 1–10 and 12–13 are implemented on `feat/ui-node-explorer-foundation`; section 11 remains a proposal. Each SVG is a wireframe that makes the intended interaction and information hierarchy reviewable before code is written.
+> **Status:** all sections are implemented on `feat/ui-node-explorer-foundation`, with sections 10 and 13 intentionally scoped to safe first slices. Each SVG is a wireframe that makes the intended interaction and information hierarchy reviewable before code is written.
 
 ## Goals
 
@@ -105,16 +105,18 @@ Sidebar, `/nodes`, and `/view` now share a `NodePresentation` model for SNR, hop
 
 `/history <node>` reads existing JSONL snapshots only on demand and shows compact sparklines for battery, SNR, temperature, and channel utilization with 6-hour, 24-hour, 7-day, and all-time ranges. The compact node dossier exposes the same screen with `h`. It is never a continuously redrawn dashboard.
 
-## 11. Accessibility and Theme Quality Gate
+## 11. Accessibility and Theme Quality Gate — Implemented
 
 ![Accessibility and theme proposal](ui-development/images/11-accessibility-theme-gate.svg)
 
-Every palette should retain the same semantic roles, but operators must not depend on color alone. Add:
+Every palette retains the same semantic roles, and operators must not depend on colour alone. The delivered gate includes:
 
-- Visible keyboard focus and selected-row treatment.
-- Icons and text labels alongside colors for connection, SNR, and warnings.
-- Contrast checks for foreground/background combinations in all four themes.
-- A screenshot test matrix for default, compact, and high-density surfaces.
+- Visible keyboard focus with a double primary border on inputs, selectors, lists, tables, and buttons.
+- Icons and text labels alongside colours for connection, SNR, and warnings.
+- Automated contrast checks for semantic text roles on standard and panel backgrounds in all four themes.
+- Sample Rich rendering exercised for every palette in the screenshot-generator test.
+
+The Nord alert colour was raised to meet readable contrast on both Nord dark surfaces.
 
 ## 12. Application and Device Logs — Implemented
 

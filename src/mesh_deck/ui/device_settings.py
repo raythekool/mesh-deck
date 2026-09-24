@@ -88,6 +88,7 @@ class DeviceSettingsScreen(Screen[None]):
     #device-settings-actions { height: auto; margin-top: 2; align-horizontal: right; }
     #device-settings-actions Button { margin-left: 1; }
     Footer { background: $mesh-bg-elevated; color: $mesh-muted; }
+    Input:focus, Button:focus { border: double $mesh-primary; }
     """
 
     def __init__(self, client: RadioClient, lang: str = "it", **kwargs: Any) -> None:

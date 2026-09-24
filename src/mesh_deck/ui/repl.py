@@ -297,6 +297,9 @@ class MeshDeckApp(ThemedApp, App):
     #command-progress { height: 1; margin: 0 1; color: $mesh-warning; display: none; }
     #command { margin: 0 1 1 1; border: round $mesh-primary; background: $mesh-bg-panel; color: $mesh-text; }
     Footer { background: $mesh-bg-elevated; color: $mesh-muted; }
+    Input:focus, Select:focus, OptionList:focus, DataTable:focus, Button:focus {
+        border: double $mesh-primary;
+    }
     """
 
     def __init__(

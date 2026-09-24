@@ -216,6 +216,10 @@ mesh-deck/
   1. `/device-settings` implementa il primo gruppo scrivibile sicuro: identità locale (long/short name).
   2. Il flusso è snapshot → draft validato → diff semantico → conferma modale → `setOwner` ufficiale → snapshot aggiornato.
   3. Limiti nome sono validati prima dell'API per evitare truncation/output della libreria; PSK, regione, reset, firmware, canali, posizione e configurazioni radio restano non modificabili fino a validazione hardware dedicata.
+* **Incremento 10 — completato sul branch `feat/ui-node-explorer-foundation`**:
+  1. Quality gate automatico verifica il contrasto delle palette per ruoli testuali semanticamente attivi su fondo standard e panel.
+  2. Focus visibile usa bordo double primario su input, select, liste, tabelle e button delle screen principali.
+  3. Il renderer sample screenshot è esercitato per tutte le palette; il colore alert Nord è corretto per il contrasto.
 * **Semplificazione avvio CLI — completata sul branch `feat/ui-node-explorer-foundation`**:
   1. `scan` e `nodes` sono i comandi canonici non interattivi; offrono JSON, timeout, ordinamento e filtri che i flag legacy non supportano.
   2. `--list` e `--nodes` restano compatibili con warning su stderr fino alla rimozione pianificata in v0.4.0.

@@ -37,6 +37,7 @@ class DeviceSelectorScreen(Screen[str | None]):
     #device-error { height: auto; margin-top: 1; padding: 0 1; color: $mesh-warning; display: none; }
     #device-empty { height: auto; margin-top: 1; padding: 1; border: round $mesh-border-soft; background: $mesh-bg-panel; color: $mesh-muted; display: none; }
     Footer { background: $mesh-bg-elevated; color: $mesh-muted; }
+    OptionList:focus { border: double $mesh-primary; }
     """
 
     def __init__(

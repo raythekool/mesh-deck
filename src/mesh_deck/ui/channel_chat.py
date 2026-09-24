@@ -47,6 +47,7 @@ class ChannelChatScreen(Screen):
     #chat-log { height: 1fr; padding: 0 1; }
     #chat-input { margin: 0 1 1 1; border: round $mesh-primary; }
     #chat-hint { color: $mesh-muted; padding: 0 1; height: 1; }
+    Input:focus, OptionList:focus { border: double $mesh-primary; }
     """
 
     def __init__(self, radio_client: RadioClient, lang: str = "it", **kwargs: Any) -> None:
