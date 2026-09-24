@@ -218,7 +218,7 @@ class DeviceSettingsScreen(Screen[None]):
         self._set_busy(True)
         self._apply_identity(self._draft())
 
-    @work(thread=True, exclusive=True)
+    @work(thread=True)
     def _apply_identity(self, draft: dict[str, str]) -> None:
         try:
             updated = self.client.update_device_identity(**draft)

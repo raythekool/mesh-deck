@@ -112,14 +112,17 @@ class DeviceSelectorScreen(Screen[str | None]):
         if not self.devices:
             empty.update(t("DEVICE_SELECTOR_EMPTY_HELP", self.lang))
         if self.devices:
-            selected_index = next(
-                (
-                    index
-                    for index, device in enumerate(self.devices)
-                    if device.port in (self.failed_port, self.active_port, self.preferred_port)
-                ),
-                0,
-            )
+            selected_index = 0
+            for port in (self.failed_port, self.active_port, self.preferred_port):
+                if not port:
+                    continue
+                match = next(
+                    (index for index, device in enumerate(self.devices) if device.port == port),
+                    None,
+                )
+                if match is not None:
+                    selected_index = match
+                    break
             options.highlighted = selected_index
 
     def _device_label(self, device: DeviceConnectionInfo) -> str:

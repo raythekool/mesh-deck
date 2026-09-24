@@ -813,6 +813,7 @@ class TestDeviceSelectorKeyboard(_IsolatedSettingsTestCase):
             self.assertIn("PREFERRED", first)
             self.assertIn("ACTIVE", first)
             self.assertIn("RETRY", second)
+            self.assertEqual(options.highlighted, 1)
             self.assertTrue(screen.query_one("#device-error", Static).display)
             self.assertIn("Access denied", str(screen.query_one("#device-error", Static).content))
             self.assertEqual(screen._bindings.key_to_bindings["t"][0].description, "Retry")
