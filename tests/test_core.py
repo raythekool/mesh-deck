@@ -968,6 +968,27 @@ class TestRadioClient(unittest.TestCase):
         self.assertGreaterEqual(len(node_updates), 1)
         self.assertAlmostEqual(node_updates[-1].latitude, 45.0)
 
+    def test_node_db_sync_progress_reports_real_node_count(self):
+        client = RadioClient()
+        progress_events = []
+        client.on_node_db_sync_progress(progress_events.append)
+
+        client._syncing_node_db = True
+        client._notify_node_db_sync_progress("opening")
+        client._on_pubsub_node_updated(
+            {
+                "num": 12345,
+                "user": {"id": "!00003039", "longName": "Relay", "shortName": "RLY"},
+            }
+        )
+        client._syncing_node_db = False
+        client._notify_node_db_sync_progress("complete")
+
+        self.assertEqual(
+            [(event.stage, event.node_count) for event in progress_events],
+            [("opening", 0), ("syncing", 1), ("complete", 1)],
+        )
+
     def test_radio_client_connection_lost_handling(self):
         client = RadioClient()
         mock_iface = MagicMock()

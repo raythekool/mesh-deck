@@ -25,6 +25,7 @@ from mesh_deck.core.events import (
     MeshMessage,
     NeighborLink,
     NeighborReport,
+    NodeDbSyncProgress,
     NodeData,
     TraceRouteResult,
 )
@@ -92,6 +93,8 @@ class RadioClient:
         self._telemetry_callbacks: list[Callable[..., Any]] = []
         self._connection_callbacks: list[Callable[[bool, str | None], Any]] = []
         self._device_log_callbacks: list[Callable[[str, str | None], Any]] = []
+        self._node_db_sync_callbacks: list[Callable[[NodeDbSyncProgress], Any]] = []
+        self._syncing_node_db = False
 
         # Pubsub subscription flags
         self._subscribed = False
@@ -193,6 +196,12 @@ class RadioClient:
             if callback not in self._device_log_callbacks:
                 self._device_log_callbacks.append(callback)
 
+    def on_node_db_sync_progress(self, callback: Callable[[NodeDbSyncProgress], Any]) -> None:
+        """Register a callback for initial NodeDB synchronization progress."""
+        with self._lock:
+            if callback not in self._node_db_sync_callbacks:
+                self._node_db_sync_callbacks.append(callback)
+
     def connect(self, port: str, blocking: bool = False, timeout: int = 30) -> bool:
         """Connect to a Meshtastic device on the specified serial port.
 
@@ -239,10 +248,15 @@ class RadioClient:
 
         logger.info("Opening Meshtastic SerialInterface on %s (timeout=%ds)...", port, timeout)
         try:
+            self._notify_node_db_sync_progress("opening")
+            with self._lock:
+                self._syncing_node_db = True
+            self._notify_node_db_sync_progress("syncing")
             # SerialInterface automatically starts reading and downloads node DB
             iface = SerialInterface(devPath=port, connectNow=True, timeout=timeout)
 
             with self._lock:
+                self._syncing_node_db = False
                 self._interface = iface
                 self._port = port
                 self._is_connected = True
@@ -275,15 +289,18 @@ class RadioClient:
                     )
 
             logger.info("Connected successfully to %s. Nodes known: %d", port, len(self._node_store))
+            self._notify_node_db_sync_progress("complete")
             self._notify_connection_change(True, port)
 
         except Exception as exc:
             logger.error("Failed to connect to %s: %s", port, exc)
             with self._lock:
+                self._syncing_node_db = False
                 self._is_connected = False
                 self._port = None
                 self._interface = None
             self._set_last_connection_error(exc)
+            self._notify_node_db_sync_progress("failed")
             self._notify_connection_change(False, port)
             raise
 
@@ -718,9 +735,24 @@ class RadioClient:
 
         try:
             updated_node = self._node_store.update_from_node_dict(node)
+            with self._lock:
+                syncing_node_db = self._syncing_node_db
+            if syncing_node_db:
+                self._notify_node_db_sync_progress("syncing")
             self._notify_node_updated(updated_node)
         except Exception as exc:
             logger.exception("Error processing node updated event: %s", exc)
+
+    def _notify_node_db_sync_progress(self, stage: str) -> None:
+        """Notify listeners without inventing a completion percentage."""
+        progress = NodeDbSyncProgress(stage=stage, node_count=len(self._node_store))
+        with self._lock:
+            callbacks = list(self._node_db_sync_callbacks)
+        for callback in callbacks:
+            try:
+                callback(progress)
+            except Exception as exc:
+                logger.exception("Error in NodeDB sync callback: %s", exc)
 
     def _on_pubsub_connection_lost(self, interface=None, **kwargs) -> None:
         """Handle connection lost event from pubsub."""

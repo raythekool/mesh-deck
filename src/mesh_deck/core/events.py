@@ -9,6 +9,14 @@ from typing import Any
 from meshtastic import config_pb2, mesh_pb2
 
 
+@dataclass(frozen=True)
+class NodeDbSyncProgress:
+    """Observable progress for the initial NodeDB synchronization."""
+
+    stage: str
+    node_count: int = 0
+
+
 def format_hw_model(val: Any) -> str:
     """Format a hardware model value (protobuf enum or string) to a name."""
     if isinstance(val, int):

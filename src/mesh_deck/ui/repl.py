@@ -19,7 +19,7 @@ from textual.widgets.option_list import Option
 
 from mesh_deck.core.settings import Settings
 from mesh_deck.i18n import command_descriptions, t
-from mesh_deck.core.events import DeviceConnectionInfo, MeshMessage, NodeData
+from mesh_deck.core.events import DeviceConnectionInfo, MeshMessage, NodeData, NodeDbSyncProgress
 from mesh_deck.core.log_buffer import LogBuffer
 from mesh_deck.ui.device_selector import DeviceSelectorScreen
 from mesh_deck.ui.completer import Completion, MeshDeckCompleter
@@ -78,6 +78,9 @@ class TextualConsole:
 
     def open_device_settings(self) -> None:
         self._invoke(self.app.open_device_settings)
+
+    def show_node_db_sync_progress(self, progress: NodeDbSyncProgress) -> None:
+        self._invoke(self.app.show_node_db_sync_progress, progress)
 
     def update_language(self, language: str) -> None:
         self._invoke(self.app.update_language, language)
@@ -188,6 +191,7 @@ class ConnectionScreen(ModalScreen[None]):
     #connection-dialog { width: 64; height: auto; padding: 1 2; border: round $mesh-primary; background: $mesh-bg-elevated; }
     #connection-heading { width: 100%; height: 3; background: $mesh-bg-header; color: $mesh-primary; content-align: center middle; text-align: center; text-style: bold; }
     #connection-status { width: 100%; height: 3; margin-top: 1; color: $mesh-text; content-align: center middle; text-align: center; }
+    #connection-loader { width: 100%; height: 1; margin-top: 1; color: $mesh-secondary; content-align: center middle; text-align: center; }
     #connection-back { width: 100%; margin-top: 1; display: none; }
     """
 
@@ -195,12 +199,42 @@ class ConnectionScreen(ModalScreen[None]):
         super().__init__(**kwargs)
         self.port = port
         self.lang = lang
+        self._loader_offset = 0
+        self._sync_node_count = 0
 
     def compose(self) -> ComposeResult:
         with Vertical(id="connection-dialog"):
             yield Label(t("CONNECTION_HEADING", self.lang), id="connection-heading")
             yield Static(t("CONNECTION_STATUS", self.lang, port=self.port), id="connection-status")
+            yield Static(self._loader(), id="connection-loader")
             yield Button(t("CONNECTION_BACK", self.lang), id="connection-back")
+
+    def on_mount(self) -> None:
+        self.set_interval(0.15, self._advance_loader)
+
+    def _loader(self) -> str:
+        width = 20
+        marker_width = 5
+        position = self._loader_offset % (width - marker_width + 1)
+        track = ["─"] * width
+        track[position:position + marker_width] = ["━"] * marker_width
+        return f"╺{''.join(track)}╸"
+
+    def _advance_loader(self) -> None:
+        self._loader_offset += 1
+        self.query_one("#connection-loader", Static).update(self._loader())
+
+    def show_sync_progress(self, progress: NodeDbSyncProgress) -> None:
+        self._sync_node_count = progress.node_count
+        status_key = {
+            "opening": "CONNECTION_OPENING",
+            "syncing": "CONNECTION_SYNCING",
+            "complete": "CONNECTION_COMPLETE",
+        }.get(progress.stage)
+        if status_key:
+            self.query_one("#connection-status", Static).update(
+                t(status_key, self.lang, port=self.port, count=self._sync_node_count)
+            )
 
     def show_error(self) -> None:
         self.query_one("#connection-status", Static).update(
@@ -413,6 +447,11 @@ class MeshDeckApp(ThemedApp, App):
                 failure_reason,
             )
             self.screen.show_error()
+
+    def show_node_db_sync_progress(self, progress: NodeDbSyncProgress) -> None:
+        """Update the connection modal from RadioClient's worker-thread callback."""
+        if isinstance(self.screen, ConnectionScreen):
+            self.screen.show_sync_progress(progress)
 
     def return_to_device_selector(self) -> None:
         if isinstance(self.screen, ConnectionScreen):
@@ -891,6 +930,7 @@ class MeshDeckREPL:
         self.client.on_connection_change(self._handle_connection_change)
         self.client.on_reconnect_attempt(self._handle_reconnect_attempt)
         self.client.on_device_log(self._handle_device_log)
+        self.client.on_node_db_sync_progress(self._handle_node_db_sync_progress)
 
     def start_logging(self) -> None:
         """Start collecting application diagnostics while the Textual app is mounted."""
@@ -912,6 +952,12 @@ class MeshDeckREPL:
         requester = getattr(self.console, "request_sidebar_refresh", None)
         if callable(requester):
             requester()
+
+    def _handle_node_db_sync_progress(self, progress: NodeDbSyncProgress) -> None:
+        """Forward handshake progress to Textual without touching widgets off-thread."""
+        reporter = getattr(self.console, "show_node_db_sync_progress", None)
+        if callable(reporter):
+            reporter(progress)
 
     def _handle_connection_change(self, connected: bool, port: str | None) -> None:
         """Report link state changes in the log (called from a radio thread)."""

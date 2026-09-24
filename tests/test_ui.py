@@ -1911,6 +1911,33 @@ class TestNotifyMessageWiring(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(kwargs["severity"], "information")
 
 
+class TestConnectionScreen(unittest.IsolatedAsyncioTestCase):
+    """The NodeDB loader reports real counts while remaining indeterminate."""
+
+    async def test_node_db_sync_progress_updates_connection_status(self):
+        from unittest.mock import MagicMock
+
+        from mesh_deck.core.events import NodeDbSyncProgress
+
+        client = MagicMock()
+        client.store.get_all_nodes.return_value = []
+        client.get_local_node.return_value = None
+        client.get_channels.return_value = []
+        app = MeshDeckApp(MeshDeckREPL(client))
+        async with app.run_test() as pilot:
+            app.push_screen(ConnectionScreen("COM6", lang="en"))
+            await pilot.pause()
+            screen = app.screen
+            self.assertIsInstance(screen, ConnectionScreen)
+
+            screen.show_sync_progress(NodeDbSyncProgress(stage="syncing", node_count=12))
+            await pilot.pause()
+            status = screen.query_one("#connection-status", Static)
+            loader = screen.query_one("#connection-loader", Static)
+            self.assertIn("12 nodes received", str(status.content))
+            self.assertIn("━", str(loader.content))
+
+
 class TestThemeEngine(unittest.TestCase):
     """Test that themes are complete, switchable, and actually drive the renderers."""
 
