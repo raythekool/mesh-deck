@@ -184,7 +184,7 @@ class CommandDispatcher:
             ("/banner", "", t("CMD_DESC_BANNER", lang)),
             ("/clear", "", t("CMD_DESC_CLEAR", lang)),
             ("/restart", "", t("CMD_DESC_RESTART", lang)),
-            ("/quit, /exit", "", t("CMD_DESC_QUIT", lang)),
+            ("/quit, /exit, /q", "", t("CMD_DESC_QUIT", lang)),
         ]
 
         for cmd, arg, desc in commands_info:

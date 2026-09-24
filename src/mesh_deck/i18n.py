@@ -39,9 +39,10 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "ACTIVE CHANNELS",
     },
     "COMMANDS_SHORTCUTS": {
-        "it": "COMANDI: /help • /nodes • /view (interattiva) • /dm • /switch • /settings • /quit",
-        "en": "COMMANDS: /help • /nodes • /view (interactive) • /dm • /switch • /settings • /quit",
+        "it": "COMANDI: /help • /nodes • /view • /chat • /topology • /logs • /dm • /settings • /quit",
+        "en": "COMMANDS: /help • /nodes • /view • /chat • /topology • /logs • /dm • /settings • /quit",
     },
+    "QUIT_BUTTON": {"it": "Esci", "en": "Quit"},
     "DISCONNECTED": {
         "it": "DISCONNESSO",
         "en": "DISCONNECTED",
