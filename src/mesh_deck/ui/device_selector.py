@@ -113,7 +113,7 @@ class DeviceSelectorScreen(Screen[str | None]):
             empty.update(t("DEVICE_SELECTOR_EMPTY_HELP", self.lang))
         if self.devices:
             selected_index = 0
-            for port in (self.failed_port, self.active_port, self.preferred_port):
+            for port in (self.active_port, self.failed_port, self.preferred_port):
                 if not port:
                     continue
                 match = next(

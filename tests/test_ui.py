@@ -813,7 +813,7 @@ class TestDeviceSelectorKeyboard(_IsolatedSettingsTestCase):
             self.assertIn("PREFERRED", first)
             self.assertIn("ACTIVE", first)
             self.assertIn("RETRY", second)
-            self.assertEqual(options.highlighted, 1)
+            self.assertEqual(options.highlighted, 0)
             self.assertTrue(screen.query_one("#device-error", Static).display)
             self.assertIn("Access denied", str(screen.query_one("#device-error", Static).content))
             self.assertEqual(screen._bindings.key_to_bindings["t"][0].description, "Retry")
@@ -984,8 +984,7 @@ class TestNodeSidebar(_IsolatedSettingsTestCase):
             await pilot.pause()
             app.refresh_radio_status()
             status = str(app.query_one("#radio-status", Static).content)
-            self.assertIn("\\[bold]ALPHA\\[/]", status)
-            self.assertNotIn("[bold]ALPHA[/]", status)
+            self.assertIn("[bold]ALPHA[/]", status)
 
     async def test_ctrl_b_toggles_sidebar_visibility(self):
         from unittest.mock import MagicMock
