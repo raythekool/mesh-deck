@@ -37,6 +37,8 @@ logger = logging.getLogger(__name__)
 # unexpectedly. The last value repeats until the radio comes back or the user
 # disconnects, so an unplugged cable settles into a quiet slow poll.
 RECONNECT_BACKOFF_SECONDS: tuple[float, ...] = (2.0, 5.0, 10.0, 20.0, 30.0)
+CLOSE_INTERFACE_TIMEOUT_SECONDS = 2.0
+CLOSE_INTERFACE_FORCE_TIMEOUT_SECONDS = 1.0
 
 
 class RadioOperationError(RuntimeError):
@@ -290,7 +292,15 @@ class RadioClient:
         self._notify_connection_change(False, old_port)
 
     def _close_interface(self) -> None:
-        """Helper to cleanly close SerialInterface."""
+        """Close SerialInterface without allowing its reader-thread join to hang.
+
+        meshtastic-python's ``SerialInterface.close()`` joins its reader
+        thread without a timeout. On some Linux USB serial drivers a blocking
+        ``read(1)`` does not wake on the library's normal shutdown signal, so
+        this would freeze the UI/CLI process indefinitely. Run the official
+        close in a daemon thread, then explicitly interrupt and close the
+        serial stream if it has not returned promptly.
+        """
         self._is_connected = False
         iface = self._interface
         self._interface = None
@@ -300,10 +310,51 @@ class RadioClient:
             # Closing publishes meshtastic.connection.lost; flag it so the echo
             # of our own shutdown is not reported to the user as a failure.
             self._expect_disconnect.set()
-            try:
-                iface.close()
-            except Exception as exc:
-                logger.debug("Exception while closing interface: %s", exc)
+            close_thread = threading.Thread(
+                target=self._close_interface_worker,
+                args=(iface,),
+                name="RadioClient-Close",
+                daemon=True,
+            )
+            close_thread.start()
+            close_thread.join(CLOSE_INTERFACE_TIMEOUT_SECONDS)
+            if close_thread.is_alive():
+                logger.warning(
+                    "Timed out closing Meshtastic interface; forcing serial read interruption"
+                )
+                self._interrupt_serial_read(iface)
+                close_thread.join(CLOSE_INTERFACE_FORCE_TIMEOUT_SECONDS)
+            if close_thread.is_alive():
+                logger.error(
+                    "Meshtastic close worker remains blocked after forced stream close; "
+                    "continuing teardown"
+                )
+
+    @staticmethod
+    def _close_interface_worker(iface: SerialInterface) -> None:
+        try:
+            iface.close()
+        except Exception as exc:
+            logger.debug("Exception while closing interface: %s", exc)
+
+    @staticmethod
+    def _interrupt_serial_read(iface: SerialInterface) -> None:
+        """Unblock a serial reader thread after the library close timed out."""
+        stream = getattr(iface, "stream", None)
+        if stream is None:
+            return
+
+        try:
+            cancel_read = getattr(stream, "cancel_read", None)
+            if callable(cancel_read):
+                cancel_read()
+        except Exception as exc:
+            logger.debug("Could not cancel serial read during teardown: %s", exc)
+
+        try:
+            stream.close()
+        except Exception as exc:
+            logger.debug("Could not force-close serial stream during teardown: %s", exc)
 
     def _ensure_pubsub_subscribed(self) -> None:
         """Subscribe internal handlers to Meshtastic pypubsub topics."""

@@ -15,8 +15,15 @@ Questo documento definisce la roadmap tecnica e il piano operativo per lo svilup
 >   implementato.
 >
 > L'audit del codice, dei commit e dei test sul branch UI ha confermato
-> **239 test `unittest` superati** e `ruff` pulito. Il piano usa **✅** per il
+> **240 test `unittest` superati** e `ruff` pulito. Il piano usa **✅** per il
 > lavoro consegnato e **🟡** per ciò che rimane intenzionalmente fuori ambito.
+>
+> **Validazione hardware del 24 settembre 2026**: una LilyGo TLora-T3S3-V1
+> su `/dev/ttyACM0` ha confermato identificazione radio, canali, NodeDB,
+> traceroute diretto verso un peer LoRa autorizzato e invio di un DM diretto
+> marcato come test. La prova ha anche rilevato un join seriale senza timeout
+> in `meshtastic-python`; `RadioClient` ora limita il teardown a tre secondi
+> e rilascia la porta forzando l'interruzione della read bloccante.
 
 ---
 
@@ -112,7 +119,8 @@ mesh-deck/
   telemetria, posizione, aggiornamenti nodo, NeighborInfo e traceroute verso
   callback strutturati. Il bridge UI usa `call_from_thread()` e tollera il
   teardown dell'app; i percorsi critici sono testati e quelli radio principali
-  sono stati verificati su hardware.
+  sono stati verificati su hardware. La chiusura seriale è bounded anche se
+  il reader thread della libreria non si risveglia spontaneamente.
 
 ---
 
@@ -153,8 +161,10 @@ mesh-deck/
 * **Criterio di Accettazione — soddisfatto**: `/nodes`, `/node`, `/send`,
   `/dm`, `/info`, `/channels`, `/neighbors`, `/mesh` e `/trace` sono
   implementati. I contratti `/info`, `/channels`, `/trace` e la gestione
-  dell'errore DM sono stati verificati con una radio reale; il dispatcher
-  rifiuta target DM non risolvibili prima di invocare la libreria radio.
+  dell'errore DM sono stati verificati con una radio reale; un DM diretto
+  verso il peer autorizzato ha restituito un `MeshPacket` ed è stato scritto
+  nello storico temporaneo. Il dispatcher rifiuta target DM non risolvibili
+  prima di invocare la libreria radio.
 
 ---
 

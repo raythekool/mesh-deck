@@ -1266,6 +1266,39 @@ class TestMeshTopologyAndTraceroute(unittest.TestCase):
         self.assertEqual(events, [(False, "/dev/ttyACM0")])
         self.assertFalse(client.is_reconnecting)
 
+    def test_disconnect_forces_a_blocked_serial_close_to_return(self):
+        """A stuck reader-thread join must never freeze the caller indefinitely."""
+        client = self._client()
+        entered_close = threading.Event()
+        release_close = threading.Event()
+        interface = MagicMock()
+        interface.stream = MagicMock()
+
+        def blocking_close() -> None:
+            entered_close.set()
+            release_close.wait()
+
+        interface.close.side_effect = blocking_close
+        client._interface = interface
+        client._is_connected = True
+        client._port = "/dev/ttyACM0"
+
+        with (
+            patch("mesh_deck.core.radio_client.CLOSE_INTERFACE_TIMEOUT_SECONDS", 0.01),
+            patch("mesh_deck.core.radio_client.CLOSE_INTERFACE_FORCE_TIMEOUT_SECONDS", 0.01),
+        ):
+            client.disconnect()
+
+        self.assertTrue(entered_close.is_set())
+        interface.stream.cancel_read.assert_called_once_with()
+        interface.stream.close.assert_called_once_with()
+        self.assertFalse(client.is_connected)
+        self.assertIsNone(client.port)
+
+        # The actual forced stream close releases the Meshtastic reader; do
+        # likewise in the test so its daemon worker has no reason to linger.
+        release_close.set()
+
     def test_a_genuine_loss_after_a_reconnect_is_still_reported(self):
         client = self._client()
         client._interface = MagicMock()
