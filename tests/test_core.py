@@ -420,6 +420,18 @@ class TestLogBuffer(unittest.TestCase):
         finally:
             buffer.detach()
 
+    def test_attach_preserves_existing_logger_propagation(self):
+        buffer = LogBuffer()
+        logger = logging.getLogger("mesh_deck.tests.propagate")
+        logger.handlers.clear()
+        logger.propagate = True
+        buffer.attach(logger)
+        try:
+            self.assertTrue(logger.propagate)
+        finally:
+            buffer.detach()
+        self.assertTrue(logger.propagate)
+
 
 class TestScanner(unittest.TestCase):
     """Test serial port scanner and heuristics under normal and error conditions."""

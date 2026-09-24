@@ -1782,6 +1782,23 @@ class TestNodeHistoryScreen(unittest.IsolatedAsyncioTestCase):
             await pilot.pause()
             self.assertIn("No local snapshots", str(host.screen.query_one("#history-summary", Static).content))
 
+    def test_history_range_filter_accepts_timezone_aware_snapshots(self):
+        from mesh_deck.ui.node_history import NodeHistoryScreen
+
+        history = self._history()
+        node = NodeData(id="!aaa", long_name="Alpha")
+        history._append(
+            history.nodes_file,
+            {
+                "id": "!aaa",
+                "observed_at": datetime.now(UTC).isoformat(),
+                "battery_level": 80,
+            },
+        )
+
+        screen = NodeHistoryScreen(node, history, lang="en")
+        self.assertEqual(len(screen._entries("24h")), 1)
+
 
 class TestDeviceSettingsScreen(unittest.IsolatedAsyncioTestCase):
     """Connected-device identity settings are draft-first and confirmation-gated."""

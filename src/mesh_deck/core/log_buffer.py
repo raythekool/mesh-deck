@@ -43,7 +43,6 @@ class LogBuffer(logging.Handler):
         self._sequence = 0
         self._attached_logger: logging.Logger | None = None
         self._previous_level: int | None = None
-        self._previous_propagate: bool | None = None
 
     def attach(self, logger: logging.Logger | None = None) -> None:
         """Capture Mesh-Deck application logs while the Textual app is mounted."""
@@ -52,11 +51,7 @@ class LogBuffer(logging.Handler):
                 return
             target = logger or logging.getLogger("mesh_deck")
             self._previous_level = target.level
-            self._previous_propagate = target.propagate
             target.setLevel(logging.DEBUG)
-            # The viewer owns these records while mounted. Do not duplicate
-            # debug diagnostics to root handlers or MCP stdout.
-            target.propagate = False
             target.addHandler(self)
             self._attached_logger = target
 
@@ -68,11 +63,8 @@ class LogBuffer(logging.Handler):
             self._attached_logger.removeHandler(self)
             if self._previous_level is not None:
                 self._attached_logger.setLevel(self._previous_level)
-            if self._previous_propagate is not None:
-                self._attached_logger.propagate = self._previous_propagate
             self._attached_logger = None
             self._previous_level = None
-            self._previous_propagate = None
 
     def emit(self, record: logging.LogRecord) -> None:
         """Record a Python application log line without feeding logging recursively."""

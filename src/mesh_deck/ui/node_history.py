@@ -111,8 +111,15 @@ class NodeHistoryScreen(Screen[None]):
         entries = self.history.iter_node_history(self.node.id)
         if window is None:
             return entries
-        cutoff = datetime.now() - window
-        return [entry for entry in entries if (_parse_observed_at(entry) or datetime.min) >= cutoff]
+        filtered: list[dict[str, Any]] = []
+        for entry in entries:
+            observed_at = _parse_observed_at(entry)
+            if observed_at is None:
+                continue
+            cutoff = datetime.now(observed_at.tzinfo) - window if observed_at.tzinfo else datetime.now() - window
+            if observed_at >= cutoff:
+                filtered.append(entry)
+        return filtered
 
     def refresh_history(self) -> None:
         self._load_history(str(self.query_one("#history-range", Select).value))
