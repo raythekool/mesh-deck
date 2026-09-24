@@ -2,6 +2,22 @@
 
 Questo documento definisce la roadmap tecnica e il piano operativo per lo sviluppo modulare di **Mesh-Deck**.
 
+> **Stato verificato il 24 settembre 2026**
+>
+> - **✅ Integrato in `main`**: Fasi 1–10, inclusi automazione CLI/MCP,
+>   cronologia, chat, riconnessione, topologia testuale, traceroute e temi.
+> - **✅ Completato nel branch `feat/ui-node-explorer-foundation`**: Fase 11,
+>   con tutti i dieci incrementi UI descritti in fondo al documento. Il branch
+>   contiene 18 commit propri ed è indietro di 3 commit rispetto a `main`:
+>   prima del merge va riallineato e rieseguita la suite.
+> - **📄 Proposte visuali**: [`docs/UI_DEVELOPMENT.md`](docs/UI_DEVELOPMENT.md)
+>   è la matrice di tracciabilità fra ogni wireframe e il relativo incremento
+>   implementato.
+>
+> L'audit del codice, dei commit e dei test sul branch UI ha confermato
+> **239 test `unittest` superati** e `ruff` pulito. Il piano usa **✅** per il
+> lavoro consegnato e **🟡** per ciò che rimane intenzionalmente fuori ambito.
+
 ---
 
 ## 1. Architettura del Progetto e Struttura Directory
@@ -66,17 +82,20 @@ mesh-deck/
 
 ## 2. Fasi Operative di Sviluppo
 
-### Fase 1: Setup Strutturale & Auto-Discovery USB
+### ✅ Fase 1: Setup Strutturale & Auto-Discovery USB — Integrata in `main`
 * **Obiettivo**: Identificare e presentare all'utente i nodi Meshtastic collegati al PC.
 * **Attività**:
   1. Configurare la struttura di package in `src/mesh_deck`.
   2. Implementare `scanner.py`: scansione seriale (`pyserial` / `serial.tools.list_ports`) con filtro per VID/PID noti (Espressif, Silicon Labs, CH340, WCH) e descrittori seriali (`Heltec Vision Master`, `LilyGo`, `RAK`, `TBeam`).
   3. Creare una routine di test iniziale che elenca le porte e consente all'utente di selezionare quella desiderata se sono presenti più device.
-* **Criterio di Accettazione**: Eseguendo `python -m mesh_deck.core.scanner` vengono rilevati immediatamente sia `/dev/ttyACM0` (Heltec) sia `/dev/ttyACM1` (LilyGo) con le relative descrizioni hardware.
+* **Criterio di Accettazione — soddisfatto**: `scan_meshtastic_ports()` è
+  coperto da test con porte simulate; la selezione Textual gestisce più
+  periferiche, refresh e porta preferita. La scansione reale ha rilevato una
+  radio T-Beam su `COM6` durante la validazione hardware.
 
 ---
 
-### Fase 2: Radio Engine & Event Bridge (PubSub -> Asincrono)
+### ✅ Fase 2: Radio Engine & Event Bridge (PubSub -> Asincrono) — Integrata in `main`
 * **Obiettivo**: Connettersi alla radio Meshtastic e instradare i pacchetti in arrivo senza bloccare l'interfaccia.
 * **Attività**:
   1. Implementare `radio_client.py` con incapsulamento sicuro di `meshtastic.serial_interface.SerialInterface`.
@@ -89,32 +108,41 @@ mesh-deck/
      (`MeshMessage`, `NodeData` in `core/events.py`) consegnati ai listener
      registrati su `RadioClient` in modo thread-safe; la UI Textual marshalla
      poi gli aggiornamenti sul proprio loop con `call_from_thread()`.
-* **Criterio di Accettazione**: Ricezione e parsing dei messaggi e pacchetti telemetrici in background stampati a terminale senza crash o blocchi.
+* **Criterio di Accettazione — soddisfatto**: `RadioClient` instrada testo,
+  telemetria, posizione, aggiornamenti nodo, NeighborInfo e traceroute verso
+  callback strutturati. Il bridge UI usa `call_from_thread()` e tollera il
+  teardown dell'app; i percorsi critici sono testati e quelli radio principali
+  sono stati verificati su hardware.
 
 ---
 
-### Fase 3: NodeStore & Gestione Dati della Mesh
+### ✅ Fase 3: NodeStore & Gestione Dati della Mesh — Integrata in `main`
 * **Obiettivo**: Mantenere in memoria lo stato coerente della rete mesh.
 * **Attività**:
   1. Implementare `node_store.py`: memorizzazione e indicizzazione per `node_id`, `hex_id` (es. `!45a466e4`), alias e short name.
   2. Arricchimento dei nodi: calcolo del tempo trascorso dall'ultimo contatto (*last heard*), SNR, livello batteria, hop count.
   3. Calcolo geografico: implementare formula Haversine per calcolare distanza in chilometri e direzione (bearing) rispetto alle coordinate fisse o GPS del nodo locale.
-* **Criterio di Accettazione**: Capacità di estrarre e filtrare l'elenco dei nodi per stato (attivi, recenti, storici) e calcolare le distanze corrette.
+* **Criterio di Accettazione — soddisfatto**: `NodeStore` indicizza per ID,
+  numero e short name, calcola distanza Haversine e bearing, e alimenta filtri
+  attivi/preferiti, storico JSONL e viste topologiche.
 
 ---
 
-### Fase 4: Sviluppo TUI Hermes-Style (Rich + Textual)
+### ✅ Fase 4: Sviluppo TUI Hermes-Style (Rich + Textual) — Integrata in `main`
 * **Obiettivo**: Realizzare l'identità visiva e il loop interattivo principale.
 * **Attività**:
   1. Implementare `theme.py`: palette semantiche multiple (`cyberpunk`, `midnight`, `nord`, `ember`), palette attiva mutata sul posto da `set_theme()` ed esposta a Textual come variabili `$mesh-*`.
   2. Implementare `banner.py`: rendering del banner d'avvio (Nome nodo locale, ID, frequenza/regione, canali attivi, stato batteria).
   3. Implementare `repl.py`: app Textual con input contestuale, log Rich e bridge thread-safe per i messaggi in arrivo.
   4. Implementare `completer.py`: autocompletamento per comandi (`/nodes`, `/dm`, `/switch`, ecc.) e nomi dei nodi.
-* **Criterio di Accettazione**: Avviando la CLI appare il banner Rich, il prompt interattivo con suggerimenti e la formattazione a colori.
+* **Criterio di Accettazione — soddisfatto**: banner, console Textual,
+  autocompletamento, cronologia comandi, temi runtime e rendering Rich sono
+  disponibili. Il comando globale `mesh-deck` può essere installato con
+  `uv tool install --editable .`.
 
 ---
 
-### Fase 5: Implementazione dei Comandi Utente
+### ✅ Fase 5: Implementazione dei Comandi Utente — Integrata in `main`
 * **Obiettivo**: Rendere operativa ogni funzionalità da tastiera.
 * **Attività**:
   1. `/nodes`: Generazione tabella Rich con indicatori grafici (badge colorati per SNR, barre di batteria, formato compatto e leggibile).
@@ -122,67 +150,109 @@ mesh-deck/
   3. `/send <testo>`: Invio pacchetti broadcast sul canale primario.
   4. `/dm <target> <testo>`: Invio messaggio privato al nodo specificato.
   5. `/info` e `/channels`: Riepilogo configurazione modem e canali radio.
-* **Criterio di Accettazione**: Invio e ricezione con successo di un messaggio broadcast e di un DM tra due dispositivi radio.
+* **Criterio di Accettazione — soddisfatto**: `/nodes`, `/node`, `/send`,
+  `/dm`, `/info`, `/channels`, `/neighbors`, `/mesh` e `/trace` sono
+  implementati. I contratti `/info`, `/channels`, `/trace` e la gestione
+  dell'errore DM sono stati verificati con una radio reale; il dispatcher
+  rifiuta target DM non risolvibili prima di invocare la libreria radio.
 
 ---
 
-### Fase 6: Multi-Device Hot-Switching
+### ✅ Fase 6: Multi-Device Hot-Switching — Integrata in `main`
 * **Obiettivo**: Gestione fluida di più radio connesse contemporaneamente.
 * **Attività**:
   1. Implementare il comando `/switch [porta|indice]`: rilascio pulito dell'interfaccia seriale corrente e connessione immediata al secondo dispositivo senza uscire dall'applicazione.
   2. Aggiornamento in tempo reale del banner di stato col nuovo nodo attivo.
-* **Criterio di Accettazione**: Possibilità di passare da Heltec (`ttyACM0`) a LilyGo (`ttyACM1`) in meno di 2 secondi con comando `/switch`.
+* **Criterio di Accettazione — soddisfatto funzionalmente**: `/switch`
+  seleziona porta o indice, chiude l'interfaccia precedente e connette la
+  successiva; errori e riconnessione automatica usano callback espliciti.
+  🟡 Il vincolo quantitativo di due secondi richiede una prova con due radio
+  fisiche e resta da misurare, non da implementare.
 
 ---
 
-### Fase 7: Packaging, Test & Documentazione
+### ✅ Fase 7: Packaging, Test & Documentazione — Integrata in `main`
 * **Obiettivo**: Consolidamento e rifinitura per la distribuzione.
 * **Attività**:
   1. Configurazione script di avvio in `pyproject.toml` (`[project.scripts] mesh-deck = "mesh_deck.__main__:main"`).
   2. Scrittura suite di test per il parsing dei dati e l'auto-discovery.
   3. Aggiornamento documentazione e guida rapida per l'installazione con `uv` / `uvx`.
-* **Criterio di Accettazione**: L'applicazione è installabile ed eseguibile via `uv run mesh-deck` su qualsiasi macchina Linux/macOS.
+* **Criterio di Accettazione — soddisfatto**: packaging Hatchling, lockfile
+  `uv`, script `mesh-deck`, documentazione utente, screenshot riproducibili e
+  CI Linux con `uv sync --locked`, `ruff` e test sono presenti. Il comando
+  standalone è documentato e verificato con `uv tool install --editable .`.
 
 ---
 
-### Fase 8: Automazione per Agenti (CLI strutturata & MCP)
+### ✅ Fase 8: Automazione per Agenti (CLI strutturata & MCP) — Integrata in `main`
 * **Obiettivo**: Rendere ogni operazione di lettura e messaggistica utilizzabile da script e agenti.
 * **Attività**:
   1. Implementare `agent.py` (`AgentService`): service layer unico con errori tipizzati (`AgentServiceError`) e codici di uscita deterministici.
   2. Implementare `cli.py`: sottocomandi `scan`, `info`, `nodes`, `node`, `channels`, `neighbors`, `trace`, `send`, `dm` con envelope JSON stabile (`--output json`).
   3. Implementare `mcp_server.py`: server MCP su stdio che espone gli stessi tool; broadcast e DM restano anteprime finché non si passa `confirm=true`.
-* **Criterio di Accettazione**: `mesh-deck nodes --output json` restituisce un envelope `{"ok": true, ...}` e il server MCP registra i tool di lettura, topologia, traceroute e messaggistica previsti (RF-5.1 → RF-5.5).
+* **Criterio di Accettazione — soddisfatto**: `AgentService`, sottocomandi
+  CLI JSON e server MCP condividono `RadioClient`. I tool MCP coprono
+  scansione, radio, nodi, canali, vicini, traceroute e messaggistica con
+  anteprima esplicita; stdout MCP resta riservato al protocollo.
 
 ---
 
-### Fase 9: Chat Visuale, Notifiche e Storico Locale
+### ✅ Fase 9: Chat Visuale, Notifiche e Storico Locale — Integrata in `main`
 * **Obiettivo**: Rendere leggibile e persistente il traffico della mesh.
 * **Attività**:
   1. Implementare `ui/channel_chat.py` (`/chat`): schermata Textual con selezione canali a click, badge non letti e invio broadcast.
   2. Implementare `core/history.py`: storico append-only JSONL di nodi e messaggi, con deduplica delle osservazioni non significative.
   3. Notifiche toast per i messaggi in arrivo e interruttori `/settings notifications|history <on|off>`.
-* **Criterio di Accettazione**: `/chat` ricostruisce lo storico dei canali da `~/.config/mesh-deck/history/messages.jsonl` e mostra i nuovi messaggi in tempo reale (RF-6.1 → RF-6.7).
+* **Criterio di Accettazione — soddisfatto**: `/chat` ricostruisce storico
+  JSONL, mostra messaggi live, badge non letti e notifiche; la successiva
+  Fase 11 estende i DM da una vista aggregata a conversazioni per peer.
 
 ---
 
-### Fase 10: Personalizzazione dell'Interfaccia
+### ✅ Fase 10: Personalizzazione dell'Interfaccia — Integrata in `main`
 * **Obiettivo**: Rendere la console adattabile all'ambiente operativo.
 * **Attività**:
   1. Barra laterale nodi ridimensionabile con ordinamento e filtro persistiti.
   2. Temi commutabili a runtime applicati sia alle renderable Rich sia ai fogli di stile Textual.
   3. Localizzazione IT/EN centralizzata in `i18n.py`.
-* **Criterio di Accettazione**: `/settings theme <nome>` ridisegna immediatamente banner, tabelle, sidebar e schermate `/view` e `/chat` senza riavviare l'applicazione (RUI-6).
+* **Criterio di Accettazione — soddisfatto**: quattro temi semantici sono
+  applicati runtime a Rich e Textual; sidebar, larghezza, filtri,
+  ordinamento, lingua, cronologia e preferenze sono persistiti.
 
 ---
 
-### Fase 11: Evoluzione Operativa dell'Interfaccia
+### ✅ Fase 11: Evoluzione Operativa dell'Interfaccia — Completa nel branch `feat/ui-node-explorer-foundation`
 * **Obiettivo**: Trasformare le schermate esistenti in strumenti operativi adattivi, senza aggiungere una dashboard o dipendenze UI esterne.
+
+#### Tracciabilità con le proposte visuali
+
+La tabella collega il documento di design
+[`docs/UI_DEVELOPMENT.md`](docs/UI_DEVELOPMENT.md) al lavoro consegnato.
+Le proposte 10 e 13 sono complete soltanto nel perimetro sicuro dichiarato;
+le estensioni radio ad alto rischio restano intenzionalmente non implementate.
+
+| Proposta UI | Stato | Evidenza nel branch |
+| :---------- | :---- | :------------------ |
+| 1. Master/detail Node Explorer | ✅ | Incremento 1: dettaglio laterale su terminali larghi e screen interna compatta |
+| 2. Layout responsive compatto | ✅ | Incremento 1: modalità `auto` / `full` / `compact` persistita |
+| 3. Localizzazione live | ✅ | Incremento 1: refresh di colonne, binding, sidebar, filtro e screen montate |
+| 4. Strip stato radio | ✅ | Incremento 1: stato, nodo, porta e retry persistenti sotto l'header |
+| 5. Avanzamento e annullamento comando | ✅ | Incremento 2: progress persistente, serializzazione e annullamento cooperativo `/trace` |
+| 6. Conversazioni DM | ✅ | Incremento 3: conversazioni per peer, badge e risposta diretta |
+| 7. Selettore periferica recuperabile | ✅ | Incremento 4: badge, retry e stato vuoto guidato |
+| 8. Modello di presentazione nodo | ✅ | Incremento 5: `NodePresentation` condiviso fra sidebar, `/nodes` e `/view` |
+| 9. Topologia data-first | ✅ | Incremento 7: `/topology` filtrabile e pannello qualità dati; grafo rinviato |
+| 10. Telemetria storica | ✅ *slice on-demand* | Incremento 8: JSONL, range e sparkline; nessuna dashboard continua |
+| 11. Gate accessibilità/temi | ✅ | Incremento 10: contrasto automatico, focus visibile e renderer sample per palette |
+| 12. Log applicazione/dispositivo | ✅ | Incremento 6: buffer limitato, filtri, pausa, copia ed export |
+| 13. Impostazioni dispositivo | ✅ *slice identità* | Incremento 9: draft, diff, conferma e `setOwner`; radio/PSK/reset restano protetti |
 * **✅ Incremento 1 — completato sul branch `feat/ui-node-explorer-foundation`**:
   1. `/view` adotta il modello master/detail: click o `Invio` su una riga rende il dossier nodo nel pannello laterale sui terminali larghi oppure apre una screen interna sui terminali compatti.
   2. La densità dell'esploratore è persistita in `settings.json` con le modalità `auto`, `full` e `compact`; in auto, sotto 120 colonne restano nome, ruolo, SNR, hop, batteria e ultimo contatto.
   3. Il cambio lingua aggiorna sidebar, filtro, colonne, binding e Node Explorer già montato senza `/restart`.
   4. Una strip persistente sotto l'header espone stato radio, nodo locale, porta e tentativo di riconnessione, senza dipendere dallo scroll del log.
-  5. La guida operativa viene mantenuta in inglese in `docs/USER_GUIDE.md`.
+  5. La guida operativa in `docs/USER_GUIDE.md` descrive comportamento,
+     binding e modalità del nuovo Node Explorer.
 * **✅ Incremento 2 — completato sul branch `feat/ui-node-explorer-foundation`**:
   1. Il campo comando espone una riga persistente di avanzamento durante ogni comando eseguito nel worker Textual.
   2. Un secondo comando non viene accettato finché il worker precedente è attivo, evitando output e azioni concorrenti ambigui.
