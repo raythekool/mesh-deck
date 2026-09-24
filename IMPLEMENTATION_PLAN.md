@@ -177,46 +177,46 @@ mesh-deck/
 
 ### Fase 11: Evoluzione Operativa dell'Interfaccia
 * **Obiettivo**: Trasformare le schermate esistenti in strumenti operativi adattivi, senza aggiungere una dashboard o dipendenze UI esterne.
-* **Incremento 1 — completato sul branch `feat/ui-node-explorer-foundation`**:
+* **✅ Incremento 1 — completato sul branch `feat/ui-node-explorer-foundation`**:
   1. `/view` adotta il modello master/detail: click o `Invio` su una riga rende il dossier nodo nel pannello laterale sui terminali larghi oppure apre una screen interna sui terminali compatti.
   2. La densità dell'esploratore è persistita in `settings.json` con le modalità `auto`, `full` e `compact`; in auto, sotto 120 colonne restano nome, ruolo, SNR, hop, batteria e ultimo contatto.
   3. Il cambio lingua aggiorna sidebar, filtro, colonne, binding e Node Explorer già montato senza `/restart`.
   4. Una strip persistente sotto l'header espone stato radio, nodo locale, porta e tentativo di riconnessione, senza dipendere dallo scroll del log.
   5. La guida operativa viene mantenuta in inglese in `docs/USER_GUIDE.md`.
-* **Incremento 2 — completato sul branch `feat/ui-node-explorer-foundation`**:
+* **✅ Incremento 2 — completato sul branch `feat/ui-node-explorer-foundation`**:
   1. Il campo comando espone una riga persistente di avanzamento durante ogni comando eseguito nel worker Textual.
   2. Un secondo comando non viene accettato finché il worker precedente è attivo, evitando output e azioni concorrenti ambigui.
   3. `/trace` espone `Esc` come annullamento cooperativo: l'attesa viene interrotta, il waiter viene rimosso e il pacchetto già inviato non produce una risposta UI tardiva.
   4. `/switch` e connessione mostrano avanzamento ma non dichiarano una cancellazione che la libreria seriale non può eseguire in sicurezza.
-* **Incremento 3 — completato sul branch `feat/ui-node-explorer-foundation`**:
+* **✅ Incremento 3 — completato sul branch `feat/ui-node-explorer-foundation`**:
   1. `/chat` raggruppa i messaggi diretti per peer anziché in una entry sintetica condivisa.
   2. Ogni conversazione mostra badge non letti, storico dedicato, hint con destinatario e input abilitato per la risposta diretta.
   3. `/dm` resta il flusso esplicito per iniziare una conversazione con un nodo non ancora presente nell'elenco.
-* **Incremento 4 — completato sul branch `feat/ui-node-explorer-foundation`**:
+* **✅ Incremento 4 — completato sul branch `feat/ui-node-explorer-foundation`**:
   1. Il selettore startup visualizza badge per porta preferita, attiva e da ritentare.
   2. Dopo un errore di handshake conserva porta e motivazione, esponendo un retry esplicito con binding `t`.
   3. Quando non trova periferiche, presenta uno stato vuoto con indicazioni concrete su cavo, alimentazione, driver seriale e contesa della porta.
-* **Incremento 5 — completato sul branch `feat/ui-node-explorer-foundation`**:
+* **✅ Incremento 5 — completato sul branch `feat/ui-node-explorer-foundation`**:
   1. `NodePresentation` centralizza SNR, hop, batteria, distanza, ultimo contatto, ruolo e identità per sidebar, `/nodes` e `/view`.
   2. Ogni superficie sceglie solo la propria densità; unità, arrotondamenti e colori semantici sono condivisi.
   3. I nomi provenienti dai nodi sono escaped nella sidebar prima del rendering Rich.
-* **Incremento 6 — completato sul branch `feat/ui-node-explorer-foundation`**:
+* **✅ Incremento 6 — completato sul branch `feat/ui-node-explorer-foundation`**:
   1. `/logs` visualizza stream separati applicazione e dispositivo in un buffer thread-safe limitato in memoria.
   2. Il viewer offre filtri per sorgente, livello e testo, pausa del refresh, copia della riga selezionata ed export della vista filtrata.
   3. Le righe device arrivano dal topic Meshtastic `meshtastic.log.line`; i log applicativi vengono catturati solo mentre l'app Textual è montata e non propagano su stdout MCP.
-* **Incremento 7 — completato sul branch `feat/ui-node-explorer-foundation`**:
+* **✅ Incremento 7 — completato sul branch `feat/ui-node-explorer-foundation`**:
   1. `/topology` espone una screen filtrabile di edge Reporter → Neighbor ricevuti da NeighborInfo, con SNR e recenza.
   2. Un pannello qualità dati separa esplicitamente l'assenza di report dall'assenza di connettività.
   3. `/mesh` resta disponibile come riepilogo testuale compatibile; un grafo è rinviato fino a disponibilità di dati reali sufficienti.
-* **Incremento 8 — completato sul branch `feat/ui-node-explorer-foundation`**:
+* **✅ Incremento 8 — completato sul branch `feat/ui-node-explorer-foundation`**:
   1. `/history <id|aka|nome>` legge on-demand gli snapshot `nodes.jsonl` già presenti.
   2. Range 6 ore, 24 ore, 7 giorni e completo mostrano sparkline per batteria, SNR, temperatura e utilizzo canale.
   3. Il dettaglio nodo compatto espone la stessa screen con binding `h`; assenza di snapshot o storico disattivato viene mostrata esplicitamente.
-* **Incremento 9 — completato sul branch `feat/ui-node-explorer-foundation`**:
+* **✅ Incremento 9 — completato sul branch `feat/ui-node-explorer-foundation`**:
   1. `/device-settings` implementa il primo gruppo scrivibile sicuro: identità locale (long/short name).
   2. Il flusso è snapshot → draft validato → diff semantico → conferma modale → `setOwner` ufficiale → snapshot aggiornato.
   3. Limiti nome sono validati prima dell'API per evitare truncation/output della libreria; PSK, regione, reset, firmware, canali, posizione e configurazioni radio restano non modificabili fino a validazione hardware dedicata.
-* **Incremento 10 — completato sul branch `feat/ui-node-explorer-foundation`**:
+* **✅ Incremento 10 — completato sul branch `feat/ui-node-explorer-foundation`**:
   1. Quality gate automatico verifica il contrasto delle palette per ruoli testuali semanticamente attivi su fondo standard e panel.
   2. Focus visibile usa bordo double primario su input, select, liste, tabelle e button delle screen principali.
   3. Il renderer sample screenshot è esercitato per tutte le palette; il colore alert Nord è corretto per il contrasto.

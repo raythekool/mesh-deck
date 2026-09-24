@@ -15,7 +15,7 @@ The recommended implementation order is:
 5. Rendering consistency, then topology and historical telemetry after real data is available.
 6. Accessibility checks as a release gate for every theme.
 
-## 1. Node Explorer: Master / Detail
+## ✅ 1. Node Explorer: Master / Detail — Implemented
 
 ![Node explorer master/detail proposal](ui-development/images/01-node-explorer-master-detail.svg)
 
@@ -29,7 +29,7 @@ The recommended implementation order is:
 
 The action row should disable unavailable actions rather than failing after a keypress.
 
-## 2. Responsive Compact Layout
+## ✅ 2. Responsive Compact Layout — Implemented
 
 ![Responsive compact node layout proposal](ui-development/images/02-responsive-compact-layout.svg)
 
@@ -37,13 +37,13 @@ The current node table has eleven columns in both Rich and Textual. The compact 
 
 Use an automatic breakpoint based on terminal width, plus a persisted `full` / `compact` toggle. This preserves the full current view on wide desktops without making small laptops or field terminals unusable.
 
-## 3. Complete Live Localization
+## ✅ 3. Complete Live Localization — Implemented
 
 ![Live localization proposal](ui-development/images/03-live-localization.svg)
 
 Changing language already updates command completion and the input prompt. The same operation should redraw the mounted title, sidebar heading, sort and filter pills, footer bindings, node detail, and any open modal. The screen should visibly update as a single transaction, with no `/restart` needed.
 
-## 4. Persistent Radio Status Strip
+## ✅ 4. Persistent Radio Status Strip — Implemented
 
 ![Persistent radio status proposal](ui-development/images/04-radio-status-strip.svg)
 
@@ -56,7 +56,7 @@ Connection events currently enter the scrolling log. Add a small persistent stri
 
 This is a status surface, not a second banner: it should consume one line and remain visible while the log scrolls.
 
-## 5. Command Progress — Implemented
+## ✅ 5. Command Progress — Implemented
 
 ![Command progress proposal](ui-development/images/05-command-progress.svg)
 
@@ -64,7 +64,7 @@ Potentially slow operations (`/trace`, `/switch`, initial connection) run outsid
 
 `Esc` cancels `/trace` cooperatively by stopping the response wait and removing its waiter. `/switch` and initial connection show progress but do not claim cancellation because the underlying serial handshake cannot be interrupted safely.
 
-## 6. Direct-message Conversations — Implemented
+## ✅ 6. Direct-message Conversations — Implemented
 
 ![Direct-message conversation proposal](ui-development/images/06-dm-conversations.svg)
 
@@ -72,7 +72,7 @@ The chat now creates individual direct-message conversations keyed by peer, with
 
 `/dm` remains the deliberate way to start a new conversation before any message has been exchanged.
 
-## 7. Device Selection — Implemented
+## ✅ 7. Device Selection — Implemented
 
 ![Device selector proposal](ui-development/images/07-device-selector.svg)
 
@@ -87,25 +87,25 @@ The retry binding is only exposed after a failure. The empty state offers cable,
 
 This is especially useful where several USB serial adapters look similar.
 
-## 8. One Node Presentation Model — Implemented
+## ✅ 8. One Node Presentation Model — Implemented
 
 ![Unified node presentation proposal](ui-development/images/08-unified-node-rendering.svg)
 
 Sidebar, `/nodes`, and `/view` now share a `NodePresentation` model for SNR, hops, battery, distance, and last-heard values. Each surface chooses its density while preserving semantic formatter output, units, rounding, and colour roles. The goal is visual agreement, not a large new UI abstraction.
 
-## 9. Mesh Topology: Data First — Implemented
+## ✅ 9. Mesh Topology: Data First — Implemented
 
 ![Mesh topology proposal](ui-development/images/09-topology-data-first.svg)
 
 `/topology` provides a searchable, text-first edge list with recency, SNR, and data-quality information while `/mesh` retains its concise summary. Only add a graph view when real reports are sufficiently frequent; an animated empty graph would be worse than a transparent data-quality panel.
 
-## 10. Historical Telemetry — Implemented
+## ✅ 10. Historical Telemetry — Implemented
 
 ![Historical telemetry proposal](ui-development/images/10-telemetry-history.svg)
 
 `/history <node>` reads existing JSONL snapshots only on demand and shows compact sparklines for battery, SNR, temperature, and channel utilization with 6-hour, 24-hour, 7-day, and all-time ranges. The compact node dossier exposes the same screen with `h`. It is never a continuously redrawn dashboard.
 
-## 11. Accessibility and Theme Quality Gate — Implemented
+## ✅ 11. Accessibility and Theme Quality Gate — Implemented
 
 ![Accessibility and theme proposal](ui-development/images/11-accessibility-theme-gate.svg)
 
@@ -118,7 +118,7 @@ Every palette retains the same semantic roles, and operators must not depend on 
 
 The Nord alert colour was raised to meet readable contrast on both Nord dark surfaces.
 
-## 12. Application and Device Logs — Implemented
+## ✅ 12. Application and Device Logs — Implemented
 
 ![Application and device logs proposal](ui-development/images/12-observability-logs.svg)
 
@@ -131,7 +131,7 @@ The operator filters by source and severity, pauses auto-scroll, searches, copie
 
 This is a viewer, not a new persistent logging subsystem: it subscribes to existing Python logging and Meshtastic `meshtastic.log.line` events, retains a bounded in-memory buffer, and leaves standard MCP stdout untouched.
 
-## 13. Connected Device Settings — Identity Slice Implemented
+## ✅ 13. Connected Device Settings — Identity Slice Implemented
 
 ![Connected device settings proposal](ui-development/images/13-device-settings.svg)
 
