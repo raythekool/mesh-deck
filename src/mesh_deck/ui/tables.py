@@ -15,6 +15,7 @@ from rich.text import Text
 
 from mesh_deck.i18n import t
 from mesh_deck.models import MeshMessage, NodeData
+from mesh_deck.ui.node_presentation import present_node
 from mesh_deck.ui.theme import (
     THEME_COLORS as c,
     format_battery,
@@ -74,10 +75,11 @@ def render_nodes_table(
                 or (node.short_name.lower() == clean_local.lower())
             )
 
+        display = present_node(node, lang=lang)
         long_name_safe = escape(str(node.long_name or t("NODE_UNKNOWN_NAME", lang)))
         short_name_safe = escape(str(node.short_name or "????"))
         node_id_safe = escape(str(node.id or "!unknown"))
-        hw_safe = escape(str(node.hardware or "UNSET"))
+        hw_safe = escape(display.hardware)
 
         if is_local:
             node_name = f"[bold {c['secondary']}]★ [/bold {c['secondary']}][bold {c['primary']}]{long_name_safe}[/bold {c['primary']}] [dim]({t('LOCAL_BADGE', lang)})[/dim]"
@@ -91,12 +93,12 @@ def render_nodes_table(
             row_style = None
 
         hw_display = f"[white]{hw_safe}[/white]"
-        role_badge = format_role(node.role)
-        snr_display = format_snr(node.snr)
-        hops_display = format_hops(node.hops_away, lang)
-        batt_display = format_battery(node.battery_level, node.voltage)
-        dist_display = format_distance(node.distance_km)
-        seen_display = format_time_ago(node.last_heard, lang)
+        role_badge = display.role_markup
+        snr_display = display.snr_markup
+        hops_display = display.hops_markup
+        batt_display = display.battery_markup
+        dist_display = display.distance_markup
+        seen_display = display.last_heard_markup
 
         table.add_row(
             str(idx),

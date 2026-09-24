@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import re
 import shlex
+import threading
 from typing import TYPE_CHECKING
 from collections.abc import Callable
 
@@ -12,6 +13,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from mesh_deck.core.radio_client import RadioOperationCancelled
 from mesh_deck.core.scanner import scan_meshtastic_ports
 from mesh_deck.core.settings import Settings
 from mesh_deck.i18n import t
@@ -47,26 +49,31 @@ class CommandDispatcher:
         self.console = console or Console()
         self.settings = settings if settings is not None else Settings.load()
         self.running = True
+        self._cancel_event: threading.Event | None = None
 
         self._commands: dict[str, Callable[[list[str]], None]] = {
             "/help": self.cmd_help,
             "/?": self.cmd_help,
             "/nodes": self.cmd_nodes,
             "/node": self.cmd_node,
+            "/history": self.cmd_history,
             "/send": self.cmd_send,
             "/dm": self.cmd_dm,
             "/channels": self.cmd_channels,
             "/neighbors": self.cmd_neighbors,
             "/vicini": self.cmd_neighbors,
             "/mesh": self.cmd_mesh,
+            "/topology": self.cmd_topology,
             "/trace": self.cmd_trace,
             "/traceroute": self.cmd_trace,
             "/info": self.cmd_info,
             "/view": self.cmd_view,
             "/tui": self.cmd_view,
             "/chat": self.cmd_chat,
+            "/logs": self.cmd_logs,
             "/settings": self.cmd_settings,
             "/config": self.cmd_settings,
+            "/device-settings": self.cmd_device_settings,
             "/switch": self.cmd_switch,
             "/scan": self.cmd_scan,
             "/clear": self.cmd_clear,
@@ -82,16 +89,23 @@ class CommandDispatcher:
         """Current UI language, read live from the shared Settings instance."""
         return self.settings.language
 
-    def dispatch(self, raw_input: str) -> bool:
+    def dispatch(self, raw_input: str, cancel_event: threading.Event | None = None) -> bool:
         """Parse and execute a command string.
 
         Returns:
             True to continue REPL, False to quit.
         """
+        self._cancel_event = cancel_event
+        try:
+            return self._dispatch(raw_input)
+        finally:
+            self._cancel_event = None
+
+    def _dispatch(self, raw_input: str) -> bool:
+        """Execute one command while dispatch() owns the cancellation context."""
         line = raw_input.strip()
         if not line:
             return True
-
         # Check if line is a slash command
         if line.startswith("/"):
             parts = line.split(maxsplit=1)
@@ -152,15 +166,19 @@ class CommandDispatcher:
             ("/nodes", "[active|snr|hops|name]", t("CMD_DESC_NODES", lang)),
             ("/view, /tui", "", t("CMD_DESC_VIEW", lang)),
             ("/chat", "", t("CMD_DESC_CHAT", lang)),
+            ("/logs", "", t("CMD_DESC_LOGS", lang)),
             ("/node", "<id|aka>", t("CMD_DESC_NODE", lang)),
+            ("/history", "<id|aka>", t("CMD_DESC_HISTORY", lang)),
             ("/send", "<testo>", t("CMD_DESC_SEND", lang)),
             ("/dm", "<id|aka> <testo>", t("CMD_DESC_DM", lang)),
             ("/channels", "", t("CMD_DESC_CHANNELS", lang)),
             ("/neighbors", "[id|aka]", t("CMD_DESC_NEIGHBORS", lang)),
             ("/mesh", "", t("CMD_DESC_MESH", lang)),
+            ("/topology", "", t("CMD_DESC_TOPOLOGY", lang)),
             ("/trace", "<id|aka>", t("CMD_DESC_TRACE", lang)),
             ("/info", "", t("CMD_DESC_INFO", lang)),
             ("/settings", "[lang|theme|sort|port|notifications|history]", t("CMD_DESC_SETTINGS", lang)),
+            ("/device-settings", "", t("CMD_DESC_DEVICE_SETTINGS", lang)),
             ("/switch", "[porta|indice]", t("CMD_DESC_SWITCH", lang)),
             ("/scan", "", t("CMD_DESC_SCAN", lang)),
             ("/banner", "", t("CMD_DESC_BANNER", lang)),
@@ -224,6 +242,26 @@ class CommandDispatcher:
 
         panel = render_node_detail(node, distance_km=dist_km, lang=lang, bearing_deg=bearing)
         self.console.print(panel)
+
+    def cmd_history(self, args: list[str]) -> None:
+        """Open on-demand local telemetry history for a specific node."""
+        lang = self.lang
+        if not args:
+            self.console.print(f"[{THEME_COLORS['alert']}]{t('USAGE_HISTORY', lang)}[/]")
+            return
+        if self.client.history is None:
+            self.console.print(f"[{THEME_COLORS['warning']}]{t('HISTORY_DISABLED', lang)}[/]")
+            return
+        node = self.client.store.get_node(args[0])
+        if node is None:
+            self.console.print(f"[{THEME_COLORS['alert']}]{t('NODE_NOT_FOUND', lang, query=args[0])}[/]")
+            return
+        opener = getattr(self.console, "open_node_history", None)
+        if callable(opener):
+            opener(node)
+            return
+        entries = self.client.history.iter_node_history(node.id)
+        self.console.print(f"[{THEME_COLORS['muted']}]{t('HISTORY_TUI_ONLY', lang, count=len(entries))}[/]")
 
     def cmd_send(self, args: list[str]) -> None:
         """Send a broadcast message."""
@@ -402,6 +440,14 @@ class CommandDispatcher:
         if not reports:
             self.console.print(f"[dim]{t('MESH_NO_NEIGHBOR_DATA', lang)}[/dim]")
 
+    def cmd_topology(self, args: list[str]) -> None:
+        """Open the data-first NeighborInfo topology explorer."""
+        opener = getattr(self.console, "open_topology", None)
+        if callable(opener):
+            opener(self.client, self.lang)
+            return
+        self.cmd_mesh(args)
+
     def cmd_trace(self, args: list[str]) -> None:
         """Run a traceroute towards a node and render the hop path (RF-3.1)."""
         lang = self.lang
@@ -416,7 +462,11 @@ class CommandDispatcher:
         self.console.print(
             f"[{THEME_COLORS['accent']}]{t('TRACE_IN_PROGRESS', lang, name=target_name)}[/]"
         )
-        result = self.client.trace_route(target_id)
+        try:
+            result = self.client.trace_route(target_id, cancel_event=self._cancel_event)
+        except RadioOperationCancelled:
+            self.console.print(f"[{THEME_COLORS['muted']}]{t('TRACE_CANCELLED', lang, name=target_name)}[/]")
+            return
         if result is None:
             self.console.print(f"[{THEME_COLORS['warning']}]{t('TRACE_TIMEOUT', lang, name=target_name)}[/]")
             return
@@ -567,12 +617,24 @@ class CommandDispatcher:
         local_node = self.client.get_local_node()
         opener = getattr(self.console, "open_node_explorer", None)
         if callable(opener):
-            opener(self.client.store, local_node, lang)
+            opener(
+                self.client.store,
+                local_node,
+                lang,
+                self.settings.explorer_view_mode,
+                self.client.history,
+            )
             return
 
         from mesh_deck.ui.interactive_table import launch_interactive_nodes
         self.console.print(f"[{THEME_COLORS['primary']}]{t('VIEW_LAUNCH', lang)}[/]")
-        launch_interactive_nodes(self.client.store, local_node=local_node, lang=lang)
+        launch_interactive_nodes(
+            self.client.store,
+            local_node=local_node,
+            lang=lang,
+            view_mode=self.settings.explorer_view_mode,
+            history=self.client.history,
+        )
 
     def cmd_chat(self, args: list[str]) -> None:
         """Launch interactive mouse-usable chat viewer for channels and DMs."""
@@ -585,6 +647,14 @@ class CommandDispatcher:
         from mesh_deck.ui.channel_chat import launch_channel_chat
         self.console.print(f"[{THEME_COLORS['primary']}]{t('CHAT_LAUNCH', lang)}[/]")
         launch_channel_chat(self.client, lang=lang)
+
+    def cmd_logs(self, args: list[str]) -> None:
+        """Open the bounded application and device diagnostic log viewer."""
+        opener = getattr(self.console, "open_logs", None)
+        if callable(opener):
+            opener()
+            return
+        self.console.print(f"[{THEME_COLORS['warning']}]{t('LOGS_TUI_ONLY', self.lang)}[/]")
 
     def cmd_settings(self, args: list[str]) -> None:
         """View or update user preferences (language, theme, port, sort)."""
@@ -619,7 +689,6 @@ class CommandDispatcher:
                 "/settings port </dev/tty...>",
             )
             table.add_row(t("SETTINGS_ROW_SORT", lang), settings.default_sort, "/settings sort <last_heard|snr|hops|name>")
-            table.add_row(t("SETTINGS_ROW_MODE", lang), settings.ui_mode, "/settings mode <repl|tui>")
             table.add_row(
                 t("SETTINGS_NOTIFICATIONS", lang),
                 t("SETTINGS_ON", lang) if settings.notifications_enabled else t("SETTINGS_OFF", lang),
@@ -667,13 +736,6 @@ class CommandDispatcher:
             port_val = args[1]
             settings.update(default_port=port_val)
             self.console.print(f"[{THEME_COLORS['secondary']}]{t('SETTINGS_PORT_SET', lang, port=port_val)}[/]")
-        elif sub in ("mode", "modalita") and len(args) > 1:
-            mode_val = args[1].lower()
-            if mode_val in ("repl", "tui"):
-                settings.update(ui_mode=mode_val)
-                self.console.print(f"[{THEME_COLORS['secondary']}]{t('SETTINGS_MODE_SET', lang, mode=mode_val)}[/]")
-            else:
-                self.console.print(f"[{THEME_COLORS['alert']}]{t('SETTINGS_MODE_INVALID', lang)}[/]")
         elif sub in ("notifications", "notifiche") and len(args) > 1:
             val = args[1].lower()
             if val in ("on", "off"):
@@ -692,6 +754,17 @@ class CommandDispatcher:
                 self.console.print(f"[{THEME_COLORS['alert']}]{t('SETTINGS_INVALID_VALUE', lang)}[/]")
         else:
             self.console.print(f"[{THEME_COLORS['warning']}]{t('SETTINGS_USAGE', lang)}[/]")
+
+    def cmd_device_settings(self, args: list[str]) -> None:
+        """Open the transaction-style settings UI for the connected local radio."""
+        if not self.client.is_connected:
+            self.console.print(f"[{THEME_COLORS['alert']}]{t('DEVICE_SETTINGS_NOT_CONNECTED', self.lang)}[/]")
+            return
+        opener = getattr(self.console, "open_device_settings", None)
+        if callable(opener):
+            opener()
+            return
+        self.console.print(f"[{THEME_COLORS['warning']}]{t('DEVICE_SETTINGS_TUI_ONLY', self.lang)}[/]")
 
     def cmd_clear(self, args: list[str]) -> None:
         """Clear terminal screen."""

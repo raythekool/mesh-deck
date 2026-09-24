@@ -37,6 +37,8 @@ _NODE_SNAPSHOT_FIELDS = (
     "longitude",
     "altitude",
     "snr",
+    "temperature",
+    "channel_util",
     "hops_away",
 )
 

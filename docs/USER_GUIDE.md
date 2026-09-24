@@ -1,851 +1,596 @@
-# 📡 Mesh-Deck — Manuale Utente & Guida Operativa
+# Mesh-Deck — User and Operations Guide
 
-Benvenuto nel manuale operativo ufficiale di **Mesh-Deck**, la console interattiva terminale (CLI/TUI) in stile tattico *Hermes* concepita per il monitoraggio, l'amministrazione e la messaggistica su reti radio **[Meshtastic](https://meshtastic.org/)**.
+Mesh-Deck is a tactical terminal console for monitoring, managing, and communicating over [Meshtastic](https://meshtastic.org/) radio networks.
 
----
+It is intended for amateur-radio operators, emergency-response teams, hikers, and off-grid communications enthusiasts using Meshtastic LoRa nodes in the field or at a base station.
 
-## 🛸 1. Introduzione & Filosofia di Progetto
+![Hermes tactical banner](screenshots/banner.svg)
 
-**Mesh-Deck** è stato progettato per rispondere alle esigenze di operatori radioamatoriali, team di protezione civile, escursionisti e appassionati di telecomunicazioni off-grid che impiegano nodi LoRa Meshtastic sul campo o in stazioni base.
+## 1. Design and supported hardware
 
-![Banner Tattico Hermes](screenshots/banner.svg)
+### Hermes TUI
 
-### L'Estetica Tattica Hermes TUI
+Mesh-Deck uses the Hermes TUI visual model rather than a conventional line-only CLI or a heavyweight web interface.
 
-A differenza delle utility CLI tradizionali a riga di comando o delle interfacce web pesanti, Mesh-Deck adotta il paradigma visivo **Hermes TUI**:
+- **High-contrast themes:** Semantic palettes use clearly differentiated primary, success, warning, and error colours. The default is `cyberpunk`; `midnight`, `nord`, and `ember` are also available.
+- **Dense operational information:** Link state, battery, voltage, SNR, hops, and channel status are presented in compact Rich panels and tables.
+- **Responsive Textual UI:** The full-screen console has contextual input, scrollable output, persisted history, dynamic completion, and mouse-capable controls.
+- **Non-blocking work:** Serial connection and command operations run outside the UI event loop so incoming radio events can remain visible.
 
-- **Palette Cyberpunk High-Contrast**: Uso mirato di tonalità neon ad alta visibilità (`#00f3ff` ciano elettrico, `#00ff66` verde matrice, `#ff007f` fucsia per allarmi/DM, `#ffb800` ambra per avvisi), studiata per garantire massima leggibilità anche all'aperto su display opachi o terminali a basso consumo.
-- **Densità Informativa Senza Sovraccarico**: I dati essenziali (stato del link, livello batteria, tensione cella, SNR, hop count e canali) sono aggregati in pannelli compatti e tabelle responsive realizzate con la libreria [Rich](https://rich.readthedocs.io/).
-- **Esperienza TUI Fluida**: Console [Textual](https://textual.textualize.io/) con input contestuale, log scorrevole e cronologia persistente. `Tab` completa senza eseguire; `Invio` esegue il comando suggerito, scelto con freccia Giù e frecce Su/Giù quando necessario.
+`Tab` completes an input without executing it. `Enter` runs the selected command completion or submits the typed command.
 
-### Supporto Multi-Device
+### Supported devices
 
-Mesh-Deck riconosce automaticamente un'ampia varietà di dispositivi e chipset LoRa commerciali:
+Detection is heuristic and supports common Meshtastic-capable USB serial hardware, including:
 
-- **Heltec Automation**: Vision Master E290 (display e-paper), WiFi LoRa 32 (V2, V3), Wireless Stick Lite, Capsule Sensor.
-- **LilyGo**: T-Beam (v1.1, v1.2 con AXP192/AXP2101), T-Echo (nRF52840), T-Motion, T3S3 (ESP32-S3 + SX1262).
-- **RAK Wireless**: WisBlock Core RAK4631 (nRF52840 + SX1262), RAK11200, RAK11310 (RP2040).
-- **Dispositivi Custom & DIY**: Stazioni basate su Raspberry Pi Pico / RP2040, nRF52840 Dongle USB e moduli ESP32 con controller seriali CH340, CP210x o FTDI.
+- Heltec Vision Master E290, WiFi LoRa 32, Wireless Stick Lite, and Capsule Sensor boards.
+- LilyGo T-Beam, T-Echo, T-Motion, and T3S3 boards.
+- RAK WisBlock / RAK4631, RAK11200, and RAK11310 boards.
+- DIY RP2040, nRF52840, and ESP32-based nodes exposed through CH340, CP210x, FTDI, or similar serial bridges.
 
----
+## 2. Installation and startup
 
-## ⚡ 2. Installazione & Avvio Rapido
+Mesh-Deck requires Python 3.11 or later and is managed with [uv](https://github.com/astral-sh/uv).
 
-Mesh-Deck richiede **Python 3.11 o superiore** ed è ottimizzato per essere eseguito con il package manager ultrarapido **[`uv`](https://github.com/astral-sh/uv)**.
+### Linux serial permissions
 
-### Prerequisiti su Sistemi Linux
-
-Assicurati che il tuo utente abbia i permessi di accesso alle periferiche seriali USB (gruppo `dialout` su Debian/Ubuntu o `uucp` su Arch Linux):
+On Debian or Ubuntu, add the current user to `dialout`; Arch Linux commonly uses `uucp`.
 
 ```bash
-# Aggiungi l'utente corrente al gruppo delle porte seriali
+# Add the current user to the serial-port group.
 sudo usermod -a -G dialout $USER
 
-# Applica i permessi (o effettua un logout/login)
+# Apply the membership now, or sign out and back in.
 newgrp dialout
 ```
 
-### Avvio Immediato con `uv`
-
-Non è necessario installare manualmente i pacchetti nell'ambiente globale:
+### Run from a checkout
 
 ```bash
-# Clona il repository
 git clone https://github.com/raythekool/mesh-deck.git
 cd mesh-deck
-
-# Avvio interattivo della console
 uv run mesh-deck
 ```
 
-### Installazione come Comando di Sistema
+### Install the `mesh-deck` command
 
-`uv run` va eseguito dall'interno del repository. Per avere un comando
-`mesh-deck` richiamabile da qualsiasi directory, installalo come *tool* di uv:
+`uv run` must be executed from the repository. Install the project as a uv tool to use `mesh-deck` from any directory.
 
 ```bash
-# Dalla radice del repository. --editable mantiene il comando agganciato al
-# checkout: un git pull o una modifica locale hanno effetto senza reinstallare.
+# From the repository root. This tracks the checkout, so local edits and git pulls take effect immediately.
 uv tool install --editable .
 
-# In alternativa, direttamente da GitHub senza clonare:
+# Or install directly from GitHub without cloning first.
 uv tool install git+https://github.com/raythekool/mesh-deck
 ```
 
-Da quel momento, da qualunque percorso:
+After installation:
 
 ```bash
-mesh-deck                       # console interattiva
-mesh-deck nodes --output json   # sottocomandi per script e agenti
+mesh-deck
+mesh-deck nodes --output json
 ```
 
-Comandi utili di gestione:
+Use `uv tool list` to inspect installed tools, `uv tool upgrade mesh-deck` to update a non-editable installation, and `uv tool uninstall mesh-deck` to remove it.
 
-| Comando                        | Effetto                                              |
-| :----------------------------- | :--------------------------------------------------- |
-| `uv tool list`                 | Elenca i tool installati e gli eseguibili esposti.    |
-| `uv tool update-shell`         | Aggiunge la directory dei tool al `PATH`.             |
-| `uv tool upgrade mesh-deck`    | Aggiorna un'installazione non editable.               |
-| `uv tool uninstall mesh-deck`  | Rimuove il comando.                                   |
+If the shell cannot find `mesh-deck`, run `uv tool update-shell`, open a new shell, and verify the tool bin directory with `uv tool dir --bin`.
 
-> **Se la shell non trova il comando**, la directory dei binari di uv non è nel
-> `PATH`: esegui `uv tool update-shell` e apri una nuova shell. Il percorso
-> esatto è restituito da `uv tool dir --bin` (tipicamente `~/.local/bin`).
+An editable tool points at the checkout from which it was installed. If that checkout is moved or deleted, reinstall it from the new location with `uv tool install --editable .`.
 
-> **Nota sull'installazione `--editable`**: il comando punta alla directory da
-> cui è stato installato. Se sposti o elimini il clone, il comando smette di
-> funzionare: ripeti `uv tool install --editable .` dalla nuova posizione.
-
-Per una singola esecuzione, senza installare nulla:
+To run Mesh-Deck once without installing it:
 
 ```bash
 uvx --from git+https://github.com/raythekool/mesh-deck mesh-deck
 ```
 
-### Selezione Periferica All'Avvio
+### Device selection at startup
 
-Prima della connessione, l'avvio interattivo apre una schermata Textual con le
-periferiche Meshtastic rilevate. La porta predefinita salvata, quando presente,
-è preselezionata ma non viene connessa automaticamente.
+Interactive startup opens a Textual device selector before connecting. The saved default port is highlighted when available but is not connected automatically.
 
-| Azione                                  | Controllo      |
-| :-------------------------------------- | :------------- |
-| Spostare la selezione                   | freccia Su/Giu |
-| Connettersi alla periferica selezionata | `Invio`        |
-| Rieseguire la scansione                 | `r`            |
-| Annullare l'avvio                       | `q` o `Esc`    |
+| Action | Control |
+| :-- | :-- |
+| Move selection | Up / Down |
+| Connect selected device | `Enter` |
+| Rescan serial devices | `r` |
+| Retry the last failed device | `t` |
+| Cancel startup | `q` or `Esc` |
 
-Per bypassare il selettore in automazioni o per scegliere una porta nota, usa
-`--port /dev/ttyACM0`. La modalità non interattiva `--nodes` continua a usare la
-porta predefinita, oppure la prima periferica rilevata.
+Use `--port COM6` on Windows or `--port /dev/ttyACM0` on Linux/macOS to bypass the selector for a known device.
 
-Dopo la conferma, la stessa app Textual mostra lo stato di apertura della porta
-e sincronizzazione del NodeDB. L'handshake seriale viene eseguito in background:
-la schermata resta reattiva e, se la connessione fallisce, permette di tornare
-all'elenco per scegliere un'altra periferica.
+The connection handshake and NodeDB synchronization run in the background. If a connection fails, the selector remains available to choose a different device.
 
-### Flag CLI Disponibili
+The selector marks the preferred port, currently active port when relevant, and the port whose most recent connection failed. It displays that error with an explicit retry action. If no device is found, it shows cable, power, serial-driver, and port-ownership recovery guidance before offering `r` to rescan.
 
-Mesh-Deck mette a disposizione diversi argomenti a riga di comando per automatizzare l'uso o selezionare porte specifiche:
+### CLI flags
 
-| Flag            | Argomento       | Descrizione                                                                                                                                                     |
-| :-------------- | :-------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `-p`, `--port`  | `<DEVICE_PORT>` | Connette direttamente Mesh-Deck a una porta seriale specifica (es. `-p /dev/ttyACM0` o `-p /dev/ttyUSB1`).                                                      |
-| `-l`, `--list`  | *(nessuno)*     | Esegue la scansione delle porte USB seriali, elenca tutti i dispositivi Meshtastic rilevati con il relativo modello hardware ed esce.                           |
-| `-n`, `--nodes` | *(nessuno)*     | Modalità non-interattiva: si connette alla prima radio disponibile, scarica il NodeDB, stampa la tabella completa dei nodi ed esce. Utile per script e cronjob. |
-| `--tui`         | *(nessuno)*     | Avvia direttamente il Node Explorer Textual con filtro e ordinamento, senza mostrare la console comandi.                                                        |
-| `-h`, `--help`  | *(nessuno)*     | Mostra il riepilogo della sintassi CLI e dei flag utilizzabili.                                                                                                 |
+| Flag | Argument | Description |
+| :-- | :-- | :-- |
+| `-p`, `--port` | `<DEVICE_PORT>` | Connect directly to one serial port. |
+| `--tui` | none | Open the Node Explorer after connecting. |
+| `-h`, `--help` | none | Show CLI help. |
 
-#### Esempi di Uso da Riga di Comando
+Examples:
 
 ```bash
-# 1. Scansiona e visualizza le radio LoRa connesse via USB
-uv run mesh-deck --list
+# List connected radios. Supports --output json.
+mesh-deck scan
 
-# 2. Connettiti forzatamente al secondo dispositivo su ttyUSB0
-uv run mesh-deck --port /dev/ttyUSB0
+# Connect to a known port.
+mesh-deck --port COM6
 
-# 3. Estrai istantaneamente la tabella nodi per esportazione o logging
-uv run mesh-deck --nodes > mesh_snapshot.txt
+# Save a non-interactive node snapshot with sorting and filter controls.
+mesh-deck nodes --sort snr --active > mesh_snapshot.txt
 ```
 
-### CLI per Agenti e Automazioni
+`--list` and `--nodes` remain temporarily compatible but are deprecated and will be removed in v0.4.0. Use `scan` and `nodes` instead.
 
-I sottocomandi non interattivi espongono le stesse operazioni con output umano
-predefinito oppure JSON stabile tramite `--output json`:
+### Agent-friendly CLI
 
-| Sottocomando          | Funzione                                               |
-| :-------------------- | :----------------------------------------------------- |
-| `scan`                | Elenca i dispositivi seriali Meshtastic rilevati.      |
-| `info`                | Restituisce connessione, nodo locale e metadati radio. |
-| `nodes`               | Elenca i nodi; supporta `--sort` e `--active`.         |
-| `node <query>`        | Cerca un nodo per ID, numero, AKA o nome.              |
-| `channels`            | Elenca i metadati dei canali senza esporre le PSK.     |
-| `send <testo>`        | Prepara o invia un broadcast.                          |
-| `dm <target> <testo>` | Prepara o invia un messaggio diretto.                  |
-| `mcp`                 | Avvia il server MCP locale su stdio.                   |
-
-Le operazioni che richiedono la radio accettano `--port` e `--timeout`. In
-assenza di `--port`, Mesh-Deck usa la porta predefinita nelle impostazioni e
-poi il primo dispositivo rilevato.
+The non-interactive commands return human-readable output by default or a stable JSON envelope with `--output json`.
 
 ```bash
-uv run mesh-deck nodes --sort snr --active --output json
-uv run mesh-deck node TRIN --port /dev/ttyACM0 --output json
-uv run mesh-deck channels --output json
+mesh-deck scan --output json
+mesh-deck nodes --sort snr --active --output json
+mesh-deck node TRIN --output json
+mesh-deck info --output json
+mesh-deck channels --output json
+mesh-deck neighbors --output json
+mesh-deck trace TRIN --output json
 ```
 
-L'envelope JSON di successo contiene `ok`, `command` e `data`. Un errore
-contiene `ok: false` e `error.code`, `error.message`, `error.details`.
+Successful JSON output uses this shape:
 
-| Exit code | Significato                                                |
-| :-------- | :--------------------------------------------------------- |
-| `0`       | Operazione completata, inclusa un'anteprima non trasmessa. |
-| `1`       | Errore interno inatteso.                                   |
-| `2`       | Input o opzione non valida.                                |
-| `3`       | Nodo non trovato.                                          |
-| `4`       | Nessun dispositivo disponibile.                            |
-| `5`       | Connessione seriale fallita.                               |
-| `6`       | Trasmissione fallita.                                      |
+```json
+{"ok":true,"command":"scan","data":{"devices":[],"count":0}}
+```
 
-#### Sicurezza degli invii
+Errors use `ok: false` with an `error` object containing `code`, `message`, and `details`.
 
-`send` e `dm` non trasmettono per impostazione predefinita: restituiscono
-un'anteprima con `preview: true`. L'invio effettivo richiede `--confirm`.
+| Exit code | Meaning |
+| :-- | :-- |
+| `0` | Completed successfully, including a non-transmitting preview. |
+| `1` | Unexpected internal error. |
+| `2` | Invalid input or option. |
+| `3` | Node not found. |
+| `4` | No device available. |
+| `5` | Serial connection failed. |
+| `6` | Transmission failed. |
+
+`send` and `dm` CLI commands preview by default. Add `--confirm` to transmit.
 
 ```bash
-uv run mesh-deck send "Test radio" --output json
-uv run mesh-deck send "Test radio" --confirm --output json
-uv run mesh-deck dm TRIN "Messaggio riservato" --confirm --output json
+mesh-deck send "Radio test" --output json
+mesh-deck send "Radio test" --confirm --output json
+mesh-deck dm TRIN "Private message" --confirm --output json
 ```
 
-Nota: l'anteprima di `send` (broadcast) non richiede alcuna connessione al
-dispositivo. L'anteprima di `dm`, invece, richiede comunque una connessione
-radio attiva perché deve risolvere il nodo destinatario nel node store prima
-di mostrare a chi verrebbe inviato il messaggio; se il dispositivo non è
-raggiungibile, anche l'anteprima di `dm` restituirà un errore di connessione.
+A broadcast preview does not need a radio connection. A direct-message preview needs an active connection because Mesh-Deck must resolve the target node in the NodeStore.
 
-### Server MCP locale
+### Local MCP server
 
-Il server MCP usa esclusivamente stdio e mantiene una sessione radio condivisa
-per la durata del processo:
+The local Model Context Protocol server uses stdio and keeps one shared radio session for its lifetime.
 
 ```bash
-uv run mesh-deck mcp --port /dev/ttyACM0
+mesh-deck mcp --port COM6
 ```
 
-Configurazione client generica:
+Example generic MCP configuration:
 
 ```json
 {
   "mcpServers": {
     "mesh-deck": {
-      "command": "uv",
-      "args": ["run", "mesh-deck", "mcp", "--port", "/dev/ttyACM0"]
+      "command": "mesh-deck",
+      "args": ["mcp", "--port", "COM6"]
     }
   }
 }
 ```
 
-I tool disponibili sono `scan_devices`, `get_radio_info`, `list_nodes`,
-`get_node`, `list_channels`, `send_broadcast` e `send_direct_message`. Gli
-ultimi due richiedono `confirm=true` per trasmettere; in caso contrario
-restituiscono solo l'anteprima. Il server non espone PSK o configurazioni raw
-dei canali e non offre modifiche alla configurazione radio.
+The server exposes `scan_devices`, `get_radio_info`, `list_nodes`, `get_node`, `list_channels`, `list_neighbors`, `trace_route`, `send_broadcast`, and `send_direct_message`.
 
----
+The two send tools require `confirm=true` to transmit. Channel PSKs and raw channel configuration are never returned.
 
-## ⌨️ 3. Manuale Completo dei Comandi Slash
+## 3. Interactive console
 
-Una volta avviato Mesh-Deck, viene visualizzato il banner tattico sopra un log
-scorrevole e un campo comando. Il placeholder mostra il nodo locale, quando
-disponibile:
+The main console contains a tactical banner, persistent radio status strip, scrollable output, a contextual command input, and an optional live node sidebar.
+
+The radio status strip remains visible while output scrolls. It identifies the local node and port when connected, changes to a reconnecting state with the current retry attempt after an unexpected loss, and clearly shows when no radio is connected.
+
+Potentially slow commands show a durable progress line above the input. Mesh-Deck accepts no second command while the active worker is running. During `/trace`, press `Esc` to cancel the response wait; serial connection and `/switch` remain non-cancellable because their underlying handshake cannot be safely interrupted.
 
 ```text
-mesh-deck [AKA] - messaggio o /help
+mesh-deck [AKA] - message or /help
 ```
 
-Dove `[AKA]` rappresenta l'identificativo breve (4 caratteri) del tuo nodo locale collegato via USB. Digita i comandi preceduti da una barra (`/`) oppure digita direttamente del testo libero per trasmettere in broadcast.
+`[AKA]` is the short identifier of the connected local node when known. Type a slash command, or type plain text to broadcast it on channel 0.
 
-### Controlli della Console
+### Console controls
 
-| Azione                                     | Controllo                                         |
-| :----------------------------------------- | :------------------------------------------------ |
-| Eseguire un comando o inviare un messaggio | `Invio`                                           |
-| Completare senza eseguire                  | `Tab`                                             |
-| Eseguire il comando suggerito              | `Invio`; con piu risultati usa quello evidenziato |
-| Selezionare un suggerimento alternativo    | freccia Giù, frecce Su/Giù, `Invio`               |
-| Richiamare un comando precedente           | frecce Su/Giù nel campo comando                   |
-| Cancellare il testo corrente               | `Ctrl+C`                                          |
-| Nascondere i suggerimenti                  | `Esc`                                             |
-| Mostrare/nascondere la barra laterale nodi | `Ctrl+B`                                          |
+| Action | Control |
+| :-- | :-- |
+| Send a command or message | `Enter` |
+| Complete without executing | `Tab` |
+| Accept a command suggestion | `Enter` |
+| Select a different suggestion | Down, Up / Down, `Enter` |
+| Browse command history | Up / Down while the command input is focused |
+| Clear the current input | `Ctrl+C` |
+| Hide suggestions or close a sidebar detail card | `Esc` |
+| Toggle node sidebar | `Ctrl+B` |
+| Open a sidebar node detail | Click a row or press `Enter` |
 
-La cronologia conserva gli ultimi 100 comandi in
-`~/.config/mesh-deck/settings.json`. I messaggi ricevuti vengono aggiunti al log
-senza interrompere il testo in digitazione.
+The command history retains the latest 100 entries in `~/.config/mesh-deck/settings.json`.
 
-La barra laterale a sinistra elenca i nodi rilevati con ruolo, SNR, nome esteso
-ed ultimo contatto. Due pulsanti sopra l'elenco permettono di cambiare
-ordinamento (ultimo contatto, segnale, hop, nome) e filtro (tutti, attivi,
-preferiti) con un semplice click. Fai click su una riga (o selezionala con le
-frecce e premi `Invio`) per aprire la sua scheda dettaglio in un riquadro
-dedicato sopra il log: selezionando un altro nodo la stessa scheda viene
-sostituita, senza accumulare pannelli nel log. `Esc` chiude la scheda aperta.
-Trascina il divisore sul bordo destro della barra per ridimensionarla.
-Visibilità, larghezza, ordinamento e filtro della barra sono persistiti in
-`~/.config/mesh-deck/settings.json` e si applicano automaticamente ai
-riavvii.
+The node sidebar shows role, SNR, long name, and last-heard data. Its controls cycle sort order and filters; its width, visibility, sort, and filter are persisted.
 
-![Console con barra laterale nodi](screenshots/console.svg)
+![Console with node sidebar](screenshots/console.svg)
 
----
+### `/help` or `/?`
 
-### `/help` (o `/?`)
-- **Sintassi**: `/help` oppure `/?`
-- **Parametri**: Nessuno.
-- **Descrizione**: Visualizza la tabella di consultazione rapida con l'elenco completo dei comandi slash supportati, la relativa sintassi degli argomenti e una breve spiegazione operativa.
-- **Esempio d'uso**:
-
-  ```text
-  mesh-deck [VM290] ❯ /help
-  ```
-
----
+- **Syntax:** `/help` or `/?`
+- **Purpose:** Show every supported interactive command and its argument syntax.
 
 ### `/nodes`
-- **Sintassi**: `/nodes [active|snr|hops|name|last_heard]`
-- **Parametri**:
-  - `active` *(opzionale)*: Filtra la vista mostrando esclusivamente i nodi "attivi", ovvero quelli ricevuti negli ultimi 15 minuti.
-  - `snr` *(opzionale)*: Ordina la tabella in ordine decrescente di Signal-to-Noise Ratio (i nodi con ricezione migliore in cima).
-  - `hops` *(opzionale)*: Ordina i nodi per numero crescente di hop (i nodi diretti a 0 hop in cima).
-  - `name` *(opzionale)*: Ordina alfabeticamente i nodi per nome completo.
-  - `last_heard` *(predefinito)*: Ordina i nodi dal più recente al più vecchio.
-- **Descrizione**: Interroga il database nodi in memoria locale e genera una tabella riccamente formattata in standard Rich. La riga del **nodo locale** è contraddistinta da una stella verde brillante `★`, testo ciano e l'etichetta `(LOCALE)`.
-- **Screenshot Dimostrativo**:
-  ![Tabella Nodi Mesh](screenshots/nodes_table.svg)
-- **Esempi d'uso**:
 
-  ```text
-  # Mostra tutti i nodi ordinati per ultimo contatto
-  mesh-deck [VM290] ❯ /nodes
+- **Syntax:** `/nodes [active|snr|hops|name|last_heard]`
+- **Purpose:** Print the discovered node table in the output log.
+- **Arguments:** `active` limits the list to recently heard nodes; `snr`, `hops`, `name`, and `last_heard` select a sort order.
 
-  # Mostra solo i nodi ascoltati di recente
-  mesh-deck [VM290] ❯ /nodes active
+The local node is marked with a green star and a local badge.
 
-  # Ordina i nodi per intensità di segnale radio
-  mesh-deck [VM290] ❯ /nodes snr
-  ```
+![Mesh node table](screenshots/nodes_table.svg)
 
----
+Examples:
 
-### `/view` (o `/tui`)
-- **Sintassi**: `/view` oppure `/tui`.
-- **Parametri**: Nessuno.
-- **Descrizione**: Apre il Node Explorer come schermata Textual interna. La
-  tabella supporta filtro istantaneo per nome, AKA, hardware e ID; click sulle
-  intestazioni per l'ordinamento; `r` per aggiornare; `/` per focalizzare il
-  filtro; `q` o `Esc` per tornare alla console.
-- **Esempio d'uso**:
+```text
+/nodes
+/nodes active
+/nodes snr
+```
 
-  ```text
-  mesh-deck [VM290] ❯ /view
-  ```
+### `/view` or `/tui`
 
----
+- **Syntax:** `/view` or `/tui`
+- **Purpose:** Open the internal interactive Node Explorer.
+- **Filter:** Type in the filter field to search name, AKA, hardware, or ID.
+- **Sort:** Click a column header.
+- **Refresh:** Press `r`.
+- **Focus filter:** Press `/`.
+- **Return:** Press `q` or `Esc`.
+- **Node detail:** Click a row or press `Enter`. Wide terminals show a persistent detail pane beside the table; compact terminals push an internal detail screen.
+- **Density:** Press `v` to cycle `Auto`, `Full`, and `Compact`. In `Auto`, the compact table activates below 120 terminal columns. The chosen mode is persisted locally.
 
 ### `/chat`
-- **Sintassi**: `/chat`
-- **Parametri**: Nessuno.
-- **Descrizione**: Apre una schermata Textual a tutto schermo, **utilizzabile
-  con il mouse**, dedicata alla visualizzazione rapida delle chat per canale.
-  La barra laterale (`OptionList`) elenca tutti i canali configurati più una
-  voce sintetica "Messaggi Diretti"; un click su una voce carica lo storico e
-  i messaggi live di quel canale/DM nel pannello di log centrale. Il campo di
-  input in basso permette di inviare un broadcast direttamente sul canale
-  selezionato (i DM restano da inviare con `/dm`, poiché richiedono un
-  destinatario esplicito). I canali con messaggi non letti mostrano un badge
-  numerico finché non vengono selezionati. Se disponibile, lo storico locale
-  su file (vedi § 4) viene precaricato all'apertura. `q` o `Esc` per tornare
-  alla console, `r` per aggiornare l'elenco canali.
-- **Esempio d'uso**:
 
-  ```text
-  mesh-deck [VM290] ❯ /chat
-  ```
+- **Syntax:** `/chat`
+- **Purpose:** Open a mouse-capable channel and direct-message history screen.
 
-  ![Chat canali e messaggi diretti](screenshots/chat.svg)
+The channel list includes configured channels and a Direct Messages section with one conversation per peer. Click a channel to view its persisted and live messages, or click a peer to view that direct conversation.
 
----
+The bottom input broadcasts to the selected channel or sends an explicit reply to the selected direct-message peer. The recipient remains visible in the reply hint. Use `/dm` to start a conversation with a node that has not yet appeared in the list.
+
+Unread message counts appear on non-selected channel or direct-message conversations. Press `r` to refresh channels and `q` or `Esc` to return.
+
+### `/logs`
+
+- **Syntax:** `/logs`
+- **Purpose:** Open the bounded in-memory diagnostic viewer for Mesh-Deck application logs and forwarded connected-device log lines.
+
+The viewer filters by source, minimum severity, and free-text query. Press `p` to pause automatic refresh, `c` to copy the selected row, `e` to export the currently filtered view, `r` to refresh, and `q` or `Esc` to return.
+
+The default minimum severity is Warning. Enable Info or Debug only while investigating a problem. Exported files are written under `~/.config/mesh-deck/exports/`. The viewer does not write diagnostics to MCP stdout.
 
 ### `/node`
-- **Sintassi**: `/node <id|aka|nome>`
-- **Parametri**:
-  - `<id|aka|nome>` *(obbligatorio)*: Identificativo del nodo da ispezionare. Può essere:
-    - ID esadecimale (es. `!45a466e4`)
-    - Numero decimale del nodo (es. `1168467684`)
-    - Alias breve AKA (es. `CIMO` o `TB01`)
-    - Substring del nome completo (es. `Monte-Cimone`)
-- **Descrizione**: Genera un **dossier analitico completo** del nodo selezionato all'interno di un pannello a doppia colonna:
-  - **Identità & Hardware**: Nome esteso, AKA, Node ID, modello hardware, ruolo del dispositivo e stato licenza radioamatoriale.
-  - **Telemetria Radio & Propagazione**: SNR (in dB), hop count, timestamp dell'ultimo pacchetto ricevuto, utilizzo aereo del canale (Channel Utilization) e preset del modem LoRa.
-  - **Energia & Sensori Ambientali**: Percentuale batteria, tensione della cella, temperatura (°C), umidità relativa (%) e pressione barometrica (hPa).
-  - **Posizione Geografica**: Coordinate GPS, altitudine slm, distanza geodetica stimata dal nodo locale (calcolata con formula Haversine) e link cliccabile verso [OpenStreetMap](https://www.openstreetmap.org/).
-  - **Sicurezza PKI**: Chiave crittografica pubblica del nodo (se annunciata).
-- **Screenshot Dimostrativo**:
-  ![Scheda Analitica Nodo](screenshots/node_detail.svg)
-- **Esempi d'uso**:
 
-  ```text
-  # Ispezione tramite alias AKA
-  mesh-deck [VM290] ❯ /node CIMO
+- **Syntax:** `/node <id|aka|name>`
+- **Purpose:** Show a full dossier for one node.
 
-  # Ispezione tramite Node ID esadecimale
-  mesh-deck [VM290] ❯ /node !45a466e4
+The dossier includes identity, hardware, role, radio metrics, propagation, battery, available environmental sensors, GPS location, geodesic distance, initial bearing, OpenStreetMap link, and an announced public key.
 
-  # Ispezione tramite porzione del nome
-  mesh-deck [VM290] ❯ /node Tracker
-  ```
+![Node detail panel](screenshots/node_detail.svg)
 
----
+Examples:
+
+```text
+/node TRIN
+/node !45a466e4
+/node Tracker
+```
+
+### `/history`
+
+- **Syntax:** `/history <id|aka|name>`
+- **Purpose:** Open the local telemetry history screen for one known node.
+
+The screen reads existing `nodes.jsonl` snapshots only when opened. It offers 6-hour, 24-hour, 7-day, and all-time ranges with compact sparklines for battery, SNR, temperature, and channel utilization. Press `r` to refresh and `q` or `Esc` to return.
+
+When local history is disabled or no snapshots exist, Mesh-Deck explains the condition without fabricating measurements. From the compact node detail screen, press `h` for the same history view when history is enabled.
+
+### `/device-settings`
+
+- **Syntax:** `/device-settings`
+- **Purpose:** Open the safe, transaction-style identity editor for the connected local radio.
+
+The screen reads a device snapshot, lets you edit long and short names in a local draft, validates both values, shows a semantic diff, and requires an explicit confirmation before sending anything to the radio. After a successful owner update, Mesh-Deck refreshes its local snapshot.
+
+The first implementation intentionally exposes only identity. Radio parameters, position sharing, and channels remain visible as future groups but are not writable. PSKs, region changes, factory reset, firmware operations, and raw protobuf editing are not exposed.
 
 ### `/send`
-- **Sintassi**: `/send <testo del messaggio>` oppure digitazione diretta `<testo>`
-- **Parametri**:
-  - `<testo>` *(obbligatorio)*: Contenuto testuale da trasmettere.
-- **Descrizione**: Invia un messaggio broadcast in chiaro su tutta la mesh attraverso il canale radio primario (canale `0`). Tutti i nodi in ascolto sul canale riceveranno il messaggio.
-  > [!TIP]
-  > In Mesh-Deck non è obbligatorio anteporre `/send`: qualsiasi riga immessa nel prompt che non inizia con uno slash `/` viene automaticamente interpretata come messaggio broadcast e trasmessa sul canale 0.
-- **Esempi d'uso**:
 
-  ```text
-  # Metodo con comando esplicito
-  mesh-deck [VM290] ❯ /send Rete attiva. Test propagazione serale OK.
+- **Syntax:** `/send <message>` or plain text at the prompt
+- **Purpose:** Broadcast text on primary channel 0.
 
-  # Metodo rapido (senza slash)
-  mesh-deck [VM290] ❯ Ciao a tutti da Bologna centro!
-  ```
+Every line that does not begin with `/` is treated as a broadcast message.
 
----
+```text
+/send Network active. Evening propagation test OK.
+Hello from the field station.
+```
 
 ### `/dm`
-- **Sintassi**: `/dm <id|aka|nome> <testo del messaggio>`
-- **Parametri**:
-  - `<id|aka|nome>` *(obbligatorio)*: Destinatario del messaggio (risolto automaticamente tramite ID, AKA o nome).
-  - `<testo>` *(obbligatorio)*: Contenuto confidenziale del messaggio privato.
-- **Descrizione**: Invia un messaggio diretto punto-a-punto (*Direct Message / Private Message*) al nodo specificato. A livello di protocollo Meshtastic, il pacchetto viene indirizzato all'ID numerico univoco del destinatario e cifrato end-to-end con le chiavi negoziate. Nel terminale, i DM sia inviati che ricevuti sono evidenziati con un elegante riquadro neon fucsia/magenta (`#ff007f`).
-- **Screenshot Dimostrativo**:
-  ![Messaggistica Tattica & DM](screenshots/messaging.svg)
-- **Esempi d'uso**:
 
-  ```text
-  # Invio DM a un nodo specificando il suo alias
-  mesh-deck [VM290] ❯ /dm CIMO Coordinate ricevute, ci vediamo al waypoint 2.
+- **Syntax:** `/dm <id|aka|name> <message>`
+- **Purpose:** Send a direct message to a known node, or to a well-formed eight-digit hexadecimal node ID.
 
-  # Invio DM specificando l'ID esadecimale
-  mesh-deck [VM290] ❯ /dm !b8f862d9 Batteria del ripetitore al 35%, procedere con swap.
-  ```
+Unknown names are rejected before reaching the radio library. This protects the interactive console from invalid target handling in upstream libraries.
 
----
+![Tactical messaging and direct messages](screenshots/messaging.svg)
+
+```text
+/dm TRIN Coordinates received. See you at waypoint two.
+/dm !b8f862d9 Repeater battery is at 35%; plan a swap.
+```
 
 ### `/channels`
-- **Sintassi**: `/channels`
-- **Parametri**: Nessuno.
-- **Descrizione**: Interroga la radio locale ed elenca la configurazione completa di tutti i canali radio memorizzati nel dispositivo. La tabella mostra:
-  - **Index**: Numero progressivo del canale (`0` per il canale primario, `1..7` per i secondari).
-  - **Nome Canale**: Nome assegnato (es. `LongFast`, `Ops-Emergency`, `Admin`).
-  - **Ruolo**: `PRIMARY` o `SECONDARY`.
-  - **Uplink / Downlink**: Flag che indicano se il canale inoltra pacchetti verso uplink/downlink MQTT.
-  - **Crittografia (PSK)**: Indica se il canale impiega una chiave crittografica personalizzata AES (`Attiva`) oppure la chiave predefinita pubblica di Meshtastic (`Predefinita`).
-- **Esempio d'uso**:
 
-  ```text
-  mesh-deck [VM290] ❯ /channels
-  ```
+- **Syntax:** `/channels`
+- **Purpose:** List configured radio channels.
 
----
+The table shows index, name, role, uplink/downlink state, and whether a PSK is configured. It never displays the key itself.
 
 ### `/info`
-- **Sintassi**: `/info`
-- **Parametri**: Nessuno.
-- **Descrizione**: Mostra una scheda di diagnostica hardware e radio del dispositivo locale connesso via USB:
-  - Porta seriale e stato connessione
-  - Nome del nodo locale, Node ID e modello hardware
-  - Ruolo operativo (es. `CLIENT`, `ROUTER`) e coordinate GPS (se dotata di ricevitore)
-  - Regione RF attiva (es. `EU_868`, `US_915`)
-  - Preset modem attivo (es. `LONG_FAST`, `MEDIUM_FAST`, `SHORT_TURBO`)
-  - Versione del firmware Meshtastic installato a bordo del microcontrollore
-- **Esempio d'uso**:
 
-  ```text
-  mesh-deck [VM290] ❯ /info
-  ```
+- **Syntax:** `/info`
+- **Purpose:** Show local device and radio information.
 
----
+It includes serial port, connection state, local node identity, hardware model, role, GPS position, RF region, modem preset, firmware version, and active-channel count.
 
-### `/neighbors` (o `/vicini`)
-- **Sintassi**: `/neighbors` oppure `/neighbors <id|aka|nome>`.
-- **Parametri**: Opzionalmente un nodo, per mostrare solo la tabella da lui trasmessa.
-- **Descrizione**: Mostra le tabelle **NeighborInfo** ricevute dalla mesh. Ogni
-  nodo con il modulo NeighborInfo abilitato trasmette periodicamente l'elenco
-  dei nodi che sente in modo diretto, con il relativo SNR: è il dato che
-  permette di ricostruire chi raggiunge chi senza inferirlo dagli hop.
-  Per ciascun vicino sono riportati nome, SNR e momento dell'ultimo contatto.
-- **Nota**: Se nessun nodo ha il modulo attivo l'elenco resta vuoto; è una
-  funzione opzionale del firmware, non un errore di Mesh-Deck.
-- **Esempio d'uso**:
+### `/neighbors` or `/vicini`
 
-  ```text
-  mesh-deck [VM290] ❯ /neighbors
-  mesh-deck [VM290] ❯ /neighbors TRIN
-  ```
+- **Syntax:** `/neighbors [id|aka|name]`
+- **Purpose:** Show received NeighborInfo tables.
 
----
+Nodes with NeighborInfo enabled periodically broadcast their direct neighbours and their observed SNR. If no node broadcasts NeighborInfo, an empty result is normal and does not indicate a Mesh-Deck error.
 
 ### `/mesh`
-- **Sintassi**: `/mesh`.
-- **Parametri**: Nessuno.
-- **Descrizione**: Riepiloga la topologia della rete in un'unica tabella
-  ordinata per numero di hop: ruolo del nodo, hop di distanza, SNR, distanza
-  geografica stimata e colonna **Sentito da**, cioè quanti nodi dichiarano quel
-  nodo fra i propri vicini diretti. È la vista d'insieme complementare al
-  dettaglio per nodo di `/neighbors`.
-- **Esempio d'uso**:
 
-  ```text
-  mesh-deck [VM290] ❯ /mesh
-  ```
+- **Syntax:** `/mesh`
+- **Purpose:** Summarize mesh topology.
 
----
+The table combines node role, hops, SNR, estimated distance, and the number of reporting nodes that list each node as a direct neighbour.
 
-### `/trace` (o `/traceroute`)
-- **Sintassi**: `/trace <id|aka|nome>`.
-- **Parametri**: Il nodo di destinazione.
-- **Descrizione**: Invia una richiesta **traceroute** verso il nodo indicato e
-  mostra il percorso a salti effettivamente seguito dal pacchetto, con l'SNR di
-  ogni tratta e, quando disponibile, il percorso di ritorno. La richiesta viene
-  inviata senza bloccare l'interfaccia e senza scrivere su stdout, così resta
-  utilizzabile anche dal server MCP.
-- **Nota**: Se nessuna risposta arriva entro il timeout viene segnalato senza
-  errori: su reti congestionate o con nodi fuori portata è un esito normale.
-- **Esempio d'uso**:
+### `/topology`
 
-  ```text
-  mesh-deck [VM290] ❯ /trace TRIN
-  ```
+- **Syntax:** `/topology`
+- **Purpose:** Open the interactive, data-first NeighborInfo topology explorer.
 
----
+The explorer lists reporter-to-neighbour edges with SNR and age, supports `/` to focus its filter, `r` to refresh, and an always-visible data-quality panel. A missing edge means the information is unknown; it does not prove the two nodes are disconnected.
+
+If no NeighborInfo reports have arrived, the screen explains how to enable the firmware module and wait for its broadcast interval. It deliberately does not render an empty animated graph.
+
+### `/trace` or `/traceroute`
+
+- **Syntax:** `/trace <id|aka|name>`
+- **Purpose:** Run a Meshtastic traceroute to one node.
+
+The result shows the forward route, per-hop SNR, and return route when available. A timeout is a normal outcome on a congested or unreachable mesh.
 
 ### `/scan`
-- **Sintassi**: `/scan`
-- **Parametri**: Nessuno.
-- **Descrizione**: Esegue una scansione euristica delle porte USB seriali del sistema operativo per rilevare tutti i dispositivi LoRa Meshtastic attualmente collegati. Mostra la porta (`/dev/ttyACM*`, `/dev/ttyUSB*`), l'hardware identificato, la descrizione del kernel e lo stato: `★ ATTIVO` per il dispositivo attualmente controllato da Mesh-Deck, oppure `Disponibile` per le altre radio collegate.
-- **Esempio d'uso**:
 
-  ```text
-  mesh-deck [VM290] ❯ /scan
-  ```
-
----
+- **Syntax:** `/scan`
+- **Purpose:** Rescan serial ports and display Meshtastic candidates, hardware names, descriptions, and current connection state.
 
 ### `/switch`
-- **Sintassi**: `/switch [porta|indice]`
-- **Parametri**:
-  - `[porta|indice]` *(opzionale)*: Il percorso della nuova porta seriale (es. `/dev/ttyUSB0`) oppure l'indice numerico progressivo risultante da `/scan` (es. `1`, `2`). Se omesso, Mesh-Deck commuta automaticamente sulla prima porta alternativa rilevata.
-- **Descrizione**: Esegue un **hot-switching** a caldo della connessione radio senza richiedere il riavvio di Mesh-Deck. La sessione precedente viene terminata in sicurezza, viene stabilito il collegamento con la nuova radio e l'intero NodeDB viene aggiornato, ridisegnando istantaneamente il banner di stato.
-- **Esempi d'uso**:
 
-  ```text
-  # Commuta specificando l'indice della lista /scan
-  mesh-deck [VM290] ❯ /switch 2
+- **Syntax:** `/switch [port|index]`
+- **Purpose:** Switch the active radio without leaving Mesh-Deck.
 
-  # Commuta specificando il device path
-  mesh-deck [VM290] ❯ /switch /dev/ttyACM1
+With no argument, Mesh-Deck selects the first different detected port. With an index, it uses the one-based index shown by `/scan`.
 
-  # Commuta automaticamente all'altra radio disponibile
-  mesh-deck [VM290] ❯ /switch
-  ```
+```text
+/switch COM7
+/switch 2
+/switch
+```
 
----
+### `/settings` or `/config`
 
-### `/settings` (o `/config`)
-- **Sintassi**: `/settings` oppure `/settings <lang|theme|sort|port|mode|notifications|history> <valore>`.
-- **Parametri**:
-  - Senza argomenti apre una finestra Textual con selettori per lingua, tema,
-    ordinamento dei nodi, porta seriale predefinita, notifiche messaggi e
-    storico locale su file.
-  - Con argomenti aggiorna direttamente l'impostazione, ad esempio
-    `/settings lang en`, `/settings theme nord`, `/settings sort snr`,
-    `/settings notifications off` o `/settings history off`.
-- **Descrizione**: Le preferenze vengono salvate in
-  `~/.config/mesh-deck/settings.json`. La lingua aggiorna subito etichette,
-  placeholder e descrizioni dell'autocomplete nella console attiva. Il tema
-  viene applicato immediatamente a tutte le superfici (banner, tabelle,
-  schede nodo, barra laterale, schermate `/view` e `/chat`) senza riavviare.
-  Le notifiche e lo storico locale sono descritti in dettaglio al § 4.
+- **Syntax:** `/settings` or `/settings <lang|theme|sort|port|notifications|history> <value>`
+- **Purpose:** View or update local Mesh-Deck preferences.
 
-#### Temi disponibili
+Open `/settings` without arguments for the native dialog. Use arguments for direct changes, for example `/settings lang en`, `/settings theme nord`, `/settings sort snr`, `/settings notifications off`, or `/settings history off`.
 
-| Tema        | Estetica                                            |
-| :---------- | :-------------------------------------------------- |
-| `cyberpunk` | Neon ciano/verde su nero profondo *(predefinito)*.  |
-| `midnight`  | Indaco notturno con blu e viola tenui, poco abbagliante. |
-| `nord`      | Palette artica fredda, pensata per sessioni lunghe. |
-| `ember`     | Ambra e corallo caldi su carbone.                   |
+Preferences are saved in `~/.config/mesh-deck/settings.json`. Language, theme, sidebar labels, prompt, autocomplete, and the mounted Node Explorer update without a restart.
 
-Un valore di tema non riconosciuto (ad esempio dopo una modifica manuale del
-file impostazioni) viene rifiutato dal comando e, all'avvio, ricade
-automaticamente su `cyberpunk`.
+#### Available themes
 
----
+| Theme | Appearance |
+| :-- | :-- |
+| `cyberpunk` | Neon cyan and green on deep black. Default. |
+| `midnight` | Low-glare indigo with soft blue and violet. |
+| `nord` | Cool arctic palette for long sessions. |
+| `ember` | Warm amber and coral on charcoal. |
+
+An unknown theme value is rejected by `/settings` and falls back to `cyberpunk` during startup.
+
+Focused inputs, lists, tables, and buttons use a visible double primary border. Connection and warning states use icons and text in addition to colour.
 
 ### `/restart`
-- **Sintassi**: `/restart`.
-- **Parametri**: Nessuno.
-- **Descrizione**: Ricarica le preferenze da
-  `~/.config/mesh-deck/settings.json`, aggiorna lingua e autocomplete, pulisce
-  il log e ristampa il banner senza disconnettere la radio. E utile dopo una
-  modifica manuale del file impostazioni.
 
----
+- **Syntax:** `/restart`
+- **Purpose:** Reload saved preferences, redraw the console, clear output, and print the banner without disconnecting the radio.
 
 ### `/banner`
-- **Sintassi**: `/banner`
-- **Parametri**: Nessuno.
-- **Descrizione**: Ristampa il banner tattico di stato Hermes in cima allo schermo. Mostra il nodo locale, la radio port, la regione RF, l'utilizzo aereo del canale e l'elenco dei canali attivi.
-- **Esempio d'uso**:
 
-  ```text
-  mesh-deck [VM290] ❯ /banner
-  ```
-
----
+- **Syntax:** `/banner`
+- **Purpose:** Redraw the tactical status banner with local node, port, RF profile, battery, channel utilization, and active channels.
 
 ### `/clear`
-- **Sintassi**: `/clear`
-- **Parametri**: Nessuno.
-- **Descrizione**: Pulisce l'intero schermo del terminale per eliminare l'output precedente, mantenendo la cronologia dei comandi e lo stato della connessione attivo.
-- **Esempio d'uso**:
 
-  ```text
-  mesh-deck [VM290] ❯ /clear
-  ```
+- **Syntax:** `/clear`
+- **Purpose:** Clear the output log while preserving the connection and command history.
 
----
+### `/quit`, `/exit`, or `/q`
 
-### `/quit` (o `/exit`, `/q`)
-- **Sintassi**: `/quit`, `/exit`, oppure `/q`
-- **Parametri**: Nessuno.
-- **Descrizione**: Chiude ordinatamente la sessione seriale, disconnette i thread in background di ascolto radio ed esce da Mesh-Deck salutando con il tradizionale codice radio *"73!"*.
-- **Esempio d'uso**:
+- **Syntax:** `/quit`, `/exit`, or `/q`
+- **Purpose:** Disconnect cleanly and leave Mesh-Deck.
 
-  ```text
-  mesh-deck [VM290] ❯ /quit
-  ```
+## 4. Key operational concepts
 
----
+### USB discovery and hot switching
 
-## 🔬 4. Approfondimento delle Funzionalità Chiave
+Mesh-Deck scans serial ports through `pyserial`, combining USB VID/PID information and descriptor keywords to find plausible Meshtastic devices.
 
-### Auto-Discovery USB & Hot-Switching
+When `/switch` changes radio, `RadioClient` closes the old serial interface, opens the new interface, reloads its NodeDB, keeps PubSub listeners wired, and updates the active local-node context.
 
-In scenari reali è frequente collegare al PC contemporaneamente due o più radio LoRa (ad esempio una radio Heltec di test a 868 MHz e un nodo LilyGo o RAK di monitoraggio o relay).
+An unexpected serial loss is reported in the console and retried automatically with exponential backoff. An explicit `/quit`, `/switch`, or direct connection request cancels automatic retry activity.
 
-Mesh-Deck implementa un sottosistema di rilevamento hardware automatico:
+### Node Explorer and geodesic calculations
 
-1. **Scansione Euristica VID/PID**: Interroga le periferiche seriali attraverso `pyserial` analizzando identificativi dei chip USB-to-UART (Silicon Labs CP210x, WCH CH340/CH341, FTDI, Raspberry Pi RP2040, Espressif JTAG/Serial, Nordic Semiconductor TinyUSB).
-2. **Fingerprinting del Modello**: Ricava il modello hardware probabile a partire dalla descrizione di sistema e dalle stringhe del produttore.
-3. **Hot-Switching Atomico**: Quando si esegue `/switch`, il modulo
-  [`RadioClient`](../src/mesh_deck/core/radio_client.py):
-   - Invia la disconnessione pulita alla radio precedente;
-   - Chiude il descrittore seriale evitando lock o permessi pendenti;
-   - Inizializza la nuova `meshtastic.serial_interface.SerialInterface`;
+`NodeStore` maintains the synchronized in-memory state of every node heard over radio.
 
-- Svuota e ricarica il [`NodeStore`](../src/mesh_deck/core/node_store.py) con il NodeDB della nuova radio;
-- Ricollega i listener PubSub per i messaggi in ingresso;
-- Aggiorna il prompt del terminale con il nuovo alias AKA del nodo.
+#### Haversine distance
 
----
-
-### Node Explorer & Calcolo Distanze Geodetiche
-
-Il componente [`NodeStore`](../src/mesh_deck/core/node_store.py) mantiene lo
-stato sincronizzato di tutti i nodi ascoltati via radio.
-
-#### Formula Haversine per la Distanza
-
-Se sia il nodo locale sia il nodo remoto trasmettono le proprie coordinate geografiche (latitudine e longitudine), Mesh-Deck calcola in tempo reale la distanza ortodromica geodetica tra i due punti impiegando la **formula dell'emisenoverso (Haversine)** con raggio terrestre medio $R = 6371.0088\text{ km}$:
+When both the local and remote nodes publish valid coordinates, Mesh-Deck calculates great-circle distance with the Haversine formula using the mean Earth radius, `R = 6371.0088 km`.
 
 $$\Delta\sigma = 2 \arcsin \left( \sqrt{\sin^2\left(\frac{\Delta\phi}{2}\right) + \cos(\phi_1)\cos(\phi_2)\sin^2\left(\frac{\Delta\lambda}{2}\right)} \right)$$
 
 $$d = R \cdot \Delta\sigma$$
 
-I risultati vengono formattati in modo leggibile:
+Distances display in metres below 1 km, with two decimals from 1 to 10 km, and with one decimal above 10 km.
 
-- Sotto 1 km: visualizzazione in metri (es. `450 m`).
-- Tra 1 e 10 km: visualizzazione con 2 decimali (es. `6.24 km`).
-- Oltre 10 km: visualizzazione con 1 decimale (es. `42.8 km`).
+#### Initial bearing
 
-#### Direzione (Bearing)
-
-Accanto alla distanza, la scheda `/node` riporta l'**azimut iniziale** (forward
-azimuth) dal nodo locale a quello remoto, cioè la direzione in cui puntare
-un'antenna direttiva partendo dalla propria posizione:
+The `/node` dossier also shows the initial bearing from the local node to the selected remote node, useful for orienting a directional antenna.
 
 $$\theta = \operatorname{atan2}\big(\sin(\Delta\lambda)\cos(\phi_2),\; \cos(\phi_1)\sin(\phi_2) - \sin(\phi_1)\cos(\phi_2)\cos(\Delta\lambda)\big)$$
 
-Il risultato è normalizzato in $[0°, 360°)$ con 0° = nord geografico, e
-accompagnato dall'abbreviazione a 16 punti della rosa dei venti (es.
-`127° SE`). Su tratte lunghe l'azimut cambia lungo il percorso: il valore
-mostrato è quello iniziale, da ricalcolare se ci si sposta.
+The result is normalized to `[0°, 360°)` where 0° is true north and is accompanied by a sixteen-point compass abbreviation such as `127° SE`.
 
-#### Filtro e Ordinamento Nodi
+On long routes the bearing changes over the path; Mesh-Deck reports the initial bearing only.
 
-È possibile ordinare ed esplorare i nodi in modo flessibile:
+### Channels and tactical messaging
 
-- **Per Ultimo Contatto (`last_heard`)**: Permette di identificare subito i nodi attualmente attivi sul canale.
-- **Per SNR (`snr`)**: Identifica i ripetitori e client con il miglior margine di segnale.
-- **Per Hop Count (`hops`)**: Separa i nodi adiacenti (0 hop) da quelli raggiungibili solo tramite dorsali mesh multi-hop.
+Mesh-Deck distinguishes channel broadcasts from direct messages.
 
----
+1. **Channel broadcast:** A message is sent to all listeners on the selected channel. The interactive `/send` command and plain input use primary channel 0.
+2. **Direct message:** A message is addressed to one node. Meshtastic provides protocol-level encryption where the radio configuration supports it.
 
-### Gestione Canali e Messaggistica Tattica
+Broadcasts render as compact timeline entries. Direct messages render as high-visibility panels.
 
-Mesh-Deck distingue chiaramente tra due modalità operative di comunicazione:
+### Real-time notifications
 
-1. **Broadcast di Canale**:
-   - Messaggi inviati a tutti i partecipanti di un canale (predefinito: `#0 Primary`).
-   - Visualizzati come eleganti righe terminali singole con timestamp, tag canale (`#LongFast`), mittente, SNR e testo del messaggio.
-2. **Messaggi Diretti Privati (DM)**:
-   - Comunicazioni riservate punto-a-punto indirizzate a uno specifico Node ID.
-   - Cifratura gestita a livello hardware dal protocollo Meshtastic.
-   - Visualizzazione con **pannello di allerta tattico fucsia neon (`#ff007f`)**, garantendo che comunicazioni critiche non vadano perse tra i log di canale.
+When `notifications_enabled` is on, incoming broadcasts and direct messages raise a Textual toast.
 
-Per una visione rapida e cliccabile di tutte le chat, vedi `/chat` (§ 3).
+- Broadcasts use the `information` severity with the channel and sender.
+- Direct messages use the `warning` severity with the sender.
 
----
+Disable notifications with `/settings notifications off` or the Settings dialog.
 
-### Notifiche Messaggi in Tempo Reale
+### Local node and message history
 
-Quando `notifications_enabled` è attivo (default), ogni messaggio in arrivo —
-broadcast o DM — genera un **toast** nativo Textual, così da notare il
-traffico anche mentre si è concentrati su un altro comando:
+When `history_enabled` is on, Mesh-Deck writes append-only JSONL history under `~/.config/mesh-deck/history/`.
 
-- **Broadcast**: titolo con icona 📡 e nome canale, severità `information`.
-- **DM**: titolo con icona 🔒 e nome mittente, severità `warning` per farlo
-  risaltare rispetto al normale traffico di canale.
+| File | Contents |
+| :-- | :-- |
+| `nodes.jsonl` | Materially changed node observations, including an `observed_at` timestamp. |
+| `messages.jsonl` | Sent and received messages with direction and `recorded_at` timestamp. |
 
-Disattivabile in qualsiasi momento con `/settings notifications off` (o dal
-pannello `/settings` senza argomenti).
+History is shared by CLI, TUI, and MCP usage. Disable it with `/settings history off`.
 
----
+### Background streaming
 
-### Storico Locale su File (Nodi e Messaggi)
+Meshtastic PubSub callbacks can arrive on background threads. `RadioClient` updates the thread-safe NodeStore and invokes listeners; `TextualConsole` uses `call_from_thread()` to route UI work onto the Textual event loop.
 
-Quando `history_enabled` è attivo (default), Mesh-Deck mantiene uno storico
-**append-only** su disco in `~/.config/mesh-deck/history/`, in formato JSONL
-(un oggetto JSON per riga), condiviso da CLI, TUI e server MCP:
+This separation keeps input responsive while packets, telemetry, positions, connection changes, and messages arrive.
 
-- **`nodes.jsonl`**: una riga per ogni osservazione di un nodo che presenta
-  una **variazione sostanziale** rispetto all'ultima registrata (nome,
-  hardware, ruolo, batteria, posizione, SNR, hop count), con timestamp
-  `observed_at`. Questo evita di riempire il file ad ogni tick di telemetria
-  se nulla di rilevante è cambiato.
-- **`messages.jsonl`**: una riga per ogni messaggio inviato (`direction: "out"`)
-  o ricevuto (`direction: "in"`), con timestamp `recorded_at`, canale e stato
-  DM/broadcast. È la fonte dati usata da `/chat` per precaricare lo storico
-  di ogni canale/DM all'apertura.
+### Visual indicators
 
-Lo storico è **opt-in per progettazione**: nessun file viene scritto se non
-esplicitamente abilitato, e la scrittura su disco non blocca mai la
-comunicazione radio (eventuali errori di I/O vengono loggati e ignorati).
-Disattivabile con `/settings history off`; la modifica ha effetto dal
-prossimo avvio della sessione.
+#### Signal-to-noise ratio
 
----
+| SNR | Meaning |
+| :-- | :-- |
+| `>= +5 dB` | Strong signal. |
+| `0 to +5 dB` | Good signal. |
+| `-10 to 0 dB` | Marginal signal. |
+| `< -10 dB` | Weak or critical signal. |
 
-### Streaming Asincrono in Background (Textual)
+#### Battery and power
 
-Uno dei problemi storici delle interfacce CLI/REPL per apparati radio seriali è la corruzione dell'input: se l'utente sta digitando un comando o un messaggio lungo e la radio riceve un pacchetto in background, il testo in arrivo si sovrappone ai caratteri digitati, rendendo illeggibile il prompt.
+| State | Meaning |
+| :-- | :-- |
+| `> 70%` | Healthy battery. |
+| `30–70%` | Medium battery. |
+| `< 30%` | Low battery. |
+| `> 100%` or high-voltage-only | External USB power or charging. |
 
-Mesh-Deck risolve questo problema separando input e output nella stessa app Textual:
+#### Meshtastic roles
 
-- L'ascoltatore radio riceve i pacchetti in modo asincrono tramite il bus di eventi PubSub di Meshtastic.
-- Un bridge thread-safe inoltra pannelli e tabelle Rich al log scorrevole della console.
-- Quando arriva un messaggio o un aggiornamento di telemetria, viene aggiunto al log; il campo di input e il testo già digitato restano intatti.
+| Role | Meaning |
+| :-- | :-- |
+| `CLIENT` | Normal mesh endpoint. |
+| `ROUTER` | Relay-oriented node. |
+| `REPEATER` | Dedicated forwarding node. |
+| `TRACKER` | Position-oriented mobile node. |
+| `SENSOR` | Telemetry-oriented node. |
 
----
+#### Hops
 
-### Interpretazione Visiva dei Badge e Indicatori
+`0` means a direct node. Higher values indicate how many forwarding hops were needed to reach a node.
 
-Mesh-Deck impiega un sistema coerente di codifica cromatica e badge per interpretare lo stato della rete a colpo d'occhio:
+## 5. Troubleshooting
 
-#### 1. Livelli di Segnale (SNR - Signal-to-Noise Ratio)
+### `Permission denied` on `/dev/ttyACM*` or `/dev/ttyUSB*`
 
-| Valore SNR                   | Colore Grafico                 | Stato del Canale                                                                      |
-| :--------------------------- | :----------------------------- | :------------------------------------------------------------------------------------ |
-| **$\ge +5.0\text{ dB}$**     | `[bold #00ff66]` Verde Neon    | **Segnale Eccellente**: Margine ottimo, propagazione diretta priva di interferenze.   |
-| **$0.0 .. +5.0\text{ dB}$**  | `[bold #00f3ff]` Ciano Neon    | **Segnale Buono**: Link LoRa pienamente stabile e affidabile.                         |
-| **$-10.0 .. 0.0\text{ dB}$** | `[bold #ffb800]` Giallo Ambra  | **Segnale Marginale**: Possibile perdita occasionale di pacchetti o fading.           |
-| **$< -10.0\text{ dB}$**      | `[bold #ff3366]` Rosso Allarme | **Segnale Critico**: Al limite della soglia di decodifica dello spread spectrum LoRa. |
-| **`-- dB`**                  | `[dim]` Grigio Fumo            | Telemetria SNR non presente nel pacchetto (es. pacchetto generato localmente).        |
+Your user is missing serial-device permission.
 
-#### 2. Batteria & Alimentazione
+```bash
+sudo usermod -a -G dialout $USER
+newgrp dialout
+```
 
-| Indicatore          | Colore                         | Significato Operativo                                                                |
-| :------------------ | :----------------------------- | :----------------------------------------------------------------------------------- |
-| `⚡ USB (4.22V)`     | `[bold #00ff66]` Verde Neon    | Dispositivo alimentato da bus USB o alimentazione esterna fissa (livello $> 100\%$). |
-| `> 70% (4.10V)`     | `[bold #00ff66]` Verde Neon    | Batteria a piena carica o alta autonomia.                                            |
-| `30% - 70% (3.80V)` | `[bold #ffb800]` Giallo Ambra  | Carica intermedia, normale autonomia operativa.                                      |
-| `< 30% (3.55V)`     | `[bold #ff3366]` Rosso Allarme | Batteria quasi scarica: rischio spegnimento imminente del nodo.                      |
+Log out and back in if the new group does not apply immediately.
 
-#### 3. Ruoli del Dispositivo (Meshtastic Roles)
+### `Access is denied`, `Device busy`, or `Port is busy`
 
-I ruoli sono formattati visivamente con badge ad alto contrasto:
+Another process owns the serial port.
 
-- ` ROUTER ` *(testo nero su fucsia `#ff007f`)*: Nodo infrastrutturale ad alta quota per routing continuo della rete.
-- ` ROUTER_CLI ` *(testo nero su viola fucsia `#d946ef`)*: Router con funzionalità client attive.
-- ` REPEATER ` *(testo nero su ambra `#ffb800`)*: Ripetitore a basso consumo per estendere la copertura.
-- ` CLIENT ` *(testo nero su verde brillante `#00ff66`)*: Nodo standard utente con display o interfaccia utente.
-- ` CLI_MUTE ` *(testo nero su ardesia `#94a3b8`)*: Client passivo in solo ascolto (non ripete pacchetti altrui).
-- ` TRACKER ` *(testo nero su ciano elettrico `#00f3ff`)*: Nodo mobile con beacon GPS periodico attivo.
-- ` SENSOR ` *(testo nero su azzurro cielo `#38bdf8`)*: Stazione meteo o telemetria ambientale autonoma.
-- ` TAK ` / ` TAK_TRACK ` *(testo nero su arancio `#f97316`)*: Nodo integrato con protocolli Team Awareness Kit (ATAK/WinTAK).
+1. Close Meshtastic CLI, web flasher, serial monitor, Arduino IDE, or another Mesh-Deck instance.
+2. On Linux, inspect ownership with `lsof /dev/ttyACM0` or `fuser /dev/ttyACM0`.
+3. On Windows, close applications that may use the COM port and reconnect the USB cable if necessary.
+4. Run `/scan` again and retry `/switch` or reconnect.
 
-#### 4. Hops Away (Propagazione)
+### A node has no GPS position or distance
 
-- `Diretto (0)` *(verde neon)*: Il pacchetto è stato ricevuto in linea di vista radio diretta dal nodo emittente.
-- `1 hop` *(ciano neon)*: Il pacchetto è transitato attraverso un singolo ripetitore intermedio.
-- `N hops` *(giallo ambra)*: Il pacchetto ha attraversato 2 o più ripetitori lungo la mesh.
+The node may have no GPS receiver, may not have a current fix, may have disabled position sharing, or may report the unacquired `0,0` fix.
 
----
+Mesh-Deck displays no distance or bearing until both the local node and the target node have valid non-zero coordinates.
 
-## 🔧 5. Troubleshooting & Risoluzione Problemi
+### Messages are not received or the radio seems silent
 
-### Errore "Permission denied" su `/dev/ttyACM*` o `/dev/ttyUSB*`
+Check that nodes share a compatible region, modem preset, channel configuration, and encryption material.
 
-- **Causa**: L'utente corrente non appartiene al gruppo che gestisce i device seriali del sistema operativo.
-- **Risoluzione**:
+Run `/info` and `/channels` on the local radio, inspect SNR and hops with `/nodes`, and use `/trace <node>` for a specific reachable target.
 
-  ```bash
-  sudo usermod -a -G dialout $USER
-  # Su distribuzioni Arch Linux / Manjaro:
-  sudo usermod -a -G uucp $USER
-  ```
+### Neighbor tables are empty
 
-  Riavvia la sessione di shell o esegui `newgrp dialout` per rendere effettive le modifiche.
+`/neighbors` only displays NeighborInfo broadcasts received from other nodes.
 
-### Errore "Dispositivo occupato" o "Port is busy"
+Enable NeighborInfo on the relevant firmware configuration and allow enough time for the broadcast interval to elapse.
 
-- **Causa**: Un'altra applicazione ha acquisito il lock esclusivo sulla porta seriale (es. l'estensione Web Meshtastic flasher, il demone `modemmanager`, o un'altra istanza di `meshtastic` CLI).
-- **Risoluzione**:
-  1. Chiudi eventuali browser che utilizzano WebSerial su Meshtastic.
-  2. Su distribuzioni Linux con `ModemManager`, disattiva temporaneamente il servizio che tenta di aprire modem cellulari sulle porte seriali:
+## References and license
 
-     ```bash
-     sudo systemctl stop ModemManager
-     ```
-
-  3. Controlla quale processo sta bloccando la porta:
-
-     ```bash
-     lsof /dev/ttyACM0
-     ```
-
-### Il nodo non mostra coordinate GPS o distanza
-
-- **Causa**: Il dispositivo non possiede un modulo GPS integrato, oppure il ricevitore GPS si trova al chiuso e non ha ancora completato il "fix" della costellazione satellitare. Meshtastic segnala coordinate `(0.0, 0.0)` in caso di mancato fix, che Mesh-Deck ignora correttamente per evitare distanze fittizie.
-- **Risoluzione**: Sposta il dispositivo vicino a una finestra o all'aperto finché il modulo GPS non aggancia i satelliti.
-
-### Messaggi non ricevuti o radio apparentemente muta
-
-- **Causa**: Canali o preset modem differenti.
-- **Risoluzione**: Esegui `/info` e `/channels` per verificare che la regione RF (`EU_868`, `US_915`, ecc.), il preset del modem (es. `LONG_FAST`) e il nome del canale primario coincidano con quelli della rete locale Meshtastic.
-
----
-
-## 📄 Riferimenti & Licenza
-
-- **Repository Ufficiale**: [github.com/raythekool/mesh-deck](https://github.com/raythekool/mesh-deck)
-- **Specifiche Tecniche**: Consulta [REQUIREMENTS.md](../REQUIREMENTS.md) per i dettagli architetturali.
-- **Piano di Sviluppo**: Consulta [IMPLEMENTATION_PLAN.md](../IMPLEMENTATION_PLAN.md) per la roadmap delle funzionalità.
-- **Licenza**: Software distribuito con licenza open source [MIT](../LICENSE).
+- **Repository:** [github.com/raythekool/mesh-deck](https://github.com/raythekool/mesh-deck)
+- **Supported scope:** [REQUIREMENTS.md](../REQUIREMENTS.md)
+- **UI proposals:** [UI_DEVELOPMENT.md](UI_DEVELOPMENT.md)
+- **License:** [MIT](../LICENSE)

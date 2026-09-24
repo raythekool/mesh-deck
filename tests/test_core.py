@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import unittest
+import threading
+import logging
 from datetime import datetime, timedelta, UTC
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -11,6 +13,7 @@ from unittest.mock import MagicMock, patch
 from mesh_deck.agent import AgentService, AgentServiceError
 from mesh_deck.core.events import DeviceConnectionInfo, MeshMessage, NodeData
 from mesh_deck.core.history import HistoryStore
+from mesh_deck.core.log_buffer import LogBuffer
 from mesh_deck.core.node_store import NodeStore
 from mesh_deck.core.radio_client import RadioClient
 from mesh_deck.core.scanner import scan_meshtastic_ports
@@ -329,6 +332,29 @@ class TestAgentService(unittest.TestCase):
 class TestSettings(unittest.TestCase):
     """Test persistent user settings and bounded command history."""
 
+    def test_explorer_view_mode_is_persistent_and_backward_compatible(self):
+        with TemporaryDirectory() as temp_dir:
+            config_dir = Path(temp_dir) / "mesh-deck"
+            config_file = config_dir / "settings.json"
+            with patch("mesh_deck.core.settings.CONFIG_DIR", config_dir), patch(
+                "mesh_deck.core.settings.CONFIG_FILE", config_file
+            ):
+                settings = Settings(explorer_view_mode="compact")
+                self.assertTrue(settings.save())
+                self.assertEqual(Settings.load().explorer_view_mode, "compact")
+
+                config_file.write_text('{"language": "en"}', encoding="utf-8")
+                self.assertEqual(Settings.load().explorer_view_mode, "auto")
+
+                config_file.write_text('{"explorer_view_mode": "invalid"}', encoding="utf-8")
+                self.assertEqual(Settings.load().explorer_view_mode, "auto")
+
+                config_file.write_text('{"ui_mode": "tui"}', encoding="utf-8")
+                migrated = Settings.load()
+                self.assertFalse(hasattr(migrated, "ui_mode"))
+                self.assertTrue(migrated.save())
+                self.assertNotIn("ui_mode", config_file.read_text(encoding="utf-8"))
+
     def test_command_history_is_bounded_and_persistent(self):
         with TemporaryDirectory() as temp_dir:
             config_dir = Path(temp_dir) / "mesh-deck"
@@ -345,6 +371,66 @@ class TestSettings(unittest.TestCase):
                 self.assertEqual(len(loaded.command_history), 100)
                 self.assertEqual(loaded.command_history[0], "/nodes 1")
                 self.assertEqual(loaded.command_history[-1], "/nodes 100")
+
+
+class TestLogBuffer(unittest.TestCase):
+    """Bounded application and radio-device diagnostics remain independent of stdout."""
+
+    def test_application_and_device_entries_filter_by_source_level_and_text(self):
+        buffer = LogBuffer(max_entries=3)
+        logger = logging.getLogger("mesh_deck.tests.log_buffer")
+        logger.handlers.clear()
+        logger.propagate = False
+        buffer.attach(logger)
+        try:
+            logger.warning("serial warning")
+            logger.error("critical error")
+            buffer.record_device("radio ready", "COM6")
+
+            self.assertEqual(len(buffer.entries(minimum_level=logging.DEBUG)), 3)
+            self.assertEqual(len(buffer.entries(source="device", minimum_level=logging.INFO)), 1)
+            self.assertEqual(len(buffer.entries(query="critical", minimum_level=logging.DEBUG)), 1)
+            self.assertEqual(buffer.entries(source="device", minimum_level=logging.INFO)[0].port, "COM6")
+        finally:
+            buffer.detach()
+
+    def test_buffer_is_bounded_and_notifies_listeners(self):
+        buffer = LogBuffer(max_entries=2)
+        observed = []
+        buffer.add_listener(observed.append)
+        buffer.record_device("one", "COM6")
+        buffer.record_device("two", "COM6")
+        buffer.record_device("three", "COM6")
+
+        entries = buffer.entries(minimum_level=logging.DEBUG)
+        self.assertEqual([entry.message for entry in entries], ["two", "three"])
+        self.assertEqual([entry.message for entry in observed], ["one", "two", "three"])
+
+    def test_detach_stops_application_capture(self):
+        buffer = LogBuffer()
+        logger = logging.getLogger("mesh_deck.tests.detach")
+        logger.handlers.clear()
+        logger.propagate = False
+        buffer.attach(logger)
+        try:
+            logger.warning("before")
+            buffer.detach()
+            logger.error("after")
+            self.assertEqual([entry.message for entry in buffer.entries(minimum_level=logging.DEBUG)], ["before"])
+        finally:
+            buffer.detach()
+
+    def test_attach_preserves_existing_logger_propagation(self):
+        buffer = LogBuffer()
+        logger = logging.getLogger("mesh_deck.tests.propagate")
+        logger.handlers.clear()
+        logger.propagate = True
+        buffer.attach(logger)
+        try:
+            self.assertTrue(logger.propagate)
+        finally:
+            buffer.detach()
+        self.assertTrue(logger.propagate)
 
 
 class TestScanner(unittest.TestCase):
@@ -758,6 +844,87 @@ class TestRadioClient(unittest.TestCase):
         self.assertEqual(messages[1].recipient_name, "Heltec Milan")
         self.assertEqual(messages[1].text, "Direct secret ping")
 
+    def test_device_log_line_is_forwarded_only_from_active_interface(self):
+        client = RadioClient()
+        active_interface = object()
+        other_interface = object()
+        client._interface = active_interface
+        client._port = "COM6"
+        received = []
+        client.on_device_log(lambda line, port: received.append((line, port)))
+
+        client._on_pubsub_log_line("radio ready\n", interface=active_interface)
+        client._on_pubsub_log_line("foreign", interface=other_interface)
+
+        self.assertEqual(received, [("radio ready\n", "COM6")])
+
+    def test_device_log_line_is_ignored_while_disconnected(self):
+        client = RadioClient()
+        received = []
+        client.on_device_log(lambda line, port: received.append((line, port)))
+
+        client._on_pubsub_log_line("radio ready\n", interface=object())
+
+        self.assertEqual(received, [])
+
+    def test_device_identity_snapshot_and_update_use_local_node_owner_api(self):
+        store = NodeStore()
+        local = NodeData(
+            id="!00000001",
+            num=1,
+            long_name="Old Name",
+            short_name="OLD",
+            is_local=True,
+        )
+        store.update_node(local)
+        store.set_local_node_id(local.id)
+        client = RadioClient(node_store=store)
+        interface = MagicMock()
+        interface.localNode = MagicMock()
+        interface.getMyNodeInfo.return_value = {
+            "num": 1,
+            "user": {
+                "id": "!00000001",
+                "longName": "Normalized Name",
+                "shortName": "NORM",
+                "role": "CLIENT",
+            },
+        }
+        client._interface = interface
+        client._is_connected = True
+
+        self.assertEqual(
+            client.get_device_identity(),
+            {
+                "id": "!00000001",
+                "long_name": "Old Name",
+                "short_name": "OLD",
+                "role": "CLIENT",
+                "hardware": "",
+            },
+        )
+        updated = client.update_device_identity(long_name="New Name", short_name="NEW")
+        interface.localNode.setOwner.assert_called_once_with(long_name="New Name", short_name="NEW")
+        self.assertEqual(updated["long_name"], "Normalized Name")
+        self.assertEqual(updated["short_name"], "NORM")
+        self.assertEqual(store.get_local_node().long_name, "Normalized Name")
+        self.assertEqual(store.get_local_node().short_name, "NORM")
+
+    def test_device_identity_validation_prevents_radio_write(self):
+        client = RadioClient()
+        client._interface = MagicMock()
+        client._is_connected = True
+
+        for long_name, short_name in (
+            ("", "BASE"),
+            ("x" * 40, "BASE"),
+            ("Base", ""),
+            ("Base", "ABCDE"),
+        ):
+            with self.assertRaises(ValueError):
+                client.update_device_identity(long_name=long_name, short_name=short_name)
+        client._interface.localNode.setOwner.assert_not_called()
+
     def test_radio_client_telemetry_and_position_routing(self):
         store = NodeStore()
         client = RadioClient(node_store=store)
@@ -819,6 +986,23 @@ class TestRadioClient(unittest.TestCase):
         self.assertIsNone(client.interface)
         mock_iface.close.assert_called_once()
         self.assertEqual(connection_events, [(False, "/dev/ttyACM0")])
+
+    def test_expected_old_disconnect_does_not_hide_new_connection_loss(self):
+        client = RadioClient()
+        old_iface = MagicMock()
+        new_iface = MagicMock()
+        client._expected_disconnect_interface = old_iface
+        client._interface = new_iface
+        client._port = "/dev/ttyACM1"
+        client._is_connected = True
+
+        connection_events = []
+        client.on_connection_change(lambda connected, port: connection_events.append((connected, port)))
+
+        client._on_pubsub_connection_lost(interface=new_iface)
+
+        self.assertEqual(connection_events, [(False, "/dev/ttyACM1")])
+        self.assertFalse(client.is_connected)
 
     def test_radio_client_crosstalk_protection(self):
         client = RadioClient()
@@ -1066,6 +1250,19 @@ class TestMeshTopologyAndTraceroute(unittest.TestCase):
         # The waiter must not leak once it gave up.
         self.assertEqual(client._traceroute_waiters, {})
 
+    def test_traceroute_cancellation_stops_waiting_and_cleans_up(self):
+        from mesh_deck.core.radio_client import RadioOperationCancelled
+
+        client = self._client()
+        client._interface = MagicMock()
+        client._is_connected = True
+        cancel_event = threading.Event()
+        cancel_event.set()
+
+        with self.assertRaises(RadioOperationCancelled):
+            client.trace_route("!b8f862d9", timeout=30, cancel_event=cancel_event)
+        self.assertEqual(client._traceroute_waiters, {})
+
     def test_traceroute_requires_a_connection(self):
         client = self._client()
         with self.assertRaises(ConnectionError):
@@ -1116,6 +1313,39 @@ class TestMeshTopologyAndTraceroute(unittest.TestCase):
         client._on_pubsub_connection_lost()
         self.assertEqual(events, [(False, "/dev/ttyACM0")])
         self.assertFalse(client.is_reconnecting)
+
+    def test_disconnect_forces_a_blocked_serial_close_to_return(self):
+        """A stuck reader-thread join must never freeze the caller indefinitely."""
+        client = self._client()
+        entered_close = threading.Event()
+        release_close = threading.Event()
+        interface = MagicMock()
+        interface.stream = MagicMock()
+
+        def blocking_close() -> None:
+            entered_close.set()
+            release_close.wait()
+
+        interface.close.side_effect = blocking_close
+        client._interface = interface
+        client._is_connected = True
+        client._port = "/dev/ttyACM0"
+
+        with (
+            patch("mesh_deck.core.radio_client.CLOSE_INTERFACE_TIMEOUT_SECONDS", 0.01),
+            patch("mesh_deck.core.radio_client.CLOSE_INTERFACE_FORCE_TIMEOUT_SECONDS", 0.01),
+        ):
+            client.disconnect()
+
+        self.assertTrue(entered_close.is_set())
+        interface.stream.cancel_read.assert_called_once_with()
+        interface.stream.close.assert_called_once_with()
+        self.assertFalse(client.is_connected)
+        self.assertIsNone(client.port)
+
+        # The actual forced stream close releases the Meshtastic reader; do
+        # likewise in the test so its daemon worker has no reason to linger.
+        release_close.set()
 
     def test_a_genuine_loss_after_a_reconnect_is_still_reported(self):
         client = self._client()
@@ -1224,6 +1454,17 @@ class TestHistoryStore(unittest.TestCase):
         self.assertEqual(len(history), 2)
         self.assertEqual(history[0]["long_name"], "Heltec Milan")
         self.assertIn("observed_at", history[0])
+
+    def test_record_node_treats_temperature_and_channel_util_as_material(self):
+        node = NodeData(id="!45a466e4", long_name="Heltec Milan", battery_level=80)
+        self.assertTrue(self.store.record_node(node))
+        node.temperature = 21.5
+        self.assertTrue(self.store.record_node(node))
+        node.channel_util = 12.0
+        self.assertTrue(self.store.record_node(node))
+
+        history = self.store.iter_node_history("!45a466e4")
+        self.assertEqual(len(history), 3)
 
     def test_record_node_writes_to_disk(self):
         node = NodeData(id="!45a466e4", long_name="Heltec Milan")

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import json
+import threading
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -221,6 +222,45 @@ class TestCommandDispatcher(unittest.TestCase):
         self.assertTrue(self.dispatcher.dispatch("/mesh"))
         self.mock_store.get_all_nodes.assert_called()
 
+    def test_dispatch_topology_opens_internal_viewer_when_available(self) -> None:
+        console = MagicMock()
+        console.open_topology = MagicMock()
+        dispatcher = CommandDispatcher(self.mock_client, console=console, settings=self.settings)
+
+        self.assertTrue(dispatcher.dispatch("/topology"))
+        console.open_topology.assert_called_once_with(self.mock_client, "it")
+
+    def test_dispatch_topology_falls_back_to_mesh_summary(self) -> None:
+        self.mock_client.get_neighbor_reports.return_value = []
+        self.assertTrue(self.dispatcher.dispatch("/topology"))
+        self.mock_store.get_all_nodes.assert_called()
+
+    def test_dispatch_history_opens_internal_screen_for_known_node(self) -> None:
+        console = MagicMock()
+        console.open_node_history = MagicMock()
+        self.mock_client.history = MagicMock()
+        dispatcher = CommandDispatcher(self.mock_client, console=console, settings=self.settings)
+
+        self.assertTrue(dispatcher.dispatch("/history TRIN"))
+        console.open_node_history.assert_called_once_with(self.remote_node)
+
+    def test_dispatch_history_requires_persistence_and_target(self) -> None:
+        self.mock_client.history = None
+        self.assertTrue(self.dispatcher.dispatch("/history TRIN"))
+        self.assertTrue(self.dispatcher.dispatch("/history"))
+
+    def test_dispatch_device_settings_requires_connection_and_uses_tui(self) -> None:
+        console = MagicMock()
+        console.open_device_settings = MagicMock()
+        self.mock_client.is_connected = False
+        dispatcher = CommandDispatcher(self.mock_client, console=console, settings=self.settings)
+        self.assertTrue(dispatcher.dispatch("/device-settings"))
+        console.open_device_settings.assert_not_called()
+
+        self.mock_client.is_connected = True
+        self.assertTrue(dispatcher.dispatch("/device-settings"))
+        console.open_device_settings.assert_called_once_with()
+
     def test_dispatch_trace_requires_a_target(self) -> None:
         self.assertTrue(self.dispatcher.dispatch("/trace"))
         self.mock_client.trace_route.assert_not_called()
@@ -235,7 +275,13 @@ class TestCommandDispatcher(unittest.TestCase):
             route_back=["!45a466e4"],
         )
         self.assertTrue(self.dispatcher.dispatch("/trace TRIN"))
-        self.mock_client.trace_route.assert_called_with("!62d927b8")
+        self.mock_client.trace_route.assert_called_with("!62d927b8", cancel_event=None)
+
+    def test_dispatch_trace_forwards_a_cancellation_event(self) -> None:
+        cancel_event = threading.Event()
+        self.mock_client.trace_route.return_value = None
+        self.assertTrue(self.dispatcher.dispatch("/trace TRIN", cancel_event=cancel_event))
+        self.mock_client.trace_route.assert_called_with("!62d927b8", cancel_event=cancel_event)
 
     def test_dispatch_trace_reports_a_timeout(self) -> None:
         self.mock_client.trace_route.return_value = None
@@ -322,6 +368,17 @@ class TestCommandDispatcher(unittest.TestCase):
         res = self.dispatcher.dispatch("/chat")
         self.assertTrue(res)
         mock_launch.assert_called_once_with(self.mock_client, lang="it")
+
+    def test_dispatch_logs_opens_internal_viewer_when_available(self) -> None:
+        console = MagicMock()
+        console.open_logs = MagicMock()
+        dispatcher = CommandDispatcher(self.mock_client, console=console, settings=self.settings)
+
+        self.assertTrue(dispatcher.dispatch("/logs"))
+        console.open_logs.assert_called_once_with()
+
+    def test_dispatch_logs_explains_text_only_fallback(self) -> None:
+        self.assertTrue(self.dispatcher.dispatch("/logs"))
 
     def test_dispatch_settings_view(self) -> None:
         res = self.dispatcher.dispatch("/settings")
@@ -538,6 +595,16 @@ class TestAgentCLI(unittest.TestCase):
         self.assertIsNone(args.command)
         self.assertTrue(args.nodes)
         self.assertEqual(args.port, "/dev/ttyACM1")
+
+    def test_legacy_option_warning_uses_stderr_and_canonical_command(self):
+        from mesh_deck.__main__ import _warn_deprecated_option
+
+        buffer = io.StringIO()
+        warning_console = Console(file=buffer, force_terminal=False, color_system=None)
+        with patch("mesh_deck.__main__.warning_console", warning_console):
+            _warn_deprecated_option("--list", "scan", "en")
+        self.assertIn("--list is deprecated", buffer.getvalue())
+        self.assertIn("mesh-deck scan", buffer.getvalue())
 
     def test_port_before_subcommand_is_not_silently_dropped(self):
         """Regression test: argparse subparsers overwrite a shared `dest` with

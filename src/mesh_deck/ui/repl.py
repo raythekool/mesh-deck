@@ -6,6 +6,7 @@ import threading
 from typing import TYPE_CHECKING, Any
 
 from rich.console import Console
+from rich.markup import escape
 from rich.text import Text
 from textual import events, work
 from textual.app import App, ComposeResult
@@ -19,16 +20,15 @@ from textual.widgets.option_list import Option
 from mesh_deck.core.settings import Settings
 from mesh_deck.i18n import command_descriptions, t
 from mesh_deck.core.events import DeviceConnectionInfo, MeshMessage, NodeData
+from mesh_deck.core.log_buffer import LogBuffer
 from mesh_deck.ui.device_selector import DeviceSelectorScreen
 from mesh_deck.ui.completer import Completion, MeshDeckCompleter
 from mesh_deck.ui.tables import render_message, render_node_detail
+from mesh_deck.ui.node_presentation import present_node
 from mesh_deck.ui.theme import (
     DEFAULT_THEME,
     THEME_COLORS,
     ThemedApp,
-    format_role,
-    format_snr,
-    format_time_ago,
     set_theme,
     theme_names,
 )
@@ -51,14 +51,33 @@ class TextualConsole:
     def clear(self) -> None:
         self._invoke(self.app.clear_output)
 
-    def open_node_explorer(self, node_store: Any, local_node: Any, lang: str = "it") -> None:
-        self._invoke(self.app.open_node_explorer, node_store, local_node, lang)
+    def open_node_explorer(
+        self,
+        node_store: Any,
+        local_node: Any,
+        lang: str = "it",
+        view_mode: str = "auto",
+        history: Any = None,
+    ) -> None:
+        self._invoke(self.app.open_node_explorer, node_store, local_node, lang, view_mode, history)
 
     def open_channel_chat(self, radio_client: Any, lang: str = "it") -> None:
         self._invoke(self.app.open_channel_chat, radio_client, lang)
 
     def open_settings(self) -> None:
         self._invoke(self.app.open_settings)
+
+    def open_logs(self) -> None:
+        self._invoke(self.app.open_logs)
+
+    def open_node_history(self, node: NodeData) -> None:
+        self._invoke(self.app.open_node_history, node)
+
+    def open_topology(self, radio_client: Any, lang: str = "it") -> None:
+        self._invoke(self.app.open_topology, radio_client, lang)
+
+    def open_device_settings(self) -> None:
+        self._invoke(self.app.open_device_settings)
 
     def update_language(self, language: str) -> None:
         self._invoke(self.app.update_language, language)
@@ -74,6 +93,9 @@ class TextualConsole:
 
     def request_sidebar_refresh(self) -> None:
         self._invoke(self.app.request_sidebar_refresh)
+
+    def refresh_radio_status(self) -> None:
+        self._invoke(self.app.refresh_radio_status)
 
     def _invoke(self, callback: Any, *args: Any) -> None:
         """Run a UI callback on the Textual thread, tolerating a dying app.
@@ -258,6 +280,7 @@ class MeshDeckApp(ThemedApp, App):
     CSS = """
     Screen { background: $mesh-bg; color: $mesh-text; }
     Header { background: $mesh-bg-elevated; color: $mesh-primary; }
+    #radio-status { height: 1; padding: 0 1; background: $mesh-bg-panel; color: $mesh-muted; }
     #body { height: 1fr; }
     #sidebar { width: 32; min-width: 18; border: round $mesh-border-soft; background: $mesh-bg-panel; }
     #sidebar-title { width: 100%; height: 1; background: $mesh-bg-header; color: $mesh-primary; content-align: center middle; text-style: bold; }
@@ -271,8 +294,12 @@ class MeshDeckApp(ThemedApp, App):
     #node-detail { height: auto; max-height: 20; margin: 0 1; border: round $mesh-purple; background: $mesh-bg-panel; display: none; }
     #output { height: 1fr; margin: 0 1; border: round $mesh-border-soft; background: $mesh-bg-panel; }
     #suggestions { height: auto; max-height: 5; margin: 0 1; color: $mesh-secondary; background: $mesh-bg-elevated; }
+    #command-progress { height: 1; margin: 0 1; color: $mesh-warning; display: none; }
     #command { margin: 0 1 1 1; border: round $mesh-primary; background: $mesh-bg-panel; color: $mesh-text; }
     Footer { background: $mesh-bg-elevated; color: $mesh-muted; }
+    Input:focus, Select:focus, OptionList:focus, DataTable:focus, Button:focus {
+        border: double $mesh-primary;
+    }
     """
 
     def __init__(
@@ -294,9 +321,13 @@ class MeshDeckApp(ThemedApp, App):
         self.history_position = len(self.repl.settings.command_history)
         self._sidebar_refresh_pending = False
         self._sidebar_node_ids: list[str] = []
+        self._active_command: str | None = None
+        self._active_cancel_event: threading.Event | None = None
+        self._last_connection_failure: tuple[str, str] | None = None
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
+        yield Static(id="radio-status")
         with Horizontal(id="body"):
             with Vertical(id="sidebar"):
                 yield Label(t("SIDEBAR_TITLE", self.repl.settings.language), id="sidebar-title")
@@ -309,6 +340,7 @@ class MeshDeckApp(ThemedApp, App):
                 yield Static(id="node-detail")
                 yield RichLog(id="output", markup=True, wrap=True, highlight=True)
                 yield OptionList(id="suggestions", compact=True)
+                yield Static(id="command-progress")
                 yield Input(placeholder=self.repl._get_prompt(), id="command")
         yield Footer()
 
@@ -317,6 +349,7 @@ class MeshDeckApp(ThemedApp, App):
         # TextualConsole can tell "already on the UI thread" from
         # "must marshal via call_from_thread" without private Textual state.
         self.ui_thread_id = threading.get_ident()
+        self.repl.start_logging()
         console = TextualConsole(self)
         self.repl.console = console
         self.repl.dispatcher.console = console
@@ -324,6 +357,7 @@ class MeshDeckApp(ThemedApp, App):
         self.query_one("#sidebar").display = self.repl.settings.sidebar_enabled
         self.query_one("#sidebar").styles.width = self.repl.settings.sidebar_width
         self.update_language(self.repl.settings.language)
+        self.refresh_radio_status()
         if self.initial_port:
             self.begin_connection(self.initial_port)
         elif self.devices is not None:
@@ -333,7 +367,14 @@ class MeshDeckApp(ThemedApp, App):
 
     def push_device_selector(self) -> None:
         self.push_screen(
-            DeviceSelectorScreen(self.devices or [], preferred_port=self.preferred_port, lang=self.repl.settings.language),
+            DeviceSelectorScreen(
+                self.devices or [],
+                preferred_port=self.preferred_port,
+                active_port=self.repl.client.port,
+                failed_port=self._last_connection_failure[0] if self._last_connection_failure else None,
+                failure_reason=self._last_connection_failure[1] if self._last_connection_failure else None,
+                lang=self.repl.settings.language,
+            ),
             callback=self.on_device_selected,
         )
 
@@ -344,6 +385,7 @@ class MeshDeckApp(ThemedApp, App):
         self.begin_connection(port)
 
     def begin_connection(self, port: str) -> None:
+        self._last_connection_failure = None
         self.push_screen(ConnectionScreen(port, lang=self.repl.settings.language))
         self.connect_radio(port)
 
@@ -354,10 +396,22 @@ class MeshDeckApp(ThemedApp, App):
 
     def connection_complete(self, success: bool) -> None:
         if success:
+            self._last_connection_failure = None
             self.pop_screen()
             self.activate_console()
             return
         if isinstance(self.screen, ConnectionScreen):
+            failure_reason = getattr(self.repl.client, "last_connection_error", None)
+            if not isinstance(failure_reason, str) or not failure_reason:
+                failure_reason = t(
+                    "CONNECTION_FAILED",
+                    self.repl.settings.language,
+                    port=self.screen.port,
+                )
+            self._last_connection_failure = (
+                self.screen.port,
+                failure_reason,
+            )
             self.screen.show_error()
 
     def return_to_device_selector(self) -> None:
@@ -367,10 +421,17 @@ class MeshDeckApp(ThemedApp, App):
 
     def activate_console(self) -> None:
         self.repl.dispatcher.cmd_banner([])
+        self.refresh_radio_status()
         self.query_one(Input).focus()
         self.refresh_sidebar()
         if self.open_explorer_on_connect:
-            self.open_node_explorer(self.repl.client.store, self.repl.client.get_local_node(), self.repl.settings.language)
+            self.open_node_explorer(
+                self.repl.client.store,
+                self.repl.client.get_local_node(),
+                self.repl.settings.language,
+                self.repl.settings.explorer_view_mode,
+                self.repl.client.history,
+            )
 
     def refresh_sidebar(self) -> None:
         """Populate the node sidebar from the current NodeStore snapshot."""
@@ -396,12 +457,13 @@ class MeshDeckApp(ThemedApp, App):
             sidebar.add_option(Option(f"[dim]{t('SIDEBAR_EMPTY', lang)}[/]", disabled=True))
             return
         for node in nodes:
-            label = node.short_name or node.display_name or node.id
-            long_name = node.long_name or node.display_name or node.id
+            display = present_node(node, lang=lang)
+            label = escape(node.short_name or display.name)
+            long_name = escape(display.long_name)
             marker = "★ " if node.id == local_id else ""
             sidebar.add_option(Option(
-                f"{marker}[bold {THEME_COLORS['primary']}]{label}[/] {format_role(node.role)}\n"
-                f"[italic {THEME_COLORS['muted']}]{long_name}[/] · {format_snr(node.snr)} · {format_time_ago(node.last_heard, lang)}"
+                f"{marker}[bold {THEME_COLORS['primary']}]{label}[/] {display.role_markup}\n"
+                f"[italic {THEME_COLORS['muted']}]{long_name}[/] · {display.snr_markup} · {display.last_heard_markup}"
             ))
         sidebar.highlighted = 0
 
@@ -457,9 +519,28 @@ class MeshDeckApp(ThemedApp, App):
     def clear_output(self) -> None:
         self.query_one(RichLog).clear()
 
-    def open_node_explorer(self, node_store: Any, local_node: Any, lang: str = "it") -> None:
+    def open_node_explorer(
+        self,
+        node_store: Any,
+        local_node: Any,
+        lang: str = "it",
+        view_mode: str = "auto",
+        history: Any = None,
+    ) -> None:
         from mesh_deck.ui.interactive_table import InteractiveNodesScreen
-        self.push_screen(InteractiveNodesScreen(node_store, local_node=local_node, lang=lang))
+        self.push_screen(
+            InteractiveNodesScreen(
+                node_store,
+                local_node=local_node,
+                lang=lang,
+                view_mode=view_mode,
+                on_view_mode_change=self._set_explorer_view_mode,
+                history=history,
+            )
+        )
+
+    def _set_explorer_view_mode(self, view_mode: str) -> None:
+        self.repl.settings.update(explorer_view_mode=view_mode)
 
     def open_channel_chat(self, radio_client: Any, lang: str = "it") -> None:
         from mesh_deck.ui.channel_chat import ChannelChatScreen
@@ -467,6 +548,30 @@ class MeshDeckApp(ThemedApp, App):
 
     def open_settings(self) -> None:
         self.push_screen(SettingsScreen(self.repl.settings))
+
+    def open_logs(self) -> None:
+        from mesh_deck.ui.log_viewer import LogViewerScreen
+
+        self.push_screen(LogViewerScreen(self.repl.log_buffer, lang=self.repl.settings.language))
+
+    def open_node_history(self, node: NodeData) -> None:
+        history = self.repl.client.history
+        if history is None:
+            self.notify(t("HISTORY_DISABLED", self.repl.settings.language), severity="warning")
+            return
+        from mesh_deck.ui.node_history import NodeHistoryScreen
+
+        self.push_screen(NodeHistoryScreen(node, history, lang=self.repl.settings.language))
+
+    def open_topology(self, radio_client: Any, lang: str = "it") -> None:
+        from mesh_deck.ui.topology import TopologyScreen
+
+        self.push_screen(TopologyScreen(radio_client, lang=lang))
+
+    def open_device_settings(self) -> None:
+        from mesh_deck.ui.device_settings import DeviceSettingsScreen
+
+        self.push_screen(DeviceSettingsScreen(self.repl.client, lang=self.repl.settings.language))
 
     def apply_theme(self, name: str | None = None) -> None:
         """Activate a palette and repaint every Rich and Textual surface."""
@@ -484,6 +589,42 @@ class MeshDeckApp(ThemedApp, App):
         self._bindings.key_to_bindings["ctrl+b"] = [
             Binding("ctrl+b", "toggle_sidebar", t("SIDEBAR_TOGGLE", language), show=True)
         ]
+        self.query_one("#sidebar-title", Label).update(t("SIDEBAR_TITLE", language))
+        self.refresh_radio_status()
+        if self.repl.settings.sidebar_enabled:
+            self.refresh_sidebar()
+        if isinstance(self.screen, SettingsScreen):
+            # A settings modal is recreated after save; its content uses its
+            # saved language on the next open.
+            return
+        if self.screen.__class__.__name__ == "InteractiveNodesScreen":
+            self.screen.update_language(language)
+
+    def refresh_radio_status(self) -> None:
+        """Render the durable radio-state strip above scrolling output."""
+        lang = self.repl.settings.language
+        local = self.repl.client.get_local_node()
+        raw_node_name = (local.short_name or local.display_name) if local else t("NODE_UNKNOWN_NAME", lang)
+        node_name = escape(str(raw_node_name))
+        raw_port = self.repl.client.port or t("RADIO_STATUS_NO_PORT", lang)
+        port = escape(str(raw_port))
+
+        if self.repl.connection_state == "connected":
+            content = Text.from_markup(
+                f"[{THEME_COLORS['secondary']}]●[/] "
+                f"{t('RADIO_STATUS_CONNECTED', lang, node=node_name, port=port)}"
+            )
+        elif self.repl.connection_state == "reconnecting":
+            content = Text.from_markup(
+                f"[{THEME_COLORS['warning']}]↻[/] "
+                f"{t('RADIO_STATUS_RECONNECTING', lang, port=port, attempt=self.repl.reconnect_attempt)}"
+            )
+        else:
+            content = Text.from_markup(
+                f"[{THEME_COLORS['alert']}]○[/] {t('RADIO_STATUS_DISCONNECTED', lang)}"
+            )
+
+        self.query_one("#radio-status", Static).update(content)
 
     def restart_console(self) -> None:
         """Apply saved settings and redraw the connected command console."""
@@ -541,18 +682,51 @@ class MeshDeckApp(ThemedApp, App):
 
     def _submit_command(self, command: str) -> None:
         """Clear the command input and schedule command execution."""
+        if self._active_command is not None:
+            self.notify(t("COMMAND_BUSY", self.repl.settings.language), severity="warning")
+            return
         input_widget = self.query_one(Input)
         input_widget.value = ""
         self.clear_suggestions()
         self.history_position = len(self.repl.settings.command_history)
         self.repl.settings.add_command(command)
-        self._dispatch_command(command)
+        self._start_command_progress(command)
+        self._dispatch_command(command, self._active_cancel_event)
 
 
     @work(thread=True, exclusive=True)
-    def _dispatch_command(self, command: str) -> None:
-        if not self.repl.dispatcher.dispatch(command):
-            self.call_from_thread(self.exit)
+    def _dispatch_command(self, command: str, cancel_event: threading.Event | None) -> None:
+        try:
+            if cancel_event is None:
+                should_continue = self.repl.dispatcher.dispatch(command)
+            else:
+                should_continue = self.repl.dispatcher.dispatch(command, cancel_event=cancel_event)
+            if not should_continue:
+                self.call_from_thread(self.exit)
+        finally:
+            self.call_from_thread(self._finish_command_progress)
+
+    def _start_command_progress(self, command: str) -> None:
+        """Show durable progress while potentially slow command work runs off-thread."""
+        normalized = command.strip()
+        if not normalized:
+            return
+        self._active_command = normalized
+        self._active_cancel_event = (
+            threading.Event() if normalized.split(maxsplit=1)[0].lower() in ("/trace", "/traceroute") else None
+        )
+        key = "COMMAND_PROGRESS_CANCELLABLE" if self._active_cancel_event else "COMMAND_PROGRESS_RUNNING"
+        self.query_one("#command-progress", Static).update(
+            t(key, self.repl.settings.language, command=normalized)
+        )
+        self.query_one("#command-progress", Static).display = True
+
+    def _finish_command_progress(self) -> None:
+        self._active_command = None
+        self._active_cancel_event = None
+        progress = self.query_one("#command-progress", Static)
+        progress.update("")
+        progress.display = False
 
     def on_key(self, event: Any) -> None:
         if event.key == "enter" and isinstance(self.focused, OptionList):
@@ -631,6 +805,12 @@ class MeshDeckApp(ThemedApp, App):
         self.clear_suggestions()
 
     def action_clear_suggestions(self) -> None:
+        if self._active_cancel_event is not None:
+            self._active_cancel_event.set()
+            self.query_one("#command-progress", Static).update(
+                t("COMMAND_CANCELLING", self.repl.settings.language, command=self._active_command or "")
+            )
+            return
         self.clear_suggestions()
         self.close_node_detail()
 
@@ -670,6 +850,9 @@ class MeshDeckApp(ThemedApp, App):
     def close_node_detail(self) -> None:
         self.query_one("#node-detail", Static).display = False
 
+    def on_unmount(self) -> None:
+        self.repl.stop_logging()
+
 
 class MeshDeckREPL:
     """Compatibility facade which launches the primary Textual application."""
@@ -688,6 +871,10 @@ class MeshDeckREPL:
         self.settings = settings if settings is not None else Settings.load()
         set_theme(self.settings.theme)
         self._link_was_lost = False
+        self.connection_state = "connected" if self.client.is_connected else "disconnected"
+        self.reconnect_attempt = 0
+        self.log_buffer = LogBuffer()
+        self._logging_started = False
         if dispatcher is not None:
             self.dispatcher = dispatcher
         else:
@@ -703,6 +890,22 @@ class MeshDeckREPL:
         self.client.on_node_updated(self._handle_node_updated)
         self.client.on_connection_change(self._handle_connection_change)
         self.client.on_reconnect_attempt(self._handle_reconnect_attempt)
+        self.client.on_device_log(self._handle_device_log)
+
+    def start_logging(self) -> None:
+        """Start collecting application diagnostics while the Textual app is mounted."""
+        if not self._logging_started:
+            self.log_buffer.attach()
+            self._logging_started = True
+
+    def stop_logging(self) -> None:
+        """Detach the application log handler while retaining its bounded snapshot."""
+        self.log_buffer.detach()
+        self._logging_started = False
+
+    def _handle_device_log(self, line: str, port: str | None) -> None:
+        """Store a device diagnostic line received from the radio callback."""
+        self.log_buffer.record_device(line, port)
 
     def _handle_node_updated(self, _node: NodeData) -> None:
         """Ask the console to repaint the node sidebar (called from a radio thread)."""
@@ -717,26 +920,41 @@ class MeshDeckREPL:
             # Only announce a restore if we actually reported a loss first,
             # otherwise the initial handshake would print a bogus notice.
             if not self._link_was_lost:
+                self.connection_state = "connected"
+                refresher = getattr(self.console, "refresh_radio_status", None)
+                if callable(refresher):
+                    refresher()
                 return
             self._link_was_lost = False
+            self.connection_state = "connected"
+            self.reconnect_attempt = 0
             self.console.print(
                 f"[{THEME_COLORS['secondary']}]{t('CONN_RESTORED', lang, port=port or '?')}[/]"
             )
         else:
             self._link_was_lost = True
+            self.connection_state = "disconnected"
             self.console.print(
                 f"[{THEME_COLORS['alert']}]{t('CONN_LOST', lang, port=port or '?')}[/]"
             )
         requester = getattr(self.console, "request_sidebar_refresh", None)
         if callable(requester):
             requester()
+        refresher = getattr(self.console, "refresh_radio_status", None)
+        if callable(refresher):
+            refresher()
 
     def _handle_reconnect_attempt(self, port: str, attempt: int) -> None:
         """Report an automatic reconnection attempt (called from a radio thread)."""
+        self.connection_state = "reconnecting"
+        self.reconnect_attempt = attempt
         self.console.print(
             f"[{THEME_COLORS['warning']}]"
             f"{t('CONN_RETRYING', self.settings.language, port=port, attempt=attempt)}[/]"
         )
+        refresher = getattr(self.console, "refresh_radio_status", None)
+        if callable(refresher):
+            refresher()
 
     def _get_all_nodes(self) -> list:
         return self.client.store.get_all_nodes()

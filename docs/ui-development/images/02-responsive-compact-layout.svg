@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700" role="img" aria-labelledby="title desc">
+  <title id="title">Responsive compact layout proposal</title>
+  <desc id="desc">Wide terminal full table compared with a narrow terminal compact node list.</desc>
+  <rect width="1200" height="700" fill="#081018"/>
+  <text x="40" y="50" fill="#00f3ff" font-family="monospace" font-size="25" font-weight="bold">ONE NODE VIEW, TWO TERMINAL WIDTHS</text>
+  <rect x="40" y="85" width="730" height="560" rx="10" fill="#0b1720" stroke="#1f8794"/>
+  <text x="65" y="118" fill="#9fffd0" font-family="monospace" font-size="18">WIDE / FULL MODE (>= 120 columns)</text>
+  <rect x="62" y="145" width="685" height="36" fill="#10212b"/>
+  <text x="72" y="169" fill="#00f3ff" font-family="monospace" font-size="13">NAME       AKA  ID         HW       ROLE    SNR   HOPS  BATTERY  DIST  SEEN</text>
+  <rect x="62" y="185" width="685" height="60" fill="#063b46"/>
+  <text x="72" y="222" fill="#e8f1f5" font-family="monospace" font-size="14">Trinity    TRIN !62d927b8 TLORA    TRACKER +9.5  0     87%      2km   3m</text>
+  <text x="72" y="285" fill="#e8f1f5" font-family="monospace" font-size="14">Zion Relay ZION !b8f862d9 RAK4631  ROUTER  +2.1  1     64%      9km  27m</text>
+  <rect x="62" y="505" width="685" height="100" rx="6" fill="#10212b"/>
+  <text x="82" y="540" fill="#94a3b8" font-family="monospace" font-size="16">All eleven fields are visible. Details remain a row action.</text>
+  <text x="82" y="570" fill="#00ff66" font-family="monospace" font-size="16">[ full ] [ compact ]   setting persists per operator</text>
+  <rect x="810" y="150" width="340" height="450" rx="10" fill="#0b1720" stroke="#00f3ff"/>
+  <text x="835" y="184" fill="#9fffd0" font-family="monospace" font-size="18">NARROW / COMPACT</text>
+  <rect x="830" y="210" width="300" height="90" rx="6" fill="#063b46"/>
+  <text x="848" y="241" fill="#00ff66" font-family="monospace" font-size="18">TRIN  TRACKER</text>
+  <text x="848" y="269" fill="#e8f1f5" font-family="monospace" font-size="16">+9.5 dB  /  0 hop  /  3m</text>
+  <text x="848" y="291" fill="#94a3b8" font-family="monospace" font-size="15">87%  2.1 km</text>
+  <rect x="830" y="315" width="300" height="90" rx="6" fill="#10212b"/>
+  <text x="848" y="346" fill="#e8f1f5" font-family="monospace" font-size="18">ZION  ROUTER</text>
+  <text x="848" y="374" fill="#e8f1f5" font-family="monospace" font-size="16">+2.1 dB  /  1 hop  /  27m</text>
+  <text x="848" y="396" fill="#94a3b8" font-family="monospace" font-size="15">64%  9.3 km</text>
+  <text x="835" y="505" fill="#94a3b8" font-family="monospace" font-size="15">ID, hardware, exact coordinates,</text>
+  <text x="835" y="530" fill="#94a3b8" font-family="monospace" font-size="15">and telemetry move to detail.</text>
+</svg>

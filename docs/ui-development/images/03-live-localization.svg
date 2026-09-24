@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700" role="img" aria-labelledby="title desc">
+  <title id="title">Live localization proposal</title>
+  <desc id="desc">Italian and English versions of the same mounted application screen, linked by a single settings action.</desc>
+  <rect width="1200" height="700" fill="#081018"/>
+  <text x="42" y="52" fill="#00f3ff" font-family="monospace" font-size="25" font-weight="bold">LIVE LANGUAGE SWITCH: ONE UI TRANSACTION</text>
+  <rect x="45" y="92" width="470" height="500" rx="10" fill="#0b1720" stroke="#1f8794"/>
+  <text x="70" y="128" fill="#00f3ff" font-family="monospace" font-size="20" font-weight="bold">ITALIANO</text>
+  <rect x="68" y="152" width="424" height="38" fill="#063b46"/>
+  <text x="84" y="178" fill="#e8f1f5" font-family="monospace" font-size="16">NODI MESH    [ Recenti ] [ Tutti ]</text>
+  <text x="82" y="230" fill="#e8f1f5" font-family="monospace" font-size="17">TRIN  TRACKER   +9.5 dB   3m fa</text>
+  <rect x="68" y="430" width="424" height="48" rx="6" fill="#10212b" stroke="#00f3ff"/>
+  <text x="84" y="461" fill="#9fffd0" font-family="monospace" font-size="16">Comando per MRPH...</text>
+  <text x="84" y="535" fill="#94a3b8" font-family="monospace" font-size="15">Ctrl+B Barra laterale | Tab Completa</text>
+  <rect x="560" y="92" width="470" height="500" rx="10" fill="#0b1720" stroke="#1f8794"/>
+  <text x="585" y="128" fill="#00f3ff" font-family="monospace" font-size="20" font-weight="bold">ENGLISH</text>
+  <rect x="583" y="152" width="424" height="38" fill="#063b46"/>
+  <text x="599" y="178" fill="#e8f1f5" font-family="monospace" font-size="16">MESH NODES    [ Recent ] [ All ]</text>
+  <text x="597" y="230" fill="#e8f1f5" font-family="monospace" font-size="17">TRIN  TRACKER   +9.5 dB   3m ago</text>
+  <rect x="583" y="430" width="424" height="48" rx="6" fill="#10212b" stroke="#00f3ff"/>
+  <text x="599" y="461" fill="#9fffd0" font-family="monospace" font-size="16">Command for MRPH...</text>
+  <text x="599" y="535" fill="#94a3b8" font-family="monospace" font-size="15">Ctrl+B Toggle sidebar | Tab Complete</text>
+  <path d="M520 310 H555" stroke="#ffb800" stroke-width="5"/>
+  <path d="M548 298 L565 310 L548 322" fill="none" stroke="#ffb800" stroke-width="5"/>
+  <rect x="420" y="270" width="245" height="74" rx="8" fill="#10212b" stroke="#ffb800"/>
+  <text x="447" y="300" fill="#ffb800" font-family="monospace" font-size="16">Settings: language</text>
+  <text x="447" y="325" fill="#e8f1f5" font-family="monospace" font-size="15">Save -> redraw mounted UI</text>
+  <text x="42" y="650" fill="#94a3b8" font-family="monospace" font-size="16">Header, sidebar, pills, input, footer, detail, modal and shortcuts all refresh together.</text>
+</svg>

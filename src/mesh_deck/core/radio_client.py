@@ -11,6 +11,7 @@ from __future__ import annotations
 import inspect
 import logging
 import threading
+import time
 from datetime import datetime
 from typing import Any
 from collections.abc import Callable
@@ -36,10 +37,16 @@ logger = logging.getLogger(__name__)
 # unexpectedly. The last value repeats until the radio comes back or the user
 # disconnects, so an unplugged cable settles into a quiet slow poll.
 RECONNECT_BACKOFF_SECONDS: tuple[float, ...] = (2.0, 5.0, 10.0, 20.0, 30.0)
+CLOSE_INTERFACE_TIMEOUT_SECONDS = 2.0
+CLOSE_INTERFACE_FORCE_TIMEOUT_SECONDS = 1.0
 
 
 class RadioOperationError(RuntimeError):
     """A radio operation failed inside meshtastic-python."""
+
+
+class RadioOperationCancelled(RuntimeError):
+    """A caller cancelled a radio operation while waiting for a response."""
 
 
 def _guard_library_exit(operation: str, func: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
@@ -84,6 +91,7 @@ class RadioClient:
         self._node_updated_callbacks: list[Callable[[NodeData], Any]] = []
         self._telemetry_callbacks: list[Callable[..., Any]] = []
         self._connection_callbacks: list[Callable[[bool, str | None], Any]] = []
+        self._device_log_callbacks: list[Callable[[str, str | None], Any]] = []
 
         # Pubsub subscription flags
         self._subscribed = False
@@ -93,7 +101,8 @@ class RadioClient:
         self._reconnect_thread: threading.Thread | None = None
         self._reconnect_stop = threading.Event()
         self._reconnect_callbacks: list[Callable[[str, int], Any]] = []
-        self._expect_disconnect = threading.Event()
+        self._expected_disconnect_interface: SerialInterface | None = None
+        self._last_connection_error: str | None = None
 
         # Mesh topology state (RF-2.3) and traceroute plumbing (RF-3.1)
         self._neighbor_reports: dict[str, NeighborReport] = {}
@@ -142,6 +151,12 @@ class RadioClient:
         with self._lock:
             return self._interface
 
+    @property
+    def last_connection_error(self) -> str | None:
+        """Sanitized description of the most recent connection failure."""
+        with self._lock:
+            return self._last_connection_error
+
     def on_message_received(self, callback: Callable[[MeshMessage], Any]) -> None:
         """Register a callback for incoming text and direct messages."""
         with self._lock:
@@ -172,6 +187,12 @@ class RadioClient:
             if callback not in self._connection_callbacks:
                 self._connection_callbacks.append(callback)
 
+    def on_device_log(self, callback: Callable[[str, str | None], Any]) -> None:
+        """Register a callback for log lines forwarded by the active radio."""
+        with self._lock:
+            if callback not in self._device_log_callbacks:
+                self._device_log_callbacks.append(callback)
+
     def connect(self, port: str, blocking: bool = False, timeout: int = 30) -> bool:
         """Connect to a Meshtastic device on the specified serial port.
 
@@ -192,6 +213,7 @@ class RadioClient:
                 self._do_connect(port, timeout)
                 return self.is_connected
             except Exception as exc:
+                self._set_last_connection_error(exc)
                 logger.error("Failed to connect to %s: %s", port, exc)
                 return False
         else:
@@ -224,6 +246,7 @@ class RadioClient:
                 self._interface = iface
                 self._port = port
                 self._is_connected = True
+                self._last_connection_error = None
 
                 # Determine local node number / ID
                 if iface.myInfo and iface.myInfo.my_node_num:
@@ -260,6 +283,7 @@ class RadioClient:
                 self._is_connected = False
                 self._port = None
                 self._interface = None
+            self._set_last_connection_error(exc)
             self._notify_connection_change(False, port)
             raise
 
@@ -278,7 +302,15 @@ class RadioClient:
         self._notify_connection_change(False, old_port)
 
     def _close_interface(self) -> None:
-        """Helper to cleanly close SerialInterface."""
+        """Close SerialInterface without allowing its reader-thread join to hang.
+
+        meshtastic-python's ``SerialInterface.close()`` joins its reader
+        thread without a timeout. On some Linux USB serial drivers a blocking
+        ``read(1)`` does not wake on the library's normal shutdown signal, so
+        this would freeze the UI/CLI process indefinitely. Run the official
+        close in a daemon thread, then explicitly interrupt and close the
+        serial stream if it has not returned promptly.
+        """
         self._is_connected = False
         iface = self._interface
         self._interface = None
@@ -287,11 +319,52 @@ class RadioClient:
         if iface is not None:
             # Closing publishes meshtastic.connection.lost; flag it so the echo
             # of our own shutdown is not reported to the user as a failure.
-            self._expect_disconnect.set()
-            try:
-                iface.close()
-            except Exception as exc:
-                logger.debug("Exception while closing interface: %s", exc)
+            self._expected_disconnect_interface = iface
+            close_thread = threading.Thread(
+                target=self._close_interface_worker,
+                args=(iface,),
+                name="RadioClient-Close",
+                daemon=True,
+            )
+            close_thread.start()
+            close_thread.join(CLOSE_INTERFACE_TIMEOUT_SECONDS)
+            if close_thread.is_alive():
+                logger.warning(
+                    "Timed out closing Meshtastic interface; forcing serial read interruption"
+                )
+                self._interrupt_serial_read(iface)
+                close_thread.join(CLOSE_INTERFACE_FORCE_TIMEOUT_SECONDS)
+            if close_thread.is_alive():
+                logger.error(
+                    "Meshtastic close worker remains blocked after forced stream close; "
+                    "continuing teardown"
+                )
+
+    @staticmethod
+    def _close_interface_worker(iface: SerialInterface) -> None:
+        try:
+            iface.close()
+        except Exception as exc:
+            logger.debug("Exception while closing interface: %s", exc)
+
+    @staticmethod
+    def _interrupt_serial_read(iface: SerialInterface) -> None:
+        """Unblock a serial reader thread after the library close timed out."""
+        stream = getattr(iface, "stream", None)
+        if stream is None:
+            return
+
+        try:
+            cancel_read = getattr(stream, "cancel_read", None)
+            if callable(cancel_read):
+                cancel_read()
+        except Exception as exc:
+            logger.debug("Could not cancel serial read during teardown: %s", exc)
+
+        try:
+            stream.close()
+        except Exception as exc:
+            logger.debug("Could not force-close serial stream during teardown: %s", exc)
 
     def _ensure_pubsub_subscribed(self) -> None:
         """Subscribe internal handlers to Meshtastic pypubsub topics."""
@@ -304,6 +377,7 @@ class RadioClient:
             pub.subscribe(self._on_pubsub_node_updated, "meshtastic.node.updated")
             pub.subscribe(self._on_pubsub_neighborinfo, "meshtastic.receive.neighborinfo")
             pub.subscribe(self._on_pubsub_traceroute, "meshtastic.receive.traceroute")
+            pub.subscribe(self._on_pubsub_log_line, "meshtastic.log.line")
             pub.subscribe(self._on_pubsub_connection_lost, "meshtastic.connection.lost")
             self._subscribed = True
 
@@ -323,6 +397,20 @@ class RadioClient:
             return f"!{int(text) & 0xFFFFFFFF:08x}"
         except ValueError:
             return text.lower()
+
+    def _on_pubsub_log_line(self, line: str, interface=None, **kwargs) -> None:
+        """Forward a line published by the connected Meshtastic device."""
+        active_interface = self.interface
+        if active_interface is None:
+            return
+        if interface is not None and interface != active_interface:
+            return
+        port = self.port
+        for callback in list(self._device_log_callbacks):
+            try:
+                callback(line, port)
+            except Exception as callback_exc:
+                logger.exception("Error in device log callback: %s", callback_exc)
 
     def _on_pubsub_neighborinfo(self, packet: dict[str, Any], interface=None, **kwargs) -> None:
         """Handle a NeighborInfo broadcast, recording the reporter's neighbor table."""
@@ -440,6 +528,7 @@ class RadioClient:
         hop_limit: int = 7,
         timeout: float = 30.0,
         channel_index: int = 0,
+        cancel_event: threading.Event | None = None,
     ) -> TraceRouteResult | None:
         """Send a traceroute request and wait for the hop path.
 
@@ -476,8 +565,17 @@ class RadioClient:
                 self._traceroute_waiters.pop(target, None)
             raise
 
-        if waiter[1].wait(timeout):
-            return waiter[0]
+        deadline = time.monotonic() + timeout
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            if waiter[1].wait(min(remaining, 0.1)):
+                return waiter[0]
+            if cancel_event is not None and cancel_event.is_set():
+                with self._lock:
+                    self._traceroute_waiters.pop(target, None)
+                raise RadioOperationCancelled(f"Traceroute to {target} was cancelled.")
 
         with self._lock:
             self._traceroute_waiters.pop(target, None)
@@ -626,19 +724,27 @@ class RadioClient:
 
     def _on_pubsub_connection_lost(self, interface=None, **kwargs) -> None:
         """Handle connection lost event from pubsub."""
-        if self._interface is not None and interface is not None and interface != self._interface:
-            return
+        with self._lock:
+            active_interface = self._interface
+            expected_interface = self._expected_disconnect_interface
 
-        if self._expect_disconnect.is_set():
-            # Echo of a disconnect() or a port switch we initiated ourselves.
-            self._expect_disconnect.clear()
-            logger.debug("Ignoring connection.lost echo from our own shutdown")
-            return
+            if expected_interface is not None and interface == expected_interface:
+                self._expected_disconnect_interface = None
+                logger.debug("Ignoring connection.lost echo from our own shutdown")
+                return
+            if active_interface is None:
+                if expected_interface is not None and interface is None:
+                    self._expected_disconnect_interface = None
+                    logger.debug("Ignoring unscoped connection.lost echo from our own shutdown")
+                return
+            if interface is not None and interface != active_interface:
+                return
 
         logger.warning("Pubsub signaled connection lost on %s", self._port)
         lost_port = self._port
         with self._lock:
             self._is_connected = False
+            self._expected_disconnect_interface = None
             if self._interface is not None:
                 try:
                     self._interface.close()
@@ -832,6 +938,92 @@ class RadioClient:
                 return self._node_store.get_local_node()
 
             return None
+
+    def get_device_identity(self) -> dict[str, Any]:
+        """Return the editable, non-secret identity snapshot of the local radio."""
+        local = self.get_local_node()
+        if local is None:
+            raise ConnectionError("The local node identity is not available.")
+        return {
+            "id": local.id,
+            "long_name": local.long_name,
+            "short_name": local.short_name,
+            "role": local.role,
+            "hardware": local.hardware,
+        }
+
+    def update_device_identity(self, *, long_name: str, short_name: str) -> dict[str, Any]:
+        """Apply a validated owner-name change to the connected local radio.
+
+        Meshtastic's ``setOwner`` is the official API for identity changes.
+        The library truncates a long short-name while printing to stdout, so
+        validation occurs here to preserve the MCP stdio contract.
+        """
+        normalized_long_name = long_name.strip()
+        normalized_short_name = short_name.strip()
+        if not normalized_long_name:
+            raise ValueError("Long name must not be empty.")
+        if len(normalized_long_name) > 39:
+            raise ValueError("Long name must be at most 39 characters.")
+        if not normalized_short_name:
+            raise ValueError("Short name must not be empty.")
+        if len(normalized_short_name) > 4:
+            raise ValueError("Short name must be at most 4 characters.")
+
+        with self._lock:
+            if not self._is_connected or self._interface is None:
+                raise ConnectionError("RadioClient is not connected to any radio.")
+            local_node = getattr(self._interface, "localNode", None)
+            if local_node is None:
+                raise ConnectionError("The connected radio has no local node configuration.")
+
+        _guard_library_exit(
+            "Identity update",
+            local_node.setOwner,
+            long_name=normalized_long_name,
+            short_name=normalized_short_name,
+        )
+
+        local = self._refresh_local_identity()
+        if local is None:
+            raise ConnectionError("The updated local node identity could not be read back from the radio.")
+        self._notify_node_updated(local)
+        return self.get_device_identity()
+
+    def _refresh_local_identity(self) -> NodeData | None:
+        """Re-read the authoritative local-node identity from the active radio."""
+        with self._lock:
+            iface = self._interface
+            local_node_id = self._node_store.local_node_id
+        if iface is None:
+            return None
+
+        node_info: dict[str, Any] | None = None
+        get_my_node_info = getattr(iface, "getMyNodeInfo", None)
+        if callable(get_my_node_info):
+            result = get_my_node_info()
+            if isinstance(result, dict):
+                node_info = result
+        if node_info is None:
+            my_info = getattr(iface, "myInfo", None)
+            node_num = getattr(my_info, "my_node_num", None)
+            nodes_by_num = getattr(iface, "nodesByNum", None) or {}
+            if node_num is not None:
+                candidate = nodes_by_num.get(node_num)
+                if isinstance(candidate, dict):
+                    node_info = candidate
+
+        if node_info is not None:
+            return self._node_store.update_from_node_dict(node_info, is_local=True)
+
+        if local_node_id is None:
+            return None
+        return self._node_store.get_node_by_id(local_node_id)
+
+    def _set_last_connection_error(self, exc: BaseException) -> None:
+        message = str(exc).strip() or exc.__class__.__name__
+        with self._lock:
+            self._last_connection_error = message
 
     def _radio_profile(self) -> dict[str, Any]:
         """Return firmware/region/modem preset, which live outside ``myInfo``.

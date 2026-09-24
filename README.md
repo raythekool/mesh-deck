@@ -40,7 +40,7 @@ The live command console with the mouse-clickable node sidebar docked on the lef
 
 ### 6. Mouse-usable channel and DM chat viewer (`/chat`)
 
-A full-screen chat view: click a channel to switch, see unread badges on the "Direct Messages" entry, and read live broadcast traffic.
+A full-screen chat view: click a channel or a per-peer direct-message conversation, see unread badges, and reply with an explicit recipient.
 
 ![Channel and DM chat viewer](docs/screenshots/chat.svg)
 
@@ -60,7 +60,12 @@ A full-screen chat view: click a channel to switch, see unread badges on the "Di
 - **Asynchronous streaming**: Incoming radio messages are appended to the scrollable log without interrupting the operator’s typing.
 - **Node explorer and Haversine geodesy**: Calculates an approximate distance from the local node and produces links to maps and OpenStreetMap views.
 - **Encryption and multi-channel support**: Works with primary and secondary channels, standard or custom PSK, and direct encrypted DM traffic.
-- **Mouse-usable channel chat viewer**: `/chat` opens a full-screen, click-driven view of every channel plus a "Direct Messages" entry, combining local history with the live message stream and unread badges.
+- **Mouse-usable channel chat viewer**: `/chat` opens a full-screen, click-driven view of every channel and every direct-message peer, combining local history with the live message stream, unread badges, and explicit replies.
+- **Diagnostic log viewer**: `/logs` opens a bounded in-memory view of Mesh-Deck and connected-device logs with source and severity filters, pause, clipboard copy, and filtered export.
+- **Data-first topology explorer**: `/topology` explores received NeighborInfo reporter-to-neighbour edges with filtering and an explicit data-quality panel; `/mesh` remains the concise text summary.
+- **On-demand telemetry history**: `/history <node>` renders local JSONL snapshots as compact battery, SNR, temperature, and channel-utilization sparklines.
+- **Safe device identity settings**: `/device-settings` provides a draft, validation, semantic diff, and explicit confirmation before updating the connected radio's long and short names.
+- **Accessible themes**: Every palette is contrast-tested for semantic text roles, and focused controls use a visible double primary border rather than colour-only state.
 - **Node sidebar**: A dockable, mouse-clickable list of known nodes (with role, SNR, long name, and last-heard at a glance) stays visible next to the console. Two pill buttons above the list cycle the sort criterion (last heard, signal, hops, name) and the filter (all, active, favorites). Click a row, or select it and press `Enter`, to open its detail in a single dedicated card above the log; picking another node replaces that same card instead of stacking new panels. Drag the divider on the sidebar's right edge to resize it. Toggle the sidebar with `Ctrl+B`, close the open card with `Esc`; sidebar visibility, width, sort, and filter are remembered across restarts.
 - **Toast notifications**: Incoming broadcasts and DMs raise an in-app toast (severity-coded, DMs stand out) while you keep working in the console; toggle with `/settings notifications <on|off>`.
 - **Switchable themes**: Four palettes — `cyberpunk` (default neon), `midnight` (night indigo), `nord` (cool arctic), and `ember` (warm amber) — applied live to every Rich and Textual surface with `/settings theme <name>`, no restart needed.
@@ -82,6 +87,8 @@ A full-screen chat view: click a channel to switch, see unread badges on the "Di
 | Toggle the node sidebar         | `Ctrl+B`                                    |
 | Open a node from the sidebar    | Click a row, or select it and press `Enter` |
 | Open the Node Explorer          | `/view` or `/tui`                           |
+| Open details in Node Explorer   | Click a row, or select it and press `Enter` |
+| Cycle Node Explorer density     | `v` (`Auto` → `Full` → `Compact`)           |
 | Open the channel/DM chat viewer | `/chat`                                     |
 
 The command history keeps the last 100 entries in `~/.config/mesh-deck/settings.json`. Incoming messages and command output stay in the scrollable log while the input field keeps focus.
@@ -93,6 +100,7 @@ On interactive startup, Mesh-Deck first shows the Meshtastic devices it detected
 ## 📚 Documentation
 
 - 📖 [User Guide and Operational Guide](docs/USER_GUIDE.md): Full command syntax, visual badge interpretation, async architecture notes, and troubleshooting guidance.
+- 🎨 [UI Development Proposals](docs/UI_DEVELOPMENT.md): Reviewable SVG wireframes and an implementation order for the next UI improvements.
 - 📋 [Requirements](REQUIREMENTS.md): Functional, non-functional, UI, and architecture requirements.
 - 🚀 [Implementation Plan](IMPLEMENTATION_PLAN.md): Roadmap for the project’s development phases.
 
@@ -106,8 +114,12 @@ Inside the interactive `mesh-deck` console, you can use the following slash comm
 | :------------------------------------- | :-------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------- |
 | **`/help`** or **`/?`**                | *(none)*                                                  | Displays the help table with all supported slash commands.                                                                                 |
 | **`/nodes`**                           | `[active\|snr\|hops\|name\|last_heard]`                   | Lists visible mesh nodes with telemetry, ordering, and filters.                                                                            |
-| **`/view`** or **`/tui`**              | *(none)*                                                  | Opens the interactive full-screen node table with mouse-click sorting on table headers.                                                    |
-| **`/chat`**                            | *(none)*                                                  | Opens the interactive full-screen channel/DM chat viewer: click a channel to view its history and live messages, type to send a broadcast. |
+| **`/view`** or **`/tui`**              | *(none)*                                                  | Opens the interactive Node Explorer with filter, sortable columns, adaptive full/compact density, and a node detail view.                  |
+| **`/chat`**                            | *(none)*                                                  | Opens the interactive full-screen channel/DM chat viewer: click a channel or DM peer, send broadcasts, or reply to the selected peer. |
+| **`/logs`**                            | *(none)*                                                  | Opens the interactive diagnostic viewer for application and connected-device log lines. |
+| **`/topology`**                        | *(none)*                                                  | Opens the interactive, filterable NeighborInfo topology edge explorer. |
+| **`/history`**                         | `<id\|aka\|name>`                                         | Opens the local on-demand telemetry history for a known node. |
+| **`/device-settings`**                 | *(none)*                                                  | Safely edits the connected radio's long and short identity names. |
 | **`/node`**                            | `<id\|aka\|name>`                                         | Shows the detailed analytics panel for a node.                                                                                             |
 | **`/send`**                            | `<text>`                                                  | Sends a broadcast message on the primary channel.                                                                                          |
 | **`/dm`**                              | `<id\|aka\|name> <text>`                                  | Sends a private direct message to a specific node.                                                                                         |
@@ -190,17 +202,19 @@ use the installed `mesh-deck` command from anywhere:
 
 ```bash
 # List all Meshtastic radios connected via USB and exit
-mesh-deck --list
-
-# Connect to a specific serial port
-mesh-deck --port /dev/ttyACM0
+mesh-deck scan
 
 # Print the node table in non-interactive mode for scripts or cron jobs
-mesh-deck --nodes
+mesh-deck nodes
+
+# Connect the interactive console to a specific serial port
+mesh-deck --port /dev/ttyACM0
 
 # Launch directly into the Textual node explorer
 mesh-deck --tui
 ```
+
+> `--list` and `--nodes` remain temporarily compatible but are deprecated and will be removed in v0.4.0. Use `scan` and `nodes` instead; they also support `--output json`, connection timeouts, sorting, and active-node filtering.
 
 ### Agent-friendly CLI
 
@@ -267,12 +281,11 @@ configuration are never returned.
 
 ### Chat viewer, notifications & local history
 
-`/chat` opens a full-screen, mouse-usable chat viewer: click a channel (or the
-synthetic "Direct Messages" entry) in the sidebar to see its history and live
-messages, and type in the input field to send a broadcast on the selected
-channel (DMs must still be sent with `/dm`, since they need an explicit
-target). Toggle it off entirely by never invoking it — it adds no background
-overhead when unused.
+`/chat` opens a full-screen, mouse-usable chat viewer: click a channel or one of the per-peer direct-message conversations in the sidebar to see history and live messages.
+
+The input sends a broadcast for channel entries and a direct reply for a selected peer, always keeping that recipient visible in the compose area.
+
+Use `/dm` to start a conversation with a node that has not yet appeared in the direct-message list.
 
 Incoming messages also raise an in-app toast notification (title/severity vary
 for DMs vs. broadcasts) so you notice new traffic even while focused

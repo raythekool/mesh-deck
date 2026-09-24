@@ -67,7 +67,7 @@ THEMES: Final[dict[str, dict[str, str]]] = {
         "secondary": "#a3be8c",
         "accent": "#ebcb8b",
         "warning": "#ebcb8b",
-        "alert": "#bf616a",
+        "alert": "#ff9ba4",
         "magenta": "#b48ead",
         "purple": "#b48ead",
         "border": "#88c0d0",

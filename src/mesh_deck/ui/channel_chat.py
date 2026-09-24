@@ -9,8 +9,10 @@ channel.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
+from rich.markup import escape
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
@@ -26,7 +28,7 @@ from mesh_deck.ui.theme import THEME_COLORS, ThemedApp
 if TYPE_CHECKING:
     from mesh_deck.core.radio_client import RadioClient
 
-DM_KEY = "dm"
+DM_KEY = "dm:"
 
 
 class ChannelChatScreen(Screen):
@@ -46,16 +48,18 @@ class ChannelChatScreen(Screen):
     #chat-log { height: 1fr; padding: 0 1; }
     #chat-input { margin: 0 1 1 1; border: round $mesh-primary; }
     #chat-hint { color: $mesh-muted; padding: 0 1; height: 1; }
+    Input:focus, OptionList:focus { border: double $mesh-primary; }
     """
 
     def __init__(self, radio_client: RadioClient, lang: str = "it", **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self.client = radio_client
         self.lang = lang
-        self._entries: list[tuple[int | str, str]] = []
+        self._entries: list[tuple[int | str | None, str]] = []
         self._selected_key: int | str = 0
         self._buffers: dict[int | str, list[MeshMessage]] = {}
         self._unread: dict[int | str, int] = {}
+        self._dm_names: dict[str, str] = {}
         self.title = t("CHAT_TITLE", self.lang)
         self.sub_title = t("CHAT_SUBTITLE", self.lang)
         self._bindings.key_to_bindings["q"] = [Binding("q", "close", t("BINDING_CLOSE", self.lang), show=True)]
@@ -85,16 +89,57 @@ class ChannelChatScreen(Screen):
 
     # -- data -----------------------------------------------------------
 
-    def _channel_entries(self) -> list[tuple[int | str, str]]:
-        entries: list[tuple[int | str, str]] = []
+    def _channel_entries(self) -> list[tuple[int | str | None, str]]:
+        entries: list[tuple[int | str | None, str]] = []
         for ch in self.client.get_channels():
             idx = ch.get("index", 0)
             name = ch.get("name") or ("Primary" if idx == 0 else t("CHAT_CHANNEL_FALLBACK", self.lang, index=idx))
             entries.append((idx, str(name)))
         if not entries:
             entries.append((0, "Primary"))
-        entries.append((DM_KEY, t("CHAT_DM_ENTRY", self.lang)))
+        dm_keys = [key for key in self._buffers if self._is_dm_key(key)]
+        if dm_keys:
+            entries.append((None, t("CHAT_DM_SECTION", self.lang)))
+            dm_keys.sort(
+                key=lambda key: self._buffers[key][-1].timestamp if self._buffers[key] else datetime.min,
+                reverse=True,
+            )
+            for key in dm_keys:
+                entries.append((key, self._dm_names.get(key, self._dm_peer_id_from_key(key))))
         return entries
+
+    @staticmethod
+    def _is_dm_key(key: int | str) -> bool:
+        return isinstance(key, str) and key.startswith(DM_KEY)
+
+    @staticmethod
+    def _dm_peer_id_from_key(key: int | str) -> str:
+        return str(key).removeprefix(DM_KEY)
+
+    def _dm_key_for(self, msg: MeshMessage, *, direction: str | None = None) -> str:
+        if direction == "out":
+            return f"{DM_KEY}{msg.receiver_id}"
+        if direction == "in":
+            return f"{DM_KEY}{msg.sender_id}"
+        local = self.client.get_local_node()
+        local_id = getattr(local, "id", None)
+        peer_id = msg.receiver_id if local_id and msg.sender_id == local_id else msg.sender_id
+        return f"{DM_KEY}{peer_id}"
+
+    def _record_dm_name(self, key: str, msg: MeshMessage, *, direction: str | None = None) -> None:
+        peer_id = self._dm_peer_id_from_key(key)
+        if direction == "out":
+            name = msg.recipient_name
+        elif direction == "in":
+            name = msg.sender_name
+        else:
+            local = self.client.get_local_node()
+            local_id = getattr(local, "id", None)
+            name = msg.recipient_name if local_id and msg.sender_id == local_id else msg.sender_name
+        if not name:
+            node = self.client.store.get_node(peer_id)
+            name = node.display_name if node else peer_id
+        self._dm_names[key] = name
 
     def _preload_history(self) -> None:
         history = getattr(self.client, "history", None)
@@ -105,7 +150,10 @@ class ChannelChatScreen(Screen):
                 msg = MeshMessage.from_dict(entry)
             except Exception:
                 continue
-            key = DM_KEY if msg.is_dm else msg.channel
+            direction = entry.get("direction") if isinstance(entry.get("direction"), str) else None
+            key = self._dm_key_for(msg, direction=direction) if msg.is_dm else msg.channel
+            if msg.is_dm:
+                self._record_dm_name(key, msg, direction=direction)
             self._buffers.setdefault(key, []).append(msg)
 
     def _refresh_channel_list(self) -> None:
@@ -113,9 +161,13 @@ class ChannelChatScreen(Screen):
         option_list = self.query_one("#channel-list", OptionList)
         option_list.clear_options()
         for key, name in self._entries:
+            if key is None:
+                option_list.add_option(Option(f"[dim]{name}[/]", disabled=True))
+                continue
             unread = self._unread.get(key, 0)
             badge = f" [bold {THEME_COLORS['alert']}]({unread})[/]" if unread else ""
-            option_list.add_option(Option(f"{name}{badge}"))
+            prefix = "🔒 " if self._is_dm_key(key) else "# "
+            option_list.add_option(Option(f"{prefix}{escape(name)}{badge}"))
 
     def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
         if event.option_list.id != "channel-list":
@@ -124,6 +176,8 @@ class ChannelChatScreen(Screen):
         if idx >= len(self._entries):
             return
         key, _name = self._entries[idx]
+        if key is None:
+            return
         self._selected_key = key
         self._unread[key] = 0
         self._refresh_channel_list()
@@ -136,19 +190,33 @@ class ChannelChatScreen(Screen):
             log.write(render_message(msg, lang=self.lang))
         hint = self.query_one("#chat-hint", Static)
         input_box = self.query_one("#chat-input", Input)
-        if self._selected_key == DM_KEY:
-            hint.update(t("CHAT_DM_HINT", self.lang))
-            input_box.disabled = True
+        if self._is_dm_key(self._selected_key):
+            peer_id = self._dm_peer_id_from_key(self._selected_key)
+            name = self._dm_names.get(self._selected_key, peer_id)
+            hint.update(t("CHAT_DM_HINT", self.lang, name=name, peer_id=peer_id))
+            input_box.placeholder = t("CHAT_DM_REPLY_PLACEHOLDER", self.lang, name=name)
+            input_box.disabled = False
+            self.sub_title = t("CHAT_DM_SUBTITLE", self.lang, name=name)
         else:
             hint.update("")
+            input_box.placeholder = t("CHAT_INPUT_PLACEHOLDER", self.lang)
             input_box.disabled = False
+            self.sub_title = t("CHAT_SUBTITLE", self.lang)
 
     def _handle_radio_message(self, msg: MeshMessage) -> None:
         """Callback registered on RadioClient; invoked from the pubsub background thread."""
         self.app.call_from_thread(self._handle_message, msg)
 
-    def _handle_message(self, msg: MeshMessage) -> None:
-        key = DM_KEY if msg.is_dm else msg.channel
+    def _handle_message(
+        self,
+        msg: MeshMessage,
+        *,
+        key_override: int | str | None = None,
+        direction: str | None = None,
+    ) -> None:
+        key = key_override if key_override is not None else (self._dm_key_for(msg, direction=direction) if msg.is_dm else msg.channel)
+        if msg.is_dm:
+            self._record_dm_name(str(key), msg, direction=direction)
         self._buffers.setdefault(key, []).append(msg)
         if key == self._selected_key:
             self.query_one("#chat-log", RichLog).write(render_message(msg, lang=self.lang))
@@ -160,11 +228,29 @@ class ChannelChatScreen(Screen):
         if event.input.id != "chat-input":
             return
         text = event.value.strip()
-        if not text or self._selected_key == DM_KEY:
+        if not text:
             return
         event.input.value = ""
         try:
-            self.client.send_broadcast(text, channel_index=int(self._selected_key))
+            if self._is_dm_key(self._selected_key):
+                peer_id = self._dm_peer_id_from_key(self._selected_key)
+                peer_name = self._dm_names.get(self._selected_key, peer_id)
+                self.client.send_dm(peer_id, text)
+                local = self.client.get_local_node()
+                self._handle_message(
+                    MeshMessage(
+                        sender_id=getattr(local, "id", "^local"),
+                        sender_name=getattr(local, "display_name", "Local"),
+                        receiver_id=peer_id,
+                        recipient_name=peer_name,
+                        text=text,
+                        is_dm=True,
+                    ),
+                    key_override=self._selected_key,
+                    direction="out",
+                )
+            else:
+                self.client.send_broadcast(text, channel_index=int(self._selected_key))
         except Exception as exc:
             self.app.notify(str(exc), title=t("CHAT_SEND_FAILED_TITLE", self.lang), severity="error")
 

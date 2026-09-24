@@ -12,7 +12,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
-from textual.widgets import Input, OptionList
+from textual.widgets import Input, OptionList, Static
 
 from mesh_deck.i18n import command_descriptions
 from mesh_deck.models import DeviceConnectionInfo, MeshMessage, NodeData
@@ -565,6 +565,10 @@ class TestCompleter(unittest.TestCase):
     def test_localized_command_descriptions(self):
         self.assertIn("List", command_descriptions("en")["/nodes"])
         self.assertIn("Elenca", command_descriptions("it")["/nodes"])
+        self.assertIn("/history", command_descriptions("en"))
+        self.assertIn("/topology", command_descriptions("en"))
+        self.assertIn("/logs", command_descriptions("en"))
+        self.assertIn("/device-settings", command_descriptions("en"))
 
     def test_completer_empty_or_whitespace_input(self):
         # Empty text yields no completions
@@ -786,6 +790,116 @@ class TestDeviceSelectorKeyboard(_IsolatedSettingsTestCase):
             self.assertEqual(screen._bindings.key_to_bindings["r"][0].description, "Refresh")
             self.assertEqual(screen._bindings.key_to_bindings["q"][0].description, "Cancel")
 
+    async def test_selector_shows_preferred_active_and_retry_context(self):
+        from mesh_deck.ui.device_selector import DeviceSelectorApp
+
+        app = DeviceSelectorApp(
+            [
+                DeviceConnectionInfo("COM6", "T-Beam", "T-Beam"),
+                DeviceConnectionInfo("COM7", "Heltec", "Heltec"),
+            ],
+            preferred_port="COM6",
+            active_port="COM6",
+            failed_port="COM7",
+            failure_reason="Access denied",
+            lang="en",
+        )
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            screen = app.screen
+            options = screen.query_one("#devices", OptionList)
+            first = str(options.get_option_at_index(0).prompt)
+            second = str(options.get_option_at_index(1).prompt)
+            self.assertIn("PREFERRED", first)
+            self.assertIn("ACTIVE", first)
+            self.assertIn("RETRY", second)
+            self.assertEqual(options.highlighted, 0)
+            self.assertTrue(screen.query_one("#device-error", Static).display)
+            self.assertIn("Access denied", str(screen.query_one("#device-error", Static).content))
+            self.assertEqual(screen._bindings.key_to_bindings["t"][0].description, "Retry")
+
+    async def test_selector_retry_action_returns_failed_port(self):
+        from mesh_deck.ui.device_selector import DeviceSelectorApp
+
+        app = DeviceSelectorApp(
+            [DeviceConnectionInfo("COM7", "Heltec", "Heltec")],
+            failed_port="COM7",
+            lang="en",
+        )
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            screen = app.screen
+            with unittest.mock.patch.object(screen, "dismiss") as dismiss:
+                screen.action_retry_failed_device()
+                dismiss.assert_called_once_with("COM7")
+
+    async def test_selector_empty_state_explains_recovery(self):
+        from mesh_deck.ui.device_selector import DeviceSelectorApp
+
+        app = DeviceSelectorApp([], lang="en")
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            screen = app.screen
+            empty = screen.query_one("#device-empty", Static)
+            self.assertTrue(empty.display)
+            self.assertIn("No Meshtastic radio was detected", str(empty.content))
+
+    async def test_failed_handshake_is_presented_on_return_to_selector(self):
+        from unittest.mock import MagicMock
+
+        client = MagicMock()
+        client.is_connected = False
+        client.port = None
+        client.store.get_all_nodes.return_value = []
+        client.get_local_node.return_value = None
+        client.get_channels.return_value = []
+        client.last_connection_error = "Access denied"
+        repl = MeshDeckREPL(client)
+        repl.settings.language = "en"
+        app = MeshDeckApp(
+            repl,
+            devices=[DeviceConnectionInfo("COM6", "T-Beam", "T-Beam")],
+        )
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.push_screen(ConnectionScreen("COM6", lang="en"))
+            await pilot.pause()
+            self.assertIsInstance(app.screen, ConnectionScreen)
+            app.connection_complete(False)
+            app.return_to_device_selector()
+            await pilot.pause()
+            self.assertIsInstance(app.screen, DeviceSelectorScreen)
+            error = app.screen.query_one("#device-error", Static)
+            self.assertTrue(error.display)
+            self.assertIn("Access denied", str(error.content))
+
+    async def test_activate_console_opens_explorer_with_saved_mode_and_history(self):
+        from unittest.mock import MagicMock
+
+        client = MagicMock()
+        client.store.get_all_nodes.return_value = []
+        client.get_local_node.return_value = None
+        client.get_channels.return_value = []
+        client.history = object()
+        repl = MeshDeckREPL(client)
+        repl.settings.language = "en"
+        repl.settings.explorer_view_mode = "compact"
+        app = MeshDeckApp(repl)
+        app.open_explorer_on_connect = True
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            with unittest.mock.patch.object(app, "open_node_explorer") as open_node_explorer:
+                app.activate_console()
+                open_node_explorer.assert_called_once_with(
+                    client.store,
+                    None,
+                    "en",
+                    "compact",
+                    client.history,
+                )
+
 
 class TestNodeSidebar(_IsolatedSettingsTestCase):
     """Test the mouse-clickable node sidebar in the main console."""
@@ -814,6 +928,63 @@ class TestNodeSidebar(_IsolatedSettingsTestCase):
             await pilot.pause()
             app.show_node_detail.assert_called_once_with("!45a466e4")
             self.assertTrue(app.query_one("#node-detail").display)
+
+    async def test_node_explorer_preserves_filter_when_layout_rebuilds(self):
+        from mesh_deck.core.node_store import NodeStore
+        from mesh_deck.ui.interactive_table import InteractiveNodesScreen
+        from textual.widgets import DataTable
+
+        store = NodeStore()
+        store.update_node(NodeData(id="!aaa", short_name="ALPHA", long_name="Alpha Node"))
+        store.update_node(NodeData(id="!bbb", short_name="BRAVO", long_name="Bravo Node"))
+
+        client = unittest.mock.MagicMock()
+        client.store = store
+        client.get_local_node.return_value = None
+        client.get_channels.return_value = []
+        repl = MeshDeckREPL(client)
+        repl.settings.language = "en"
+        app = MeshDeckApp(repl)
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.open_node_explorer(store, None, "en", "full")
+            await pilot.pause()
+            screen = app.screen
+            self.assertIsInstance(screen, InteractiveNodesScreen)
+            filter_input = screen.query_one("#filter-input", Input)
+            filter_input.value = "bravo"
+            await pilot.pause()
+            table = screen.query_one(DataTable)
+            self.assertEqual(table.row_count, 1)
+
+            screen.view_mode = "compact"
+            screen._configure_layout(force=True)
+            await pilot.pause()
+
+            self.assertEqual(table.row_count, 1)
+            self.assertIsNone(screen._selected_node_id)
+
+    async def test_radio_status_escapes_remote_markup_in_local_name(self):
+        client = unittest.mock.MagicMock()
+        client.store.get_all_nodes.return_value = []
+        client.get_channels.return_value = []
+        client.port = "COM6"
+        client.get_local_node.return_value = NodeData(
+            id="!aaa",
+            short_name="[bold]ALPHA[/]",
+            long_name="Alpha",
+        )
+        repl = MeshDeckREPL(client)
+        repl.settings.language = "en"
+        app = MeshDeckApp(repl)
+        repl.connection_state = "connected"
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.refresh_radio_status()
+            status = str(app.query_one("#radio-status", Static).content)
+            self.assertIn("[bold]ALPHA[/]", status)
 
     async def test_ctrl_b_toggles_sidebar_visibility(self):
         from unittest.mock import MagicMock
@@ -989,6 +1160,40 @@ class TestNodeSidebar(_IsolatedSettingsTestCase):
 class TestLanguageConsistency(_IsolatedSettingsTestCase):
     """Ensure UI-facing strings consistently follow the active language setting."""
 
+    async def test_radio_status_strip_tracks_connection_and_reconnect_states(self):
+        from unittest.mock import MagicMock
+        from textual.widgets import Static
+
+        client = MagicMock()
+        client.is_connected = False
+        client.port = None
+        client.store.get_all_nodes.return_value = []
+        client.get_local_node.return_value = None
+        client.get_channels.return_value = []
+        repl = MeshDeckREPL(client)
+        repl.settings.language = "en"
+        app = MeshDeckApp(repl)
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            status = app.query_one("#radio-status", Static)
+            self.assertIn("Radio disconnected", str(status.content))
+
+            client.port = "COM6"
+            client.get_local_node.return_value = NodeData(
+                id="!00000001", short_name="BASE", long_name="Base"
+            )
+            repl._handle_connection_change(True, "COM6")
+            await pilot.pause()
+            self.assertIn("Connected", str(status.content))
+            self.assertIn("BASE", str(status.content))
+            self.assertIn("COM6", str(status.content))
+
+            repl._handle_reconnect_attempt("COM6", 2)
+            await pilot.pause()
+            self.assertIn("Reconnecting", str(status.content))
+            self.assertIn("attempt 2", str(status.content))
+
     async def test_sidebar_toggle_footer_binding_follows_language(self):
         from unittest.mock import MagicMock
 
@@ -1011,6 +1216,26 @@ class TestLanguageConsistency(_IsolatedSettingsTestCase):
                 "Mostra/nascondi barra laterale",
             )
 
+    async def test_mounted_sidebar_title_and_controls_follow_language(self):
+        from unittest.mock import MagicMock
+
+        node = NodeData(id="!11111111", short_name="ALFA", long_name="Alpha")
+        client = MagicMock()
+        client.store.get_all_nodes.return_value = [node]
+        client.get_local_node.return_value = None
+        client.get_channels.return_value = []
+        repl = MeshDeckREPL(client)
+        repl.settings.language = "en"
+        app = MeshDeckApp(repl)
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.update_language("it")
+            await pilot.pause()
+            self.assertIn("NODI", str(app.query_one("#sidebar-title").content))
+            self.assertIn("Recenti", str(app.query_one("#sidebar-sort").content))
+            self.assertIn("Tutti", str(app.query_one("#sidebar-filter").content))
+
     async def test_incoming_message_toast_titles_follow_language(self):
         from unittest.mock import MagicMock
 
@@ -1028,6 +1253,64 @@ class TestLanguageConsistency(_IsolatedSettingsTestCase):
             app.notify_message(msg)
             await pilot.pause()
             self.assertTrue(any("DM from Alpha" in n.title for n in app._notifications))
+
+
+class TestCommandProgress(unittest.IsolatedAsyncioTestCase):
+    """Long command feedback must be visible and traceroute cancellation must be explicit."""
+
+    def _app(self):
+        from unittest.mock import MagicMock
+
+        client = MagicMock()
+        client.is_connected = False
+        client.port = None
+        client.store.get_all_nodes.return_value = []
+        client.get_local_node.return_value = None
+        client.get_channels.return_value = []
+        repl = MeshDeckREPL(client)
+        repl.settings.language = "en"
+        return MeshDeckApp(repl)
+
+    async def test_trace_progress_is_cancellable_and_clears(self):
+        app = self._app()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app._start_command_progress("/trace TRIN")
+            progress = app.query_one("#command-progress", Static)
+            self.assertTrue(progress.display)
+            self.assertIn("Esc to cancel", str(progress.content))
+            cancel_event = app._active_cancel_event
+            self.assertIsNotNone(cancel_event)
+
+            app.action_clear_suggestions()
+            self.assertTrue(cancel_event.is_set())
+            self.assertIn("Cancellation requested", str(progress.content))
+
+            app._finish_command_progress()
+            self.assertFalse(progress.display)
+            self.assertIsNone(app._active_command)
+
+    async def test_non_cancellable_progress_does_not_capture_escape(self):
+        app = self._app()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app._start_command_progress("/switch COM7")
+            self.assertIsNone(app._active_cancel_event)
+            progress = app.query_one("#command-progress", Static)
+            self.assertIn("Running: /switch COM7", str(progress.content))
+            app.action_clear_suggestions()
+            self.assertEqual(app.completions, [])
+            app._finish_command_progress()
+
+    async def test_second_command_is_rejected_while_worker_is_active(self):
+        app = self._app()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app._start_command_progress("/trace TRIN")
+            with unittest.mock.patch.object(app, "notify") as notify:
+                app._submit_command("/nodes")
+                notify.assert_called_once()
+            app._finish_command_progress()
 
 
 class TestCommandAutocomplete(unittest.IsolatedAsyncioTestCase):
@@ -1102,7 +1385,7 @@ class TestChannelChatScreen(unittest.IsolatedAsyncioTestCase):
         client.off_message_received.side_effect = lambda cb: client._callbacks.remove(cb)
         return client
 
-    async def test_preloads_history_and_lists_channels_with_dm_entry(self):
+    async def test_preloads_history_and_lists_channels_without_empty_dm_entry(self):
         from mesh_deck.ui.channel_chat import ChannelChatApp
 
         client = self._make_client()
@@ -1125,14 +1408,14 @@ class TestChannelChatScreen(unittest.IsolatedAsyncioTestCase):
         async with app.run_test() as pilot:
             await pilot.pause()
             option_list = app.screen.query_one("#channel-list", OptionList)
-            # Primary channel + synthetic "Messaggi Diretti" entry.
-            self.assertEqual(option_list.option_count, 2)
+            # Direct-message conversations are listed only when a peer exists.
+            self.assertEqual(option_list.option_count, 1)
 
             # History preloaded into the in-memory per-channel buffer used to render the log.
             buffered = app.screen._buffers.get(0, [])
             self.assertTrue(any(m.text == "Historical hello" for m in buffered))
 
-    async def test_incoming_message_on_other_channel_shows_unread_badge(self):
+    async def test_incoming_dm_creates_a_peer_conversation_with_unread_badge(self):
         from mesh_deck.ui.channel_chat import ChannelChatApp, DM_KEY
 
         client = self._make_client()
@@ -1145,16 +1428,19 @@ class TestChannelChatScreen(unittest.IsolatedAsyncioTestCase):
             screen._handle_message(dm_msg)
             await pilot.pause()
 
-            self.assertEqual(screen._unread.get(DM_KEY), 1)
+            dm_key = f"{DM_KEY}!bbb"
+            self.assertEqual(screen._unread.get(dm_key), 1)
 
             option_list = screen.query_one("#channel-list", OptionList)
-            dm_index = next(i for i, (key, _n) in enumerate(screen._entries) if key == DM_KEY)
+            dm_index = next(i for i, (key, _n) in enumerate(screen._entries) if key == dm_key)
             option_list.highlighted = dm_index
             await pilot.press("enter")
             await pilot.pause()
 
-            self.assertEqual(screen._unread.get(DM_KEY), 0)
-            self.assertEqual(screen._selected_key, DM_KEY)
+            self.assertEqual(screen._unread.get(dm_key), 0)
+            self.assertEqual(screen._selected_key, dm_key)
+            self.assertIn("Trinity", str(screen.query_one("#chat-hint", Static).content))
+            self.assertFalse(screen.query_one("#chat-input", Input).disabled)
 
     async def test_submitting_input_sends_broadcast_on_selected_channel(self):
         from mesh_deck.ui.channel_chat import ChannelChatApp
@@ -1172,6 +1458,417 @@ class TestChannelChatScreen(unittest.IsolatedAsyncioTestCase):
             await pilot.pause()
 
             client.send_broadcast.assert_called_once_with("hello mesh", channel_index=0)
+
+    async def test_submitting_reply_sends_dm_to_selected_peer_and_updates_buffer(self):
+        from mesh_deck.ui.channel_chat import ChannelChatApp, DM_KEY
+
+        client = self._make_client()
+        client.get_local_node.return_value = NodeData(
+            id="!local", short_name="BASE", long_name="Base"
+        )
+        app = ChannelChatApp(client)
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            screen = app.screen
+            screen._handle_message(
+                MeshMessage(sender_id="!bbb", sender_name="Trinity", text="ping", is_dm=True)
+            )
+            dm_key = f"{DM_KEY}!bbb"
+            screen._selected_key = dm_key
+            screen._unread[dm_key] = 0
+            screen._render_selected()
+            chat_input = screen.query_one("#chat-input", Input)
+            chat_input.focus()
+            await pilot.press(*"pong")
+            await pilot.press("enter")
+            await pilot.pause()
+
+            client.send_dm.assert_called_once_with("!bbb", "pong")
+            self.assertEqual([msg.text for msg in screen._buffers[dm_key]], ["ping", "pong"])
+            self.assertEqual(screen._buffers[dm_key][-1].sender_id, "!local")
+
+    async def test_history_splits_direct_messages_by_peer(self):
+        from mesh_deck.ui.channel_chat import ChannelChatApp, DM_KEY
+
+        client = self._make_client()
+        client.history = unittest.mock.MagicMock()
+        client.history.iter_messages.return_value = [
+            {
+                "sender_id": "!bbb",
+                "sender_name": "Trinity",
+                "receiver_id": "^local",
+                "text": "one",
+                "channel": 0,
+                "is_dm": True,
+                "timestamp": "2024-01-01T10:00:00",
+            },
+            {
+                "sender_id": "!ccc",
+                "sender_name": "Zion",
+                "receiver_id": "^local",
+                "text": "two",
+                "channel": 0,
+                "is_dm": True,
+                "timestamp": "2024-01-01T10:01:00",
+            },
+        ]
+        app = ChannelChatApp(client)
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            screen = app.screen
+            self.assertIn(f"{DM_KEY}!bbb", screen._buffers)
+            self.assertIn(f"{DM_KEY}!ccc", screen._buffers)
+            self.assertEqual(screen.query_one("#channel-list", OptionList).option_count, 4)
+
+    async def test_history_uses_recorded_outbound_direction_for_dm_threads(self):
+        from mesh_deck.ui.channel_chat import ChannelChatApp, DM_KEY
+
+        client = self._make_client()
+        client.history = unittest.mock.MagicMock()
+        client.history.iter_messages.return_value = [
+            {
+                "sender_id": "^local",
+                "sender_name": "Local",
+                "receiver_id": "!bbb",
+                "recipient_name": "Trinity",
+                "text": "reply",
+                "channel": 0,
+                "is_dm": True,
+                "direction": "out",
+                "timestamp": "2024-01-01T10:00:00",
+            }
+        ]
+        app = ChannelChatApp(client)
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            self.assertIn(f"{DM_KEY}!bbb", app.screen._buffers)
+            self.assertNotIn(f"{DM_KEY}^local", app.screen._buffers)
+
+    async def test_local_dm_echo_stays_in_selected_peer_when_local_identity_is_missing(self):
+        from mesh_deck.ui.channel_chat import ChannelChatApp, DM_KEY
+
+        client = self._make_client()
+        client.get_local_node.return_value = None
+        app = ChannelChatApp(client)
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            screen = app.screen
+            dm_key = f"{DM_KEY}!bbb"
+            screen._buffers[dm_key] = []
+            screen._dm_names[dm_key] = "Trinity"
+            screen._selected_key = dm_key
+            screen._render_selected()
+            chat_input = screen.query_one("#chat-input", Input)
+            chat_input.focus()
+            await pilot.press(*"pong")
+            await pilot.press("enter")
+            await pilot.pause()
+
+            self.assertIn(dm_key, screen._buffers)
+            self.assertNotIn(f"{DM_KEY}^local", screen._buffers)
+            self.assertEqual([msg.text for msg in screen._buffers[dm_key]], ["pong"])
+
+
+class TestLogViewerScreen(unittest.IsolatedAsyncioTestCase):
+    """The bounded diagnostic viewer filters, pauses, copies, and exports without stdout."""
+
+    def _app(self):
+        from unittest.mock import MagicMock
+
+        client = MagicMock()
+        client.is_connected = False
+        client.port = None
+        client.store.get_all_nodes.return_value = []
+        client.get_local_node.return_value = None
+        client.get_channels.return_value = []
+        repl = MeshDeckREPL(client)
+        repl.settings.language = "en"
+        return MeshDeckApp(repl)
+
+    async def test_viewer_filters_device_entries_and_pauses_live_refresh(self):
+        from mesh_deck.ui.log_viewer import LogViewerScreen
+        from textual.widgets import DataTable, Select
+
+        app = self._app()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.repl.log_buffer.record_device("radio ready", "COM6")
+            app.open_logs()
+            await pilot.pause()
+            self.assertIsInstance(app.screen, LogViewerScreen)
+            screen = app.screen
+            screen.query_one("#log-level", Select).value = "info"
+            screen.query_one("#log-query", Input).value = "radio ready"
+            screen.refresh_entries()
+            table = screen.query_one("#log-table", DataTable)
+            self.assertEqual(table.row_count, 1)
+
+            screen.action_toggle_pause()
+            app.repl.log_buffer.record_device("second line", "COM6")
+            screen.request_refresh()
+            await pilot.pause()
+            self.assertEqual(table.row_count, 1)
+            self.assertIn("paused", str(screen.query_one("#log-status", Static).content))
+            self.assertIn("new", str(screen.query_one("#log-status", Static).content))
+
+            screen.action_toggle_pause()
+            screen.query_one("#log-query", Input).value = ""
+            screen.refresh_entries()
+            await pilot.pause()
+            self.assertIn("second line", [entry.message for entry in screen._visible_entries.values()])
+
+    async def test_copy_and_export_use_the_filtered_log_view(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        from unittest.mock import patch
+
+        from mesh_deck.ui import log_viewer
+        from textual.widgets import DataTable, Select
+
+        app = self._app()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.repl.log_buffer.record_device("copy this", "COM6")
+            app.open_logs()
+            await pilot.pause()
+            screen = app.screen
+            screen.query_one("#log-level", Select).value = "info"
+            screen.query_one("#log-query", Input).value = "copy this"
+            screen.refresh_entries()
+            table = screen.query_one("#log-table", DataTable)
+            table.move_cursor(row=0, column=0)
+            screen.action_copy_selected()
+            self.assertIn("copy this", app.clipboard)
+
+            with TemporaryDirectory() as temp_dir, patch.object(log_viewer, "LOG_EXPORT_DIR", Path(temp_dir)):
+                screen.action_export_entries()
+                exports = list(Path(temp_dir).glob("*.log"))
+                self.assertEqual(len(exports), 1)
+                self.assertIn("copy this", exports[0].read_text(encoding="utf-8"))
+
+
+class TestTopologyScreen(unittest.IsolatedAsyncioTestCase):
+    """Topology remains useful as a filtered edge list before a graph is justified."""
+
+    def _app(self, reports):
+        from unittest.mock import MagicMock
+
+        client = MagicMock()
+        client.is_connected = False
+        client.port = None
+        client.store.get_all_nodes.return_value = []
+        nodes = {
+            "!aaa": NodeData(id="!aaa", long_name="Alpha"),
+            "!bbb": NodeData(id="!bbb", long_name="Bravo"),
+            "!ccc": NodeData(id="!ccc", long_name="Charlie"),
+        }
+        client.store.get_node.side_effect = nodes.get
+        client.get_local_node.return_value = None
+        client.get_channels.return_value = []
+        client.get_neighbor_reports.return_value = reports
+        repl = MeshDeckREPL(client)
+        repl.settings.language = "en"
+        return MeshDeckApp(repl), client
+
+    async def test_empty_topology_explains_missing_neighborinfo(self):
+        from mesh_deck.ui.topology import TopologyScreen
+        from textual.widgets import DataTable
+
+        app, client = self._app([])
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.open_topology(client, "en")
+            await pilot.pause()
+            self.assertIsInstance(app.screen, TopologyScreen)
+            self.assertEqual(app.screen.query_one("#topology-table", DataTable).row_count, 0)
+            quality = str(app.screen.query_one("#topology-quality-content", Static).content)
+            self.assertIn("No node has broadcast NeighborInfo yet", quality)
+
+    async def test_topology_lists_and_filters_neighbor_edges(self):
+        from mesh_deck.core.events import NeighborLink, NeighborReport
+        from mesh_deck.ui.topology import TopologyScreen
+        from textual.widgets import DataTable
+
+        reports = [
+            NeighborReport(
+                node_id="!aaa",
+                neighbors=[
+                    NeighborLink(node_id="!bbb", snr=5.5),
+                    NeighborLink(node_id="!ccc", snr=-2.0),
+                ],
+            )
+        ]
+        app, client = self._app(reports)
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.open_topology(client, "en")
+            await pilot.pause()
+            screen = app.screen
+            self.assertIsInstance(screen, TopologyScreen)
+            table = screen.query_one("#topology-table", DataTable)
+            self.assertEqual(table.row_count, 2)
+            screen.query_one("#topology-filter-input", Input).value = "bravo"
+            await pilot.pause()
+            self.assertEqual(table.row_count, 1)
+            self.assertIn("1 NeighborInfo reports received", str(screen.query_one("#topology-quality-content", Static).content))
+
+
+class TestNodeHistoryScreen(unittest.IsolatedAsyncioTestCase):
+    """JSONL node history renders only on demand and stays useful without all metrics."""
+
+    def _history(self):
+        from tempfile import TemporaryDirectory
+
+        temp = TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        from mesh_deck.core.history import HistoryStore
+
+        return HistoryStore(temp.name)
+
+    async def test_history_screen_renders_snapshot_metrics(self):
+        from unittest.mock import MagicMock
+
+        from mesh_deck.ui.node_history import NodeHistoryScreen
+
+        history = self._history()
+        node = NodeData(id="!aaa", long_name="Alpha", battery_level=80, snr=2.0)
+        history.record_node(node)
+        node.battery_level = 75
+        node.snr = 4.0
+        node.temperature = 21.5
+        node.channel_util = 12.0
+        history.record_node(node)
+
+        client = MagicMock()
+        client.is_connected = False
+        client.port = None
+        client.history = history
+        client.store.get_all_nodes.return_value = []
+        client.get_local_node.return_value = None
+        client.get_channels.return_value = []
+        repl = MeshDeckREPL(client)
+        repl.settings.language = "en"
+        app = MeshDeckApp(repl)
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.open_node_history(node)
+            await pilot.pause()
+            self.assertIsInstance(app.screen, NodeHistoryScreen)
+            self.assertIn("2 snapshots", str(app.screen.query_one("#history-summary", Static).content))
+            self.assertIn("75.0%", str(app.screen.query_one("#history-battery-value", Static).content))
+            self.assertIn("4.0 dB", str(app.screen.query_one("#history-snr-value", Static).content))
+            self.assertIn("21.5 °C", str(app.screen.query_one("#history-temperature-value", Static).content))
+
+    async def test_history_screen_explains_absent_snapshots(self):
+        from mesh_deck.ui.node_history import NodeHistoryScreen
+
+        history = self._history()
+        node = NodeData(id="!bbb", long_name="Bravo")
+        app = NodeHistoryScreen(node, history, lang="en")
+        from mesh_deck.ui.theme import ThemedApp
+        from textual.app import App
+
+        class HistoryApp(ThemedApp, App):
+            def on_mount(self):
+                self.push_screen(app, callback=lambda _: self.exit())
+
+        host = HistoryApp()
+        async with host.run_test() as pilot:
+            await pilot.pause()
+            self.assertIn("No local snapshots", str(host.screen.query_one("#history-summary", Static).content))
+
+    def test_history_range_filter_accepts_timezone_aware_snapshots(self):
+        from mesh_deck.ui.node_history import NodeHistoryScreen
+
+        history = self._history()
+        node = NodeData(id="!aaa", long_name="Alpha")
+        history._append(
+            history.nodes_file,
+            {
+                "id": "!aaa",
+                "observed_at": datetime.now(UTC).isoformat(),
+                "battery_level": 80,
+            },
+        )
+
+        screen = NodeHistoryScreen(node, history, lang="en")
+        self.assertEqual(len(screen._entries("24h")), 1)
+
+
+class TestDeviceSettingsScreen(unittest.IsolatedAsyncioTestCase):
+    """Connected-device identity settings are draft-first and confirmation-gated."""
+
+    def _app(self):
+        from unittest.mock import MagicMock
+
+        client = MagicMock()
+        client.is_connected = True
+        client.port = "COM6"
+        client.get_device_identity.return_value = {
+            "id": "!local",
+            "long_name": "Old Name",
+            "short_name": "OLD",
+            "role": "CLIENT",
+            "hardware": "TBEAM",
+        }
+        client.store.get_all_nodes.return_value = []
+        client.get_local_node.return_value = NodeData(
+            id="!local", long_name="Old Name", short_name="OLD"
+        )
+        client.get_channels.return_value = []
+        repl = MeshDeckREPL(client)
+        repl.settings.language = "en"
+        return MeshDeckApp(repl), client
+
+    async def test_draft_shows_diff_and_validation_before_confirm(self):
+        from mesh_deck.ui.device_settings import DeviceSettingsScreen
+
+        app, _client = self._app()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.open_device_settings()
+            await pilot.pause()
+            self.assertIsInstance(app.screen, DeviceSettingsScreen)
+            screen = app.screen
+            long_name = screen.query_one("#device-settings-long-name", Input)
+            short_name = screen.query_one("#device-settings-short-name", Input)
+            long_name.value = "New Name"
+            short_name.value = "NEW"
+            await pilot.pause()
+            diff = str(screen.query_one("#device-settings-diff", Static).content)
+            self.assertIn("Old Name", diff)
+            self.assertIn("New Name", diff)
+
+            short_name.value = "TOO-LONG"
+            await pilot.pause()
+            self.assertIn("at most 4 characters", str(screen.query_one("#device-settings-diff", Static).content))
+
+    async def test_confirmed_draft_applies_then_refreshes_snapshot(self):
+        app, client = self._app()
+        client.update_device_identity.return_value = {
+            "id": "!local",
+            "long_name": "New Name",
+            "short_name": "NEW",
+            "role": "CLIENT",
+            "hardware": "TBEAM",
+        }
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.open_device_settings()
+            await pilot.pause()
+            screen = app.screen
+            screen.query_one("#device-settings-long-name", Input).value = "New Name"
+            screen.query_one("#device-settings-short-name", Input).value = "NEW"
+            screen._on_identity_confirmed(True)
+            await pilot.pause()
+            await pilot.pause()
+            client.update_device_identity.assert_called_once_with(long_name="New Name", short_name="NEW")
+            self.assertIn("Identity sent", str(screen.query_one("#device-settings-status", Static).content))
 
 
 class TestNotifyMessageWiring(unittest.IsolatedAsyncioTestCase):
@@ -1257,6 +1954,64 @@ class TestThemeEngine(unittest.TestCase):
         self.assertIn("mesh-bg-panel", variables)
         self.assertTrue(all(key.startswith("mesh-") for key in variables))
 
+    def test_every_theme_meets_semantic_text_contrast_gate(self):
+        from mesh_deck.ui.accessibility import palette_contrast_failures
+
+        failures = {
+            name: palette_contrast_failures(palette)
+            for name, palette in THEMES.items()
+        }
+        self.assertEqual({name: issues for name, issues in failures.items() if issues}, {})
+
+    def test_contrast_helper_rejects_invalid_colour_values(self):
+        from mesh_deck.ui.accessibility import contrast_ratio
+
+        with self.assertRaises(ValueError):
+            contrast_ratio("not-a-colour", "#000000")
+
+    def test_primary_ui_screens_declare_visible_focus_treatment(self):
+        from mesh_deck.ui.channel_chat import ChannelChatScreen
+        from mesh_deck.ui.device_selector import DeviceSelectorScreen
+        from mesh_deck.ui.device_settings import DeviceSettingsScreen
+        from mesh_deck.ui.interactive_table import InteractiveNodesScreen
+        from mesh_deck.ui.repl import MeshDeckApp
+
+        for screen in (
+            MeshDeckApp,
+            InteractiveNodesScreen,
+            ChannelChatScreen,
+            DeviceSelectorScreen,
+            DeviceSettingsScreen,
+        ):
+            self.assertIn(":focus", screen.CSS)
+            self.assertIn("double $mesh-primary", screen.CSS)
+
+
+class TestNodePresentation(unittest.TestCase):
+    """Node values must agree across every UI surface."""
+
+    def test_presentation_reuses_semantic_formatters(self):
+        from mesh_deck.ui.node_presentation import plain_markup, present_node
+
+        node = NodeData(
+            id="!00000001",
+            long_name="Relay",
+            short_name="RLY",
+            hw_model="RAK4631",
+            role="ROUTER",
+            snr=4.25,
+            hops_away=1,
+            battery_level=55,
+            voltage=3.8,
+        )
+        display = present_node(node, lang="en", distance_km=1.25)
+
+        self.assertEqual(display.snr_text, plain_markup(format_snr(node.snr)))
+        self.assertEqual(display.hops_text, plain_markup(format_hops(node.hops_away, "en")))
+        self.assertEqual(display.battery_text, plain_markup(format_battery(node.battery_level, node.voltage)))
+        self.assertEqual(display.distance_text, plain_markup(format_distance(1.25)))
+        self.assertIn("ROUTER", display.role_markup)
+
 
 class TestInteractiveNodesSorting(unittest.IsolatedAsyncioTestCase):
     """Sorting must never crash on columns that mix values with '--' placeholders."""
@@ -1301,6 +2056,150 @@ class TestInteractiveNodesSorting(unittest.IsolatedAsyncioTestCase):
             # 820 m < 14.3 km, and the node without a fix sorts last.
             self.assertEqual(ordered[0], "820 m")
             self.assertEqual(ordered[-1], "--")
+
+
+class TestInteractiveNodesMasterDetail(unittest.IsolatedAsyncioTestCase):
+    """The node explorer keeps details and responsive density in one interaction model."""
+
+    def _store(self):
+        from mesh_deck.core.node_store import NodeStore
+
+        store = NodeStore()
+        local = NodeData(
+            id="!00000001",
+            num=1,
+            long_name="Base",
+            short_name="BASE",
+            latitude=45.0,
+            longitude=9.0,
+            is_local=True,
+        )
+        remote = NodeData(
+            id="!00000002",
+            num=2,
+            long_name="Remote",
+            short_name="RMT",
+            role="ROUTER",
+            snr=6.5,
+            hops_away=1,
+            battery_level=78,
+            voltage=3.98,
+            latitude=45.1,
+            longitude=9.2,
+        )
+        store.update_node(local)
+        store.update_node(remote)
+        store.set_local_node_id(local.id)
+        return store, local, remote
+
+    async def test_wide_mode_renders_selected_node_in_side_detail(self):
+        from mesh_deck.ui.interactive_table import InteractiveNodesApp
+
+        store, local, remote = self._store()
+        app = InteractiveNodesApp(store, local_node=local, lang="en", view_mode="full")
+        async with app.run_test(size=(150, 40)) as pilot:
+            await pilot.pause()
+            screen = app.screen
+            screen._open_node(remote.id)
+            await pilot.pause()
+            self.assertTrue(screen.query_one("#detail-container").display)
+            self.assertIn("Remote", str(screen.query_one("#detail-heading").content))
+            self.assertIsInstance(screen.query_one("#node-detail").content, Panel)
+
+    async def test_compact_mode_opens_internal_detail_screen(self):
+        from mesh_deck.ui.interactive_table import InteractiveNodesApp, NodeDetailScreen
+
+        store, local, remote = self._store()
+        app = InteractiveNodesApp(store, local_node=local, lang="en", view_mode="compact")
+        async with app.run_test(size=(100, 40)) as pilot:
+            await pilot.pause()
+            screen = app.screen
+            self.assertFalse(screen.query_one("#detail-container").display)
+            screen._open_node(remote.id)
+            await pilot.pause()
+            self.assertIsInstance(app.screen, NodeDetailScreen)
+            self.assertIsInstance(app.screen.query_one("#compact-node-detail").content, Panel)
+
+    async def test_enter_opens_exactly_one_detail_for_the_selected_row(self):
+        from mesh_deck.ui.interactive_table import InteractiveNodesApp, NodeDetailScreen
+        from textual.widgets import DataTable
+
+        store, local, _remote = self._store()
+        app = InteractiveNodesApp(store, local_node=local, lang="en", view_mode="compact")
+        async with app.run_test(size=(100, 40)) as pilot:
+            await pilot.pause()
+            table = app.screen.query_one(DataTable)
+            table.focus()
+            table.move_cursor(row=1, column=0)
+            initial_screen_count = len(app.screen_stack)
+            await pilot.press("enter")
+            await pilot.pause()
+            self.assertIsInstance(app.screen, NodeDetailScreen)
+            self.assertEqual(len(app.screen_stack), initial_screen_count + 1)
+
+    async def test_compact_mode_uses_only_operator_critical_columns(self):
+        from mesh_deck.ui.interactive_table import InteractiveNodesApp
+
+        store, local, _remote = self._store()
+        app = InteractiveNodesApp(store, local_node=local, lang="en", view_mode="compact")
+        async with app.run_test(size=(100, 40)) as pilot:
+            await pilot.pause()
+            screen = app.screen
+            self.assertEqual(
+                screen.column_keys,
+                ["name", "role", "snr", "hops", "battery", "last_heard"],
+            )
+            self.assertNotIn("id", screen.column_keys)
+            self.assertNotIn("distance", screen.column_keys)
+
+    async def test_auto_mode_selects_density_from_terminal_width(self):
+        from mesh_deck.ui.interactive_table import InteractiveNodesApp
+
+        store, local, _remote = self._store()
+        app = InteractiveNodesApp(store, local_node=local, lang="en", view_mode="auto")
+        async with app.run_test(size=(100, 40)) as pilot:
+            await pilot.pause()
+            self.assertTrue(app.screen.is_compact)
+            self.assertNotIn("distance", app.screen.column_keys)
+
+        app = InteractiveNodesApp(store, local_node=local, lang="en", view_mode="auto")
+        async with app.run_test(size=(150, 40)) as pilot:
+            await pilot.pause()
+            self.assertFalse(app.screen.is_compact)
+            self.assertIn("distance", app.screen.column_keys)
+
+    async def test_view_mode_cycle_persists_through_callback(self):
+        from mesh_deck.ui.interactive_table import InteractiveNodesApp
+
+        store, local, _remote = self._store()
+        changed = []
+        app = InteractiveNodesApp(store, local_node=local, lang="en", view_mode="full")
+        async with app.run_test(size=(150, 40)) as pilot:
+            await pilot.pause()
+            screen = app.screen
+            screen._on_view_mode_change = changed.append
+            screen.action_cycle_view_mode()
+            await pilot.pause()
+            self.assertEqual(screen.view_mode, "compact")
+            self.assertEqual(changed, ["compact"])
+            self.assertEqual(
+                screen.column_keys,
+                ["name", "role", "snr", "hops", "battery", "last_heard"],
+            )
+
+    async def test_language_update_refreshes_explorer_labels(self):
+        from mesh_deck.ui.interactive_table import InteractiveNodesApp
+
+        store, local, _remote = self._store()
+        app = InteractiveNodesApp(store, local_node=local, lang="it", view_mode="full")
+        async with app.run_test(size=(150, 40)) as pilot:
+            await pilot.pause()
+            screen = app.screen
+            screen.update_language("en")
+            await pilot.pause()
+            self.assertIn("INTERACTIVE NODE EXPLORER", screen.title)
+            self.assertEqual(str(screen.query_one("#filter-label").content), "🔍 Filter:")
+            self.assertEqual(screen.column_keys[0], "idx")
 
 
 class TestNodeSidebarLiveUpdates(unittest.IsolatedAsyncioTestCase):
@@ -1394,6 +2293,21 @@ class TestScreenshotGenerator(unittest.TestCase):
         exported = console.export_svg(title="test")
         self.assertIn("MRPH", exported)
         self.assertIn("ZION", exported)
+
+    def test_sample_rendering_is_exercised_for_every_theme(self):
+        module = self._module()
+        store = module._sample_store()
+        local = store.get_local_node()
+        try:
+            for theme_name in THEMES:
+                set_theme(theme_name)
+                console = module._console()
+                console.print(render_banner(local, port="/dev/ttyACM0", channels=module._sample_channels()))
+                console.print(render_nodes_table(store.get_all_nodes(), local_node_id=local.id))
+                exported = console.export_svg(title=theme_name)
+                self.assertIn("MRPH", exported)
+        finally:
+            set_theme("cyberpunk")
 
 
 class TestConsoleBridgeTeardown(unittest.IsolatedAsyncioTestCase):

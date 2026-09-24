@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700" role="img" aria-labelledby="title desc">
+  <title id="title">Command progress proposal</title>
+  <desc id="desc">A command field with a persistent trace progress indicator and a cancel action.</desc>
+  <rect width="1200" height="700" fill="#081018"/>
+  <text x="40" y="50" fill="#00f3ff" font-family="monospace" font-size="25" font-weight="bold">NON-BLOCKING COMMAND PROGRESS</text>
+  <rect x="40" y="90" width="1120" height="440" rx="10" fill="#0b1720" stroke="#1f8794"/>
+  <text x="70" y="135" fill="#94a3b8" font-family="monospace" font-size="16">Messages continue to arrive while an operation is running.</text>
+  <text x="70" y="190" fill="#00f3ff" font-family="monospace" font-size="18">[18:06:01] #Primary TRIN  &gt; I can hear you</text>
+  <text x="70" y="230" fill="#94a3b8" font-family="monospace" font-size="18">[18:06:03] command accepted: /trace TRIN</text>
+  <text x="70" y="270" fill="#00ff66" font-family="monospace" font-size="18">[18:06:06] #Primary ZION  &gt; relay online</text>
+  <rect x="40" y="550" width="1120" height="48" rx="7" fill="#10212b" stroke="#00f3ff"/>
+  <text x="62" y="581" fill="#9fffd0" font-family="monospace" font-size="17">Command for MRPH...</text>
+  <rect x="680" y="548" width="340" height="52" rx="7" fill="#2a211c" stroke="#ffb800"/>
+  <text x="704" y="581" fill="#ffb800" font-family="monospace" font-size="17">[spinner] TRACE TRIN / waiting 18s</text>
+  <rect x="1035" y="551" width="100" height="46" rx="7" fill="#ff3366"/>
+  <text x="1059" y="580" fill="#081018" font-family="monospace" font-size="16" font-weight="bold">Esc cancel</text>
+  <text x="40" y="660" fill="#94a3b8" font-family="monospace" font-size="16">Use this for trace, switch, and connection; it must not block typing or radio updates.</text>
+</svg>
