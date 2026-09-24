@@ -604,7 +604,7 @@ class MeshDeckApp(ThemedApp, App):
         """Render the durable radio-state strip above scrolling output."""
         lang = self.repl.settings.language
         local = self.repl.client.get_local_node()
-        node_name = (local.short_name or local.display_name) if local else t("NODE_UNKNOWN_NAME", lang)
+        node_name = escape((local.short_name or local.display_name) if local else t("NODE_UNKNOWN_NAME", lang))
         port = self.repl.client.port or t("RADIO_STATUS_NO_PORT", lang)
 
         if self.repl.connection_state == "connected":

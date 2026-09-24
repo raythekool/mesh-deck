@@ -962,6 +962,29 @@ class TestNodeSidebar(_IsolatedSettingsTestCase):
             await pilot.pause()
 
             self.assertEqual(table.row_count, 1)
+            self.assertIsNone(screen._selected_node_id)
+
+    async def test_radio_status_escapes_remote_markup_in_local_name(self):
+        client = unittest.mock.MagicMock()
+        client.store.get_all_nodes.return_value = []
+        client.get_channels.return_value = []
+        client.port = "COM6"
+        client.get_local_node.return_value = NodeData(
+            id="!aaa",
+            short_name="[bold]ALPHA[/]",
+            long_name="Alpha",
+        )
+        repl = MeshDeckREPL(client)
+        repl.settings.language = "en"
+        app = MeshDeckApp(repl)
+        repl.connection_state = "connected"
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.refresh_radio_status()
+            status = str(app.query_one("#radio-status", Static).content)
+            self.assertIn("\\[bold]ALPHA\\[/]", status)
+            self.assertNotIn("[bold]ALPHA[/]", status)
 
     async def test_ctrl_b_toggles_sidebar_visibility(self):
         from unittest.mock import MagicMock

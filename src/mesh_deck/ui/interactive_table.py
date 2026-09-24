@@ -312,6 +312,10 @@ class InteractiveNodesScreen(Screen):
         self._effective_compact = compact
         detail = self.query_one("#detail-container", Vertical)
         detail.display = not compact
+        if compact:
+            self._selected_node_id = None
+            self.query_one("#detail-heading", Static).update("")
+            self.query_one("#node-detail", Static).update("")
         self._configure_columns(compact)
         self._update_view_mode_label()
         self.refresh_table(filter_text=self.query_one("#filter-input", Input).value)
