@@ -1,6 +1,6 @@
 # UI Development Proposals
 
-> **Status:** all sections are implemented on `feat/ui-node-explorer-foundation`, with sections 10 and 13 intentionally scoped to safe first slices. Each SVG is a wireframe that makes the intended interaction and information hierarchy reviewable before code is written.
+> **Status:** all sections are implemented in `main`, with sections 10 and 13 intentionally scoped to safe first slices. Each SVG is a wireframe that makes the intended interaction and information hierarchy reviewable before code is written.
 
 ## Goals
 

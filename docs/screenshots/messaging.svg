@@ -19,71 +19,71 @@
         font-weight: 700;
     }
 
-    .terminal-878894385-matrix {
+    .terminal-1315298798-matrix {
         font-family: Fira Code, monospace;
         font-size: 20px;
         line-height: 24.4px;
         font-variant-east-asian: full-width;
     }
 
-    .terminal-878894385-title {
+    .terminal-1315298798-title {
         font-size: 18px;
         font-weight: bold;
         font-family: arial;
     }
 
-    .terminal-878894385-r1 { fill: #69727e }
-.terminal-878894385-r2 { fill: #c5c8c6 }
-.terminal-878894385-r3 { fill: #00f3ff;font-weight: bold }
-.terminal-878894385-r4 { fill: #00ff66;font-weight: bold }
-.terminal-878894385-r5 { fill: #e8f1f5 }
-.terminal-878894385-r6 { fill: #c084fc }
-.terminal-878894385-r7 { fill: #c084fc;font-weight: bold }
-.terminal-878894385-r8 { fill: #868887 }
-.terminal-878894385-r9 { fill: #e8f1f5;font-weight: bold }
+    .terminal-1315298798-r1 { fill: #69727e }
+.terminal-1315298798-r2 { fill: #c5c8c6 }
+.terminal-1315298798-r3 { fill: #00f3ff;font-weight: bold }
+.terminal-1315298798-r4 { fill: #00ff66;font-weight: bold }
+.terminal-1315298798-r5 { fill: #e8f1f5 }
+.terminal-1315298798-r6 { fill: #c084fc }
+.terminal-1315298798-r7 { fill: #c084fc;font-weight: bold }
+.terminal-1315298798-r8 { fill: #868887 }
+.terminal-1315298798-r9 { fill: #e8f1f5;font-weight: bold }
     </style>
 
     <defs>
-    <clipPath id="terminal-878894385-clip-terminal">
+    <clipPath id="terminal-1315298798-clip-terminal">
       <rect x="0" y="0" width="1609.3999999999999" height="169.79999999999998" />
     </clipPath>
-    <clipPath id="terminal-878894385-line-0">
+    <clipPath id="terminal-1315298798-line-0">
     <rect x="0" y="1.5" width="1610.4" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-878894385-line-1">
+<clipPath id="terminal-1315298798-line-1">
     <rect x="0" y="25.9" width="1610.4" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-878894385-line-2">
+<clipPath id="terminal-1315298798-line-2">
     <rect x="0" y="50.3" width="1610.4" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-878894385-line-3">
+<clipPath id="terminal-1315298798-line-3">
     <rect x="0" y="74.7" width="1610.4" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-878894385-line-4">
+<clipPath id="terminal-1315298798-line-4">
     <rect x="0" y="99.1" width="1610.4" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-878894385-line-5">
+<clipPath id="terminal-1315298798-line-5">
     <rect x="0" y="123.5" width="1610.4" height="24.65"/>
             </clipPath>
     </defs>
 
-    <rect fill="#292929" stroke="rgba(255,255,255,0.35)" stroke-width="1" x="1" y="1" width="1627" height="218.8" rx="8"/><text class="terminal-878894385-title" fill="#c5c8c6" text-anchor="middle" x="813" y="27">mesh-deck&#160;—&#160;message&#160;stream</text>
+    <rect fill="#292929" stroke="rgba(255,255,255,0.35)" stroke-width="1" x="1" y="1" width="1627" height="218.8" rx="8"/><text class="terminal-1315298798-title" fill="#c5c8c6" text-anchor="middle" x="813" y="27">mesh-deck&#160;—&#160;message&#160;stream</text>
             <g transform="translate(26,22)">
             <circle cx="0" cy="0" r="7" fill="#ff5f57"/>
             <circle cx="22" cy="0" r="7" fill="#febc2e"/>
             <circle cx="44" cy="0" r="7" fill="#28c840"/>
             </g>
         
-    <g transform="translate(9, 41)" clip-path="url(#terminal-878894385-clip-terminal)">
+    <g transform="translate(9, 41)" clip-path="url(#terminal-1315298798-clip-terminal)">
     
-    <g class="terminal-878894385-matrix">
-    <text class="terminal-878894385-r1" x="0" y="20" textLength="122" clip-path="url(#terminal-878894385-line-0)">[09:24:00]</text><text class="terminal-878894385-r3" x="134.2" y="20" textLength="109.8" clip-path="url(#terminal-878894385-line-0)">#LongFast</text><text class="terminal-878894385-r4" x="256.2" y="20" textLength="231.8" clip-path="url(#terminal-878894385-line-0)">Trinity&#160;Recon&#160;Scout</text><text class="terminal-878894385-r2" x="488" y="20" textLength="24.4" clip-path="url(#terminal-878894385-line-0)">&#160;[</text><text class="terminal-878894385-r4" x="512.4" y="20" textLength="85.4" clip-path="url(#terminal-878894385-line-0)">+9.5&#160;dB</text><text class="terminal-878894385-r2" x="597.8" y="20" textLength="24.4" clip-path="url(#terminal-878894385-line-0)">]&#160;</text><text class="terminal-878894385-r1" x="622.2" y="20" textLength="12.2" clip-path="url(#terminal-878894385-line-0)">❯</text><text class="terminal-878894385-r5" x="646.6" y="20" textLength="634.4" clip-path="url(#terminal-878894385-line-0)">Perimetro&#160;nord&#160;libero,&#160;proseguo&#160;verso&#160;il&#160;ripetitore.</text><text class="terminal-878894385-r2" x="1610.4" y="20" textLength="12.2" clip-path="url(#terminal-878894385-line-0)">
-</text><text class="terminal-878894385-r1" x="0" y="44.4" textLength="122" clip-path="url(#terminal-878894385-line-1)">[09:26:00]</text><text class="terminal-878894385-r3" x="134.2" y="44.4" textLength="109.8" clip-path="url(#terminal-878894385-line-1)">#LongFast</text><text class="terminal-878894385-r4" x="256.2" y="44.4" textLength="195.2" clip-path="url(#terminal-878894385-line-1)">Zion&#160;Relay&#160;Tower</text><text class="terminal-878894385-r2" x="451.4" y="44.4" textLength="24.4" clip-path="url(#terminal-878894385-line-1)">&#160;[</text><text class="terminal-878894385-r3" x="475.8" y="44.4" textLength="85.4" clip-path="url(#terminal-878894385-line-1)">+2.1&#160;dB</text><text class="terminal-878894385-r2" x="561.2" y="44.4" textLength="24.4" clip-path="url(#terminal-878894385-line-1)">]&#160;</text><text class="terminal-878894385-r1" x="585.6" y="44.4" textLength="12.2" clip-path="url(#terminal-878894385-line-1)">❯</text><text class="terminal-878894385-r5" x="610" y="44.4" textLength="634.4" clip-path="url(#terminal-878894385-line-1)">Ricevuto.&#160;Carico&#160;canale&#160;al&#160;21%,&#160;nessuna&#160;congestione.</text><text class="terminal-878894385-r2" x="1610.4" y="44.4" textLength="12.2" clip-path="url(#terminal-878894385-line-1)">
-</text><text class="terminal-878894385-r6" x="0" y="68.8" textLength="24.4" clip-path="url(#terminal-878894385-line-2)">┌─</text><text class="terminal-878894385-r7" x="36.6" y="68.8" textLength="402.6" clip-path="url(#terminal-878894385-line-2)">🔒&#160;MESSAGGIO&#160;DIRETTO&#160;PRIVATO&#160;//&#160;DM</text><text class="terminal-878894385-r6" x="463.6" y="68.8" textLength="1122.4" clip-path="url(#terminal-878894385-line-2)">────────────────────────────────────────────────────────────────────────────────────────────</text><text class="terminal-878894385-r6" x="1586" y="68.8" textLength="24.4" clip-path="url(#terminal-878894385-line-2)">─┐</text><text class="terminal-878894385-r2" x="1610.4" y="68.8" textLength="12.2" clip-path="url(#terminal-878894385-line-2)">
-</text><text class="terminal-878894385-r6" x="0" y="93.2" textLength="12.2" clip-path="url(#terminal-878894385-line-3)">│</text><text class="terminal-878894385-r1" x="24.4" y="93.2" textLength="122" clip-path="url(#terminal-878894385-line-3)">[09:28:00]</text><text class="terminal-878894385-r4" x="158.6" y="93.2" textLength="231.8" clip-path="url(#terminal-878894385-line-3)">Trinity&#160;Recon&#160;Scout</text><text class="terminal-878894385-r8" x="402.6" y="93.2" textLength="134.2" clip-path="url(#terminal-878894385-line-3)">(!62d927b8)</text><text class="terminal-878894385-r2" x="536.8" y="93.2" textLength="24.4" clip-path="url(#terminal-878894385-line-3)">&#160;[</text><text class="terminal-878894385-r4" x="561.2" y="93.2" textLength="85.4" clip-path="url(#terminal-878894385-line-3)">+9.5&#160;dB</text><text class="terminal-878894385-r2" x="646.6" y="93.2" textLength="24.4" clip-path="url(#terminal-878894385-line-3)">]&#160;</text><text class="terminal-878894385-r7" x="671" y="93.2" textLength="12.2" clip-path="url(#terminal-878894385-line-3)">➔</text><text class="terminal-878894385-r3" x="695.4" y="93.2" textLength="256.2" clip-path="url(#terminal-878894385-line-3)">Morpheus&#160;Command&#160;Node</text><text class="terminal-878894385-r6" x="1598.2" y="93.2" textLength="12.2" clip-path="url(#terminal-878894385-line-3)">│</text><text class="terminal-878894385-r2" x="1610.4" y="93.2" textLength="12.2" clip-path="url(#terminal-878894385-line-3)">
-</text><text class="terminal-878894385-r6" x="0" y="117.6" textLength="12.2" clip-path="url(#terminal-878894385-line-4)">│</text><text class="terminal-878894385-r6" x="1598.2" y="117.6" textLength="12.2" clip-path="url(#terminal-878894385-line-4)">│</text><text class="terminal-878894385-r2" x="1610.4" y="117.6" textLength="12.2" clip-path="url(#terminal-878894385-line-4)">
-</text><text class="terminal-878894385-r6" x="0" y="142" textLength="12.2" clip-path="url(#terminal-878894385-line-5)">│</text><text class="terminal-878894385-r9" x="24.4" y="142" textLength="756.4" clip-path="url(#terminal-878894385-line-5)">Coordinate&#160;del&#160;punto&#160;di&#160;incontro&#160;confermate.&#160;Batteria&#160;all&#x27;87%.</text><text class="terminal-878894385-r6" x="1598.2" y="142" textLength="12.2" clip-path="url(#terminal-878894385-line-5)">│</text><text class="terminal-878894385-r2" x="1610.4" y="142" textLength="12.2" clip-path="url(#terminal-878894385-line-5)">
-</text><text class="terminal-878894385-r6" x="0" y="166.4" textLength="1610.4" clip-path="url(#terminal-878894385-line-6)">└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘</text><text class="terminal-878894385-r2" x="1610.4" y="166.4" textLength="12.2" clip-path="url(#terminal-878894385-line-6)">
+    <g class="terminal-1315298798-matrix">
+    <text class="terminal-1315298798-r1" x="0" y="20" textLength="122" clip-path="url(#terminal-1315298798-line-0)">[09:24:00]</text><text class="terminal-1315298798-r3" x="134.2" y="20" textLength="109.8" clip-path="url(#terminal-1315298798-line-0)">#LongFast</text><text class="terminal-1315298798-r4" x="256.2" y="20" textLength="231.8" clip-path="url(#terminal-1315298798-line-0)">Trinity&#160;Recon&#160;Scout</text><text class="terminal-1315298798-r2" x="488" y="20" textLength="24.4" clip-path="url(#terminal-1315298798-line-0)">&#160;[</text><text class="terminal-1315298798-r4" x="512.4" y="20" textLength="85.4" clip-path="url(#terminal-1315298798-line-0)">+9.5&#160;dB</text><text class="terminal-1315298798-r2" x="597.8" y="20" textLength="24.4" clip-path="url(#terminal-1315298798-line-0)">]&#160;</text><text class="terminal-1315298798-r1" x="622.2" y="20" textLength="12.2" clip-path="url(#terminal-1315298798-line-0)">❯</text><text class="terminal-1315298798-r5" x="646.6" y="20" textLength="695.4" clip-path="url(#terminal-1315298798-line-0)">North&#160;perimeter&#160;is&#160;clear,&#160;continuing&#160;toward&#160;the&#160;repeater.</text><text class="terminal-1315298798-r2" x="1610.4" y="20" textLength="12.2" clip-path="url(#terminal-1315298798-line-0)">
+</text><text class="terminal-1315298798-r1" x="0" y="44.4" textLength="122" clip-path="url(#terminal-1315298798-line-1)">[09:26:00]</text><text class="terminal-1315298798-r3" x="134.2" y="44.4" textLength="109.8" clip-path="url(#terminal-1315298798-line-1)">#LongFast</text><text class="terminal-1315298798-r4" x="256.2" y="44.4" textLength="195.2" clip-path="url(#terminal-1315298798-line-1)">Zion&#160;Relay&#160;Tower</text><text class="terminal-1315298798-r2" x="451.4" y="44.4" textLength="24.4" clip-path="url(#terminal-1315298798-line-1)">&#160;[</text><text class="terminal-1315298798-r3" x="475.8" y="44.4" textLength="85.4" clip-path="url(#terminal-1315298798-line-1)">+2.1&#160;dB</text><text class="terminal-1315298798-r2" x="561.2" y="44.4" textLength="24.4" clip-path="url(#terminal-1315298798-line-1)">]&#160;</text><text class="terminal-1315298798-r1" x="585.6" y="44.4" textLength="12.2" clip-path="url(#terminal-1315298798-line-1)">❯</text><text class="terminal-1315298798-r5" x="610" y="44.4" textLength="549" clip-path="url(#terminal-1315298798-line-1)">Received.&#160;Channel&#160;load&#160;at&#160;21%,&#160;no&#160;congestion.</text><text class="terminal-1315298798-r2" x="1610.4" y="44.4" textLength="12.2" clip-path="url(#terminal-1315298798-line-1)">
+</text><text class="terminal-1315298798-r6" x="0" y="68.8" textLength="24.4" clip-path="url(#terminal-1315298798-line-2)">┌─</text><text class="terminal-1315298798-r7" x="36.6" y="68.8" textLength="366" clip-path="url(#terminal-1315298798-line-2)">🔒&#160;PRIVATE&#160;DIRECT&#160;MESSAGE&#160;//&#160;DM</text><text class="terminal-1315298798-r6" x="427" y="68.8" textLength="1159" clip-path="url(#terminal-1315298798-line-2)">───────────────────────────────────────────────────────────────────────────────────────────────</text><text class="terminal-1315298798-r6" x="1586" y="68.8" textLength="24.4" clip-path="url(#terminal-1315298798-line-2)">─┐</text><text class="terminal-1315298798-r2" x="1610.4" y="68.8" textLength="12.2" clip-path="url(#terminal-1315298798-line-2)">
+</text><text class="terminal-1315298798-r6" x="0" y="93.2" textLength="12.2" clip-path="url(#terminal-1315298798-line-3)">│</text><text class="terminal-1315298798-r1" x="24.4" y="93.2" textLength="122" clip-path="url(#terminal-1315298798-line-3)">[09:28:00]</text><text class="terminal-1315298798-r4" x="158.6" y="93.2" textLength="231.8" clip-path="url(#terminal-1315298798-line-3)">Trinity&#160;Recon&#160;Scout</text><text class="terminal-1315298798-r8" x="402.6" y="93.2" textLength="134.2" clip-path="url(#terminal-1315298798-line-3)">(!62d927b8)</text><text class="terminal-1315298798-r2" x="536.8" y="93.2" textLength="24.4" clip-path="url(#terminal-1315298798-line-3)">&#160;[</text><text class="terminal-1315298798-r4" x="561.2" y="93.2" textLength="85.4" clip-path="url(#terminal-1315298798-line-3)">+9.5&#160;dB</text><text class="terminal-1315298798-r2" x="646.6" y="93.2" textLength="24.4" clip-path="url(#terminal-1315298798-line-3)">]&#160;</text><text class="terminal-1315298798-r7" x="671" y="93.2" textLength="12.2" clip-path="url(#terminal-1315298798-line-3)">➔</text><text class="terminal-1315298798-r3" x="695.4" y="93.2" textLength="256.2" clip-path="url(#terminal-1315298798-line-3)">Morpheus&#160;Command&#160;Node</text><text class="terminal-1315298798-r6" x="1598.2" y="93.2" textLength="12.2" clip-path="url(#terminal-1315298798-line-3)">│</text><text class="terminal-1315298798-r2" x="1610.4" y="93.2" textLength="12.2" clip-path="url(#terminal-1315298798-line-3)">
+</text><text class="terminal-1315298798-r6" x="0" y="117.6" textLength="12.2" clip-path="url(#terminal-1315298798-line-4)">│</text><text class="terminal-1315298798-r6" x="1598.2" y="117.6" textLength="12.2" clip-path="url(#terminal-1315298798-line-4)">│</text><text class="terminal-1315298798-r2" x="1610.4" y="117.6" textLength="12.2" clip-path="url(#terminal-1315298798-line-4)">
+</text><text class="terminal-1315298798-r6" x="0" y="142" textLength="12.2" clip-path="url(#terminal-1315298798-line-5)">│</text><text class="terminal-1315298798-r9" x="24.4" y="142" textLength="597.8" clip-path="url(#terminal-1315298798-line-5)">Rendezvous&#160;coordinates&#160;confirmed.&#160;Battery&#160;at&#160;87%.</text><text class="terminal-1315298798-r6" x="1598.2" y="142" textLength="12.2" clip-path="url(#terminal-1315298798-line-5)">│</text><text class="terminal-1315298798-r2" x="1610.4" y="142" textLength="12.2" clip-path="url(#terminal-1315298798-line-5)">
+</text><text class="terminal-1315298798-r6" x="0" y="166.4" textLength="1610.4" clip-path="url(#terminal-1315298798-line-6)">└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘</text><text class="terminal-1315298798-r2" x="1610.4" y="166.4" textLength="12.2" clip-path="url(#terminal-1315298798-line-6)">
 </text>
     </g>
     </g>

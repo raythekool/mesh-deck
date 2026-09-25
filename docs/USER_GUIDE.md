@@ -596,5 +596,6 @@ Enable NeighborInfo on the relevant firmware configuration and allow enough time
 
 - **Repository:** [github.com/raythekool/mesh-deck](https://github.com/raythekool/mesh-deck)
 - **Supported scope:** [REQUIREMENTS.md](../REQUIREMENTS.md)
+- **CLI and automation reference:** [CLI_REFERENCE.md](CLI_REFERENCE.md)
 - **UI proposals:** [UI_DEVELOPMENT.md](UI_DEVELOPMENT.md)
 - **License:** [MIT](../LICENSE)

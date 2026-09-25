@@ -33,6 +33,7 @@ from mesh_deck.ui.theme import DEFAULT_THEME, set_theme, theme_names  # noqa: E4
 OUTPUT_DIR = REPO_ROOT / "docs" / "screenshots"
 CONSOLE_WIDTH = 132
 NOW = datetime(2026, 3, 14, 9, 30, 0)
+SCREENSHOT_LANG = "en"
 
 
 def _sample_nodes() -> list[NodeData]:
@@ -107,20 +108,20 @@ def _sample_messages() -> list[MeshMessage]:
     return [
         MeshMessage(
             sender_id="!62d927b8", sender_name="Trinity Recon Scout", sender_short_name="TRIN",
-            receiver_id="^all", text="Perimetro nord libero, proseguo verso il ripetitore.",
+            receiver_id="^all", text="North perimeter is clear, continuing toward the repeater.",
             channel=0, channel_name="LongFast", snr=9.5, hops=0,
             timestamp=NOW - timedelta(minutes=6), is_dm=False,
         ),
         MeshMessage(
             sender_id="!b8f862d9", sender_name="Zion Relay Tower", sender_short_name="ZION",
-            receiver_id="^all", text="Ricevuto. Carico canale al 21%, nessuna congestione.",
+            receiver_id="^all", text="Received. Channel load at 21%, no congestion.",
             channel=0, channel_name="LongFast", snr=2.1, hops=1,
             timestamp=NOW - timedelta(minutes=4), is_dm=False,
         ),
         MeshMessage(
             sender_id="!62d927b8", sender_name="Trinity Recon Scout", sender_short_name="TRIN",
             receiver_id="!45a466e4", recipient_name="Morpheus Command Node",
-            text="Coordinate del punto di incontro confermate. Batteria all'87%.",
+            text="Rendezvous coordinates confirmed. Battery at 87%.",
             channel=0, snr=9.5, hops=0,
             timestamp=NOW - timedelta(minutes=2), is_dm=True,
         ),
@@ -145,11 +146,11 @@ def render_rich_screenshots() -> None:
     local = store.get_local_node()
 
     console = _console()
-    console.print(render_banner(local, port="/dev/ttyACM0", channels=_sample_channels()))
+    console.print(render_banner(local, port="/dev/ttyACM0", channels=_sample_channels(), lang=SCREENSHOT_LANG))
     _save(console, "banner", "mesh-deck — /banner")
 
     console = _console()
-    console.print(render_nodes_table(nodes, local_node_id=local.id))
+    console.print(render_nodes_table(nodes, local_node_id=local.id, lang=SCREENSHOT_LANG))
     _save(console, "nodes_table", "mesh-deck — /nodes")
 
     target = store.get_node("ZION")
@@ -158,12 +159,13 @@ def render_rich_screenshots() -> None:
         target,
         distance_km=store.calculate_distance(local.id, target.id),
         bearing_deg=store.calculate_bearing(local.id, target.id),
+        lang=SCREENSHOT_LANG,
     ))
     _save(console, "node_detail", "mesh-deck — /node ZION")
 
     console = _console()
     for msg in _sample_messages():
-        console.print(render_message(msg))
+        console.print(render_message(msg, lang=SCREENSHOT_LANG))
     _save(console, "messaging", "mesh-deck — message stream")
 
 
@@ -191,7 +193,7 @@ async def render_textual_screenshots() -> None:
 
     store = _sample_store()
 
-    settings = Settings()
+    settings = Settings(language=SCREENSHOT_LANG)
     settings.save = lambda: True  # never touch the user's real config
     repl = MeshDeckREPL(_fake_client(store), settings=settings)
     app = MeshDeckApp(repl)
@@ -199,7 +201,7 @@ async def render_textual_screenshots() -> None:
         await pilot.pause()
         repl.dispatcher.cmd_banner([])
         for msg in _sample_messages():
-            app.write_output(render_message(msg))
+            app.write_output(render_message(msg, lang=SCREENSHOT_LANG))
         app.refresh_sidebar()
         await pilot.pause()
         app.show_node_detail("!62d927b8")
@@ -207,7 +209,7 @@ async def render_textual_screenshots() -> None:
         (OUTPUT_DIR / "console.svg").write_text(app.export_screenshot(), encoding="utf-8")
         print("  wrote docs/screenshots/console.svg")
 
-    chat = ChannelChatApp(_fake_client(store))
+    chat = ChannelChatApp(_fake_client(store), lang=SCREENSHOT_LANG)
     async with chat.run_test(size=(CONSOLE_WIDTH, 40)) as pilot:
         await pilot.pause()
         screen = chat.screen
