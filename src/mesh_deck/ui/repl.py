@@ -338,7 +338,16 @@ class MeshDeckApp(ThemedApp, App):
     Header { background: $mesh-bg-elevated; color: $mesh-primary; }
     #app-header { height: 3; background: $mesh-bg-elevated; }
     #app-header Header { width: 1fr; }
-    #quit-button { width: 10; height: 3; border: none; background: $mesh-bg-elevated; color: $mesh-alert; }
+    #quit-button {
+        dock: right;
+        width: 8;
+        height: 1;
+        min-width: 0;
+        margin-right: 1;
+        border: none;
+        background: $mesh-bg-elevated;
+        color: $mesh-alert;
+    }
     #quit-button:hover { background: $mesh-alert; color: $mesh-bg; }
     #radio-status { height: 1; padding: 0 1; background: $mesh-bg-panel; color: $mesh-muted; }
     #body { height: 1fr; }
@@ -731,6 +740,8 @@ class MeshDeckApp(ThemedApp, App):
         self.notify(body, title=title, severity=severity, timeout=6)
 
     def on_input_changed(self, event: Input.Changed) -> None:
+        if event.input.id != "command":
+            return
         self.completions = self.repl.completer.suggestions(event.value)
         suggestions = self.query_one("#suggestions", OptionList)
         suggestions.set_options([
@@ -754,6 +765,8 @@ class MeshDeckApp(ThemedApp, App):
             self._open_sidebar_node(event.option_index)
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
+        if event.input.id != "command":
+            return
         command = event.value
         if self._execute_command_completion(0):
             return

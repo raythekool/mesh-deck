@@ -1337,6 +1337,28 @@ class TestLanguageConsistency(_IsolatedSettingsTestCase):
             self.assertTrue(any("DM from Alpha" in n.title for n in app._notifications))
 
 
+class TestHeaderLayout(_IsolatedSettingsTestCase):
+    """Top bar controls should stay compact and aligned away from the title."""
+
+    async def test_quit_button_is_compact_and_top_right(self):
+        from unittest.mock import MagicMock
+
+        client = MagicMock()
+        client.store.get_all_nodes.return_value = []
+        client.get_local_node.return_value = None
+        client.get_channels.return_value = []
+        app = MeshDeckApp(MeshDeckREPL(client))
+
+        async with app.run_test(size=(100, 30)) as pilot:
+            await pilot.pause()
+            button = app.query_one("#quit-button")
+
+            self.assertEqual(button.region.y, 0)
+            self.assertEqual(button.region.height, 1)
+            self.assertLessEqual(button.region.width, 8)
+            self.assertGreaterEqual(button.region.x, app.size.width - button.region.width - 1)
+
+
 class TestCommandProgress(unittest.IsolatedAsyncioTestCase):
     """Long command feedback must be visible and traceroute cancellation must be explicit."""
 
